@@ -9,7 +9,7 @@ class CV(Base):
     __tablename__ = "cvs"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
     original_filename = Column(String, nullable=False)
     file_path = Column(String, nullable=False)
     file_type = Column(String(10), nullable=False)

@@ -1,5 +1,6 @@
 """User model and related functionality."""
 from sqlalchemy import Boolean, Column, Integer, String, DateTime, func
+import uuid
 from sqlalchemy.orm import relationship
 
 from app.db.base_class import Base
@@ -8,7 +9,7 @@ class User(Base):
     """User model for authentication and authorization."""
     __tablename__ = "users"
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     full_name = Column(String, index=True)
