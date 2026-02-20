@@ -87,8 +87,8 @@ export default function RecruiterDashboardPage() {
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
                                     className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm md:text-base font-semibold transition-all ${isActive
-                                            ? "bg-recruiter text-white shadow-md"
-                                            : "bg-white text-muted-foreground hover:bg-secondary/50 hover:text-foreground border border-border/50"
+                                        ? "bg-recruiter text-white shadow-md"
+                                        : "bg-white text-muted-foreground hover:bg-secondary/50 hover:text-foreground border border-border/50"
                                         }`}
                                 >
                                     <Icon className="h-4 w-4 md:h-5 md:w-5" />
@@ -121,7 +121,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
     const [uploading, setUploading] = useState(false);
     const [focusedIndex, setFocusedIndex] = useState(0);
 
-    const backendBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8001";
+    const backendBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
     const steps: { id: MatchStep; label: string }[] = [
         { id: 1, label: "Job details" },
@@ -313,8 +313,8 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                         key={r.cv_id}
                                         onClick={() => setFocusedIndex(idx)}
                                         className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs md:text-sm font-semibold transition ${isActive
-                                                ? "border-recruiter bg-recruiter text-white"
-                                                : "border-border/60 bg-card/80 text-foreground hover:border-recruiter/70"}
+                                            ? "border-recruiter bg-recruiter text-white"
+                                            : "border-border/60 bg-card/80 text-foreground hover:border-recruiter/70"}
                                         `}
                                     >
                                         <span className="truncate max-w-[140px] md:max-w-[220px]">{r.file_name}</span>
@@ -450,8 +450,8 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                         key={r.cv_id}
                                         onClick={() => setFocusedIndex(idx)}
                                         className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs md:text-sm font-semibold transition ${isActive
-                                                ? "border-recruiter bg-recruiter text-white"
-                                                : "border-border/60 bg-card/80 text-foreground hover:border-recruiter/70"}
+                                            ? "border-recruiter bg-recruiter text-white"
+                                            : "border-border/60 bg-card/80 text-foreground hover:border-recruiter/70"}
                                         `}
                                     >
                                         <span className="truncate max-w-[140px] md:max-w-[220px]">{r.file_name}</span>
@@ -582,10 +582,10 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                         >
                             <div
                                 className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${isActive
-                                        ? "bg-recruiter text-white"
-                                        : isCompleted
-                                            ? "bg-emerald-500 text-white"
-                                            : "bg-muted text-muted-foreground"
+                                    ? "bg-recruiter text-white"
+                                    : isCompleted
+                                        ? "bg-emerald-500 text-white"
+                                        : "bg-muted text-muted-foreground"
                                     }`}
                             >
                                 {isCompleted ? <CheckCircle2 className="h-4 w-4" /> : item.id}

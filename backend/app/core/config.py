@@ -14,7 +14,9 @@ class Settings(BaseSettings):
     
     # Application
     PROJECT_NAME: str = "Pathwise"
-    API_V1_STR: str = "/api/v1"
+    # On Vercel, function is mounted at /api, so prefix is just /v1
+    # Locally, we need the full /api/v1 prefix
+    API_V1_STR: str = "/v1" if os.environ.get("VERCEL") else "/api/v1"
     SECRET_KEY: str = "your_secret_key_here_at_least_32_chars"  # Required - Change this in production!
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
