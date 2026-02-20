@@ -41,7 +41,12 @@ class Settings(BaseSettings):
             return [x.strip() for x in v.split(',')]
         return v
         
-# Create uploads directory if it doesn't exist
-Path("uploads").mkdir(exist_ok=True)
-
 settings = Settings()
+
+# Create uploads directory if it doesn't exist (may fail on serverless/read-only filesystems)
+try:
+    upload_path = Path(settings.UPLOAD_DIR)
+    upload_path.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass  # Read-only filesystem (e.g., Vercel) - /tmp/uploads will be created on demand
+

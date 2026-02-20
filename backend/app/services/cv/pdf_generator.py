@@ -1,8 +1,17 @@
 """Generate branded CV PDFs from structured CV data."""
 from io import BytesIO
 from typing import Any, Dict
+import logging
 
-from xhtml2pdf import pisa
+logger = logging.getLogger(__name__)
+
+try:
+    from xhtml2pdf import pisa
+    XHTML2PDF_AVAILABLE = True
+except ImportError:
+    logger.warning("xhtml2pdf not available. PDF generation will be disabled.")
+    XHTML2PDF_AVAILABLE = False
+    pisa = None
 
 
 def _build_classic_html(cv: Dict[str, Any]) -> str:
@@ -120,6 +129,9 @@ def generate_cv_pdf_bytes(structured: Dict[str, Any], template: str = "classic")
 
     Currently only a "classic" template is implemented.
     """
+    if not XHTML2PDF_AVAILABLE:
+        raise RuntimeError("PDF generation is not available in this environment (xhtml2pdf not installed).")
+
     if template != "classic":
         template = "classic"
 

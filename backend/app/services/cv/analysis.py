@@ -5,7 +5,14 @@ and extract basic entities for scoring.
 """
 import logging
 from typing import Dict, Any, List
-import textstat
+
+try:
+    import textstat
+    TEXTSTAT_AVAILABLE = True
+except ImportError:
+    logging.warning("textstat not available. Readability analysis will be limited.")
+    textstat = None
+    TEXTSTAT_AVAILABLE = False
 try:
     import spacy
     # Load spaCy model
@@ -56,8 +63,12 @@ def analyze_cv_local(text: str) -> Dict[str, Any]:
         }
 
     # 1. Readability
-    readability = textstat.flesch_reading_ease(text)
-    grade_level = textstat.text_standard(text, float_output=False)
+    if TEXTSTAT_AVAILABLE:
+        readability = textstat.flesch_reading_ease(text)
+        grade_level = textstat.text_standard(text, float_output=False)
+    else:
+        readability = 50.0  # Default mid-range score
+        grade_level = "N/A"
     
     # 2. Entity Extraction with spaCy
     if nlp:

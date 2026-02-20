@@ -1,5 +1,5 @@
 fastapi
-uvicorn[standard]
+uvicorn
 SQLAlchemy
 pydantic
 pydantic-settings
@@ -10,7 +10,6 @@ passlib[bcrypt]
 groq
 PyPDF2
 docx2txt
-xhtml2pdf
 textstat
 email-validator
 psycopg2-binary
