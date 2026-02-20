@@ -1,0 +1,51 @@
+{
+  "name": "autojobflow-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "postinstall": "prisma generate || node -e \"process.exit(0)\"",
+    "vercel-build": "prisma generate || true && next build"
+  },
+  "dependencies": {
+    "@auth/prisma-adapter": "^2.11.1",
+    "@prisma/client": "^5.16.2",
+    "@radix-ui/react-toast": "^1.2.15",
+    "@supabase/auth-helpers-nextjs": "^0.15.0",
+    "@supabase/supabase-js": "^2.86.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.23.24",
+    "lucide-react": "^0.546.0",
+    "mammoth": "^1.6.0",
+    "next": "^14.2.33",
+    "next-auth": "^4.24.7",
+    "nodemailer": "^7.0.11",
+    "pdf-parse": "^1.1.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "swiper": "^12.0.3",
+    "tailwind-merge": "^3.4.0",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.10",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "autoprefixer": "10.4.19",
+    "eslint": "8.57.0",
+    "eslint-config-next": "^14.0.0",
+    "eslint-config-prettier": "9.1.0",
+    "postcss": "8.4.39",
+    "prettier": "3.3.3",
+    "prisma": "^5.16.2",
+    "tailwindcss": "3.4.4",
+    "typescript": "5.5.3"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "pathwise-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=frontend\" \"cd backend && python -m uvicorn app.main:app --reload\"",
+    "build": "npm run build --workspace=frontend",
+    "start": "npm run start --workspace=frontend"
+  },
+  "workspaces": [
+    "frontend"
+  ],
+  "dependencies": {
+    "concurrently": "^8.0.0"
+  }
+}
