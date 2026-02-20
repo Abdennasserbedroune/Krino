@@ -7,21 +7,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-"""Database session management."""
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
-from app.core.config import settings
-import logging
-
-logger = logging.getLogger(__name__)
-
 # Create SQLAlchemy engine with lazy initialization
 try:
     # Configure connection arguments based on backend
     if settings.DATABASE_URL.startswith("sqlite"):
         connect_args = {"check_same_thread": False}
-    elif "supabase" in settings.DATABASE_URL:
+    elif "supabase" in settings.DATABASE_URL or "postgresql" in settings.DATABASE_URL:
         connect_args = {"sslmode": "require"}
     else:
         connect_args = {}
@@ -34,13 +25,10 @@ try:
         pool_recycle=300,
     )
 
-    # Test connection
-    with engine.connect() as conn:
-        logger.info("✅ Database connection established successfully")
-
     # Session factory
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     DB_AVAILABLE = True
+    logger.info("✅ Database engine created successfully")
 
 except Exception as e:
     logger.warning(f"⚠️  Database connection failed: {e}")
