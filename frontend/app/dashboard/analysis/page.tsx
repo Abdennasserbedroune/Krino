@@ -32,7 +32,7 @@ export default function AnalysisPage() {
     const [loading, setLoading] = useState(false);
     const router = useRouter();
 
-    const backendBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+    const backendBaseUrl = "";
 
     useEffect(() => {
         if (!accessToken) {

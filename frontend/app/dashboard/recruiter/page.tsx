@@ -121,7 +121,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
     const [uploading, setUploading] = useState(false);
     const [focusedIndex, setFocusedIndex] = useState(0);
 
-    const backendBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+    const backendBaseUrl = "";
 
     const steps: { id: MatchStep; label: string }[] = [
         { id: 1, label: "Job details" },

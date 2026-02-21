@@ -28,7 +28,7 @@ export default function ChatPage() {
     const router = useRouter();
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    const backendBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+    const backendBaseUrl = "";
 
     useEffect(() => {
         if (!accessToken) {

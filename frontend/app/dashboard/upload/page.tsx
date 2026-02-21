@@ -30,7 +30,7 @@ export default function UploadPage() {
 
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-    const backendBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+    const backendBaseUrl = "";
 
     useEffect(() => {
         if (!user) {
