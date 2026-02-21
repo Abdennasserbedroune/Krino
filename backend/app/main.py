@@ -21,6 +21,24 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    @app.get("/db-test", tags=["meta"])
+    def test_db():
+        from app.db.session import SessionLocal
+        from sqlalchemy import text
+        try:
+            db = SessionLocal()
+            try:
+                db.execute(text("SELECT 1"))
+                users_count = db.execute(text("SELECT COUNT(*) FROM users")).scalar()
+                cvs_count = db.execute(text("SELECT COUNT(*) FROM cvs")).scalar()
+                return {"status": "ok", "users": users_count, "cvs": cvs_count}
+            except Exception as e:
+                return {"status": "error", "detail": str(e), "type": "query_error"}
+            finally:
+                db.close()
+        except Exception as e:
+            return {"status": "error", "detail": str(e), "type": "connection_error"}
+
     # Include routers
     app.include_router(api_router, prefix=settings.API_V1_STR)
 
