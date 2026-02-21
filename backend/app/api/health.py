@@ -26,3 +26,7 @@ def test_db():
             db.close()
     except Exception as e:
         return {"status": "error", "detail": str(e), "type": "connection_error"}
+
+@router.get("/routes", tags=["health"])
+def get_routes(request: __import__("fastapi").Request):
+    return {"routes": [{"path": route.path, "name": route.name} for route in request.app.routes]}
