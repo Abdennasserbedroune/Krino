@@ -21,6 +21,23 @@ from app.services.cv.pdf_generator import generate_cv_pdf_bytes
 
 router = APIRouter(prefix="/cv", tags=["cv"])
 
+@router.get("/db-test")
+def test_db():
+    from app.db.session import SessionLocal
+    from sqlalchemy import text
+    try:
+        db = SessionLocal()
+        try:
+            db.execute(text("SELECT 1"))
+            users_count = db.execute(text("SELECT COUNT(*) FROM users")).scalar()
+            cvs_count = db.execute(text("SELECT COUNT(*) FROM cvs")).scalar()
+            return {"status": "ok", "users": users_count, "cvs": cvs_count}
+        except Exception as e:
+            return {"status": "error", "detail": str(e), "type": "query_error"}
+        finally:
+            db.close()
+    except Exception as e:
+        return {"status": "error", "detail": str(e), "type": "connection_error"}
 
 @router.post("/upload", response_model=CVRead, status_code=status.HTTP_201_CREATED)
 async def upload_cv(
