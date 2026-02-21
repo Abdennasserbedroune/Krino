@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     
     # Application
     PROJECT_NAME: str = "Pathwise"
-    API_V1_STR: str = "/api/v1"
+    API_V1_STR: str = ""
     SECRET_KEY: str = "your_secret_key_here_at_least_32_chars"  # Required - Change this in production!
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
