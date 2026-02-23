@@ -8,19 +8,14 @@ const nextConfig = {
     // Skip type errors during production builds
     ignoreBuildErrors: true,
   },
+  // Keep these packages out of the webpack bundle — they need
+  // native fs access and their own internal file structure at runtime.
+  // NOTE: must be top-level in Next.js 14.2+ (not under experimental)
+  serverExternalPackages: ['pdf-parse', 'mammoth'],
   experimental: {
     typedRoutes: true,
-    // Keep these packages out of the webpack bundle — they need
-    // native fs access and their own internal file structure at runtime.
-    serverComponentsExternalPackages: ['pdf-parse', 'mammoth'],
   },
-  // Vercel serverless function configuration
-  serverRuntimeConfig: {
-    // Server-only runtime config
-  },
-  publicRuntimeConfig: {
-    // Available on both server and client
-  },
+
   // Vercel handles deployment output automatically — do NOT use 'standalone'
   // as it strips files needed by pdf-parse and mammoth at runtime.
   reactStrictMode: true,
