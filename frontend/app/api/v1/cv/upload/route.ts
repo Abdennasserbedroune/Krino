@@ -131,6 +131,6 @@ export async function POST(req: NextRequest) {
 
     } catch (error: any) {
         console.error("Upload handler failed:", error);
-        return NextResponse.json({ detail: "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ detail: error.message || String(error), stack: error.stack }, { status: 500 });
     }
 }
