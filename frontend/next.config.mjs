@@ -10,6 +10,9 @@ const nextConfig = {
   },
   experimental: {
     typedRoutes: true,
+    // Keep these packages out of the webpack bundle — they need
+    // native fs access and their own internal file structure at runtime.
+    serverComponentsExternalPackages: ['pdf-parse', 'mammoth'],
   },
   // Vercel serverless function configuration
   serverRuntimeConfig: {
@@ -18,9 +21,8 @@ const nextConfig = {
   publicRuntimeConfig: {
     // Available on both server and client
   },
-  // Output standalone for optimal Vercel deployment
-  output: 'standalone',
-  // Enable React strict mode for better development practices
+  // Vercel handles deployment output automatically — do NOT use 'standalone'
+  // as it strips files needed by pdf-parse and mammoth at runtime.
   reactStrictMode: true,
   // Optimize images for Vercel
   images: {
