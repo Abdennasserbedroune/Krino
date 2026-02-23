@@ -46,9 +46,7 @@ export default function UploadPage() {
         setLoadingList(true);
         try {
             const res = await fetch(`${backendBaseUrl}/api/v1/cv/mine`, {
-                headers: {
-                    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-                },
+                credentials: "include",
             });
             if (!res.ok) {
                 throw new Error("Unable to load CVs");
@@ -107,9 +105,7 @@ export default function UploadPage() {
 
             const res = await fetch(`${backendBaseUrl}/api/v1/cv/upload`, {
                 method: "POST",
-                headers: {
-                    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-                },
+                credentials: "include",
                 body: formData,
             });
 
@@ -158,9 +154,7 @@ export default function UploadPage() {
         try {
             const res = await fetch(`${backendBaseUrl}/api/v1/cv/${cvId}/analyze`, {
                 method: "POST",
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
+                credentials: "include",
             });
 
             if (!res.ok) {
@@ -188,9 +182,7 @@ export default function UploadPage() {
         try {
             const res = await fetch(`${backendBaseUrl}/api/v1/cv/${deleteId}`, {
                 method: "DELETE",
-                headers: {
-                    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-                },
+                credentials: "include",
             });
 
             if (!res.ok) {

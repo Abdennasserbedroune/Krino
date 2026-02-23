@@ -21,7 +21,6 @@ export async function POST(
             return NextResponse.json({ detail: "Invalid CV ID" }, { status: 400 });
         }
 
-        // Fetch the CV to analyze
         const { data: cv, error: dbError } = await supabase
             .from("cvs")
             .select("*")
@@ -92,13 +91,11 @@ Return a JSON object with these exact keys: 'key_weaknesses', 'improvements', 'm
 
         const suggestions = JSON.parse(content);
 
-        // Update the analysis result with the Groq score (if any, fallback to local)
         const updatedAnalysis = {
             ...analysisResult,
             score: suggestions.overall_score || analysisResult.score || 60,
         };
 
-        // Save back to Supabase
         const { data: updatedCv, error: updateError } = await supabase
             .from("cvs")
             .update({

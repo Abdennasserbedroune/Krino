@@ -19,18 +19,15 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ detail: "No file uploaded" }, { status: 400 });
         }
 
-        // 1. Validate file type
         const ext = file.name.split(".").pop()?.toLowerCase();
         if (!["pdf", "docx", "doc", "txt"].includes(ext || "")) {
             return NextResponse.json({ detail: `Unsupported file type. Allowed: pdf, docx, doc, txt` }, { status: 400 });
         }
 
-        // 2. Validate file size (5MB)
         if (file.size > 5 * 1024 * 1024) {
             return NextResponse.json({ detail: "File too large (max 5MB)" }, { status: 400 });
         }
 
-        // 3. Check for duplicates
         const { data: existingCv } = await supabase
             .from("cvs")
             .select("id")
@@ -45,14 +42,13 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // 4. Save file to Supabase Storage
         const filePath = `${user.id}/${Date.now()}_${file.name}`;
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
         const { error: uploadError } = await supabase
             .storage
-            .from("cvs") // Ensure this bucket exists in Supabase
+            .from("cvs")
             .upload(filePath, buffer, {
                 contentType: file.type,
                 upsert: false
@@ -63,7 +59,6 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ detail: "Failed to upload file to storage" }, { status: 500 });
         }
 
-        // 5. Parse File locally
         let rawText = "";
         let isScanned = false;
         let pageCount = 1;
@@ -73,7 +68,6 @@ export async function POST(req: NextRequest) {
                 const pdfData = await pdfParse(buffer);
                 rawText = pdfData.text || "";
                 pageCount = pdfData.numpages || 1;
-                // Heuristic: if very little text, might be scanned
                 if (rawText.trim().length < 50) {
                     isScanned = true;
                 }
@@ -85,19 +79,14 @@ export async function POST(req: NextRequest) {
             }
         } catch (parseError) {
             console.error("Parsing failed:", parseError);
-            // Non-fatal, keep going with empty text
         }
 
         if (pageCount > 5) {
-            // Rollback storage if needed
             await supabase.storage.from("cvs").remove([filePath]);
             return NextResponse.json({ detail: "File has too many pages (max 5)" }, { status: 400 });
         }
 
-        // 6. Very basic local "analysis" heuristic (to match python analyze_cv_local)
         const wordCount = rawText.split(/\s+/).filter(Boolean).length;
-        // Simple score heuristic: more words up to 500 = better score, cap at ~60 for local analysis 
-        // Real score comes from Groq later.
         const baseScore = Math.min(60, Math.floor(wordCount / 10));
 
         const extractedData = {
@@ -109,14 +98,13 @@ export async function POST(req: NextRequest) {
         const analysisResult = {
             score: baseScore,
             word_count: wordCount,
-            readability_score: 50, // placeholder
+            readability_score: 50,
         };
 
         const structuredData = {
-            skills: { "Extracted": [] } // placeholder, Groq does this mostly later
+            skills: { "Extracted": [] }
         };
 
-        // 7. Save to database
         const { data: newCv, error: dbError } = await supabase
             .from("cvs")
             .insert({
@@ -135,7 +123,6 @@ export async function POST(req: NextRequest) {
 
         if (dbError || !newCv) {
             console.error("DB Insert failed:", dbError);
-            // Rollback storage
             await supabase.storage.from("cvs").remove([filePath]);
             return NextResponse.json({ detail: "Failed to save CV record" }, { status: 500 });
         }
