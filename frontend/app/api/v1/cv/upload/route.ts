@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import pdfParse from "pdf-parse";
-import mammoth from "mammoth";
+
+export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
     try {
@@ -65,20 +65,28 @@ export async function POST(req: NextRequest) {
 
         try {
             if (ext === "pdf") {
+                console.log("Parsing PDF...");
+                const pdfParse = (await import("pdf-parse")).default;
                 const pdfData = await pdfParse(buffer);
                 rawText = pdfData.text || "";
                 pageCount = pdfData.numpages || 1;
                 if (rawText.trim().length < 50) {
                     isScanned = true;
                 }
+                console.log("PDF parsed successfully");
             } else if (ext === "docx" || ext === "doc") {
+                console.log("Parsing DOCX/DOC...");
+                const mammoth = await import("mammoth");
                 const result = await mammoth.extractRawText({ buffer });
                 rawText = result.value || "";
+                console.log("DOCX/DOC parsed successfully");
             } else if (ext === "txt") {
+                console.log("Reading TXT...");
                 rawText = buffer.toString("utf-8");
             }
         } catch (parseError) {
             console.error("Parsing failed:", parseError);
+            console.error("Parse error stack:", (parseError as any)?.stack);
         }
 
         if (pageCount > 5) {
@@ -131,6 +139,10 @@ export async function POST(req: NextRequest) {
 
     } catch (error: any) {
         console.error("Upload handler failed:", error);
-        return NextResponse.json({ detail: "Internal Server Error" }, { status: 500 });
+        console.error("Error stack:", error?.stack);
+        return NextResponse.json(
+            { detail: "Internal Server Error", message: error?.message || "Unknown error" },
+            { status: 500 }
+        );
     }
 }
