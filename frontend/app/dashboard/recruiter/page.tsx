@@ -157,18 +157,14 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
 
                 const res = await fetch(`${backendBaseUrl}/api/v1/cv/upload`, {
                     method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${accessToken}`,
-                    },
+                    credentials: "include",
                     body: formData,
                 });
 
                 if (res.status === 409) {
                     // CV with this filename already exists for this user: just reuse it
                     const existingRes = await fetch(`${backendBaseUrl}/api/v1/cv/mine`, {
-                        headers: {
-                            Authorization: `Bearer ${accessToken}`,
-                        },
+                        credentials: "include",
                     });
 
                     if (existingRes.ok) {
@@ -243,8 +239,8 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${accessToken}`,
                 },
+                credentials: "include",
                 body: JSON.stringify(payload),
             });
 

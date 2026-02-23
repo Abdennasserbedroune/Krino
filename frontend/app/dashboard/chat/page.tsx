@@ -85,9 +85,7 @@ export default function ChatPage() {
         setLoading(true);
         try {
             const res = await fetch(`${backendBaseUrl}/api/v1/cv/mine`, {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
+                credentials: "include",
             });
             if (!res.ok) {
                 throw new Error("Unable to load CVs");
@@ -121,9 +119,9 @@ export default function ChatPage() {
             const res = await fetch(`${backendBaseUrl}/api/v1/chat`, {
                 method: "POST",
                 headers: {
-                    Authorization: `Bearer ${accessToken}`,
                     "Content-Type": "application/json",
                 },
+                credentials: "include",
                 body: JSON.stringify({
                     cv_id: selectedCvId,
                     messages: recentMessages,

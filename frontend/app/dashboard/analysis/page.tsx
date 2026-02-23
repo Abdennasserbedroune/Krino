@@ -48,9 +48,7 @@ export default function AnalysisPage() {
         setLoading(true);
         try {
             const res = await fetch(`${backendBaseUrl}/api/v1/cv/mine`, {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
+                credentials: "include",
             });
             if (!res.ok) {
                 throw new Error("Unable to load CVs");
@@ -74,9 +72,7 @@ export default function AnalysisPage() {
 
         try {
             const res = await fetch(`${backendBaseUrl}/api/v1/cv/${cvId}/pdf?template=classic`, {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
+                credentials: "include",
             });
 
             if (!res.ok) {
