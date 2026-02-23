@@ -155,6 +155,20 @@ vercel --cwd frontend --prod
 4. Add environment variables (see `frontend/.env.example`)
 5. Deploy
 
+**Required Environment Variables for Vercel:**
+- `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anonymous key
+- `GROQ_API_KEY` - Your Groq API key for AI analysis
+- `NEXTAUTH_SECRET` - Generate with `openssl rand -base64 32`
+- `NEXTAUTH_URL` - Your Vercel deployment URL
+
+**Supabase Setup Required:**
+- Create a `cvs` table (see `supabase-setup.sql`)
+- Create a `cvs` storage bucket
+- Configure RLS policies for security
+
+📖 **See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for detailed Supabase configuration**
+
 📖 **See [DEPLOYMENT.md](./DEPLOYMENT.md) for comprehensive deployment instructions**, including:
 - Environment variable configuration
 - Database setup (Vercel Postgres, Supabase, Neon)

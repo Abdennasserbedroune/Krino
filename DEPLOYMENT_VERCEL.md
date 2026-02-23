@@ -12,13 +12,17 @@ To deploy this project successfully on Vercel:
 ### 2. Environment Variables
 Add these variables in the Vercel Dashboard (**CRITICAL**):
 
-| Key | Value |
-|-----|-------|
-| `DATABASE_URL` | `postgresql://postgres:YOUR_PASSWORD@your-db-host.supabase.co:5432/postgres` |
-| `GROQ_API_KEY` | `YOUR_GROQ_API_KEY` |
-| `NEXT_PUBLIC_API_BASE_URL` | (Leave empty or set to empty string if using same domain) |
-| `SECRET_KEY` | `some_random_secret_string` |
-| `JWT_SECRET` | `some_random_secret_string` |
+| Key | Value | Required |
+|-----|-------|----------|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://your-project.supabase.co` | **YES** |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `your-anon-key` | **YES** |
+| `GROQ_API_KEY` | `gsk_your_groq_key` | **YES** |
+| `NEXTAUTH_SECRET` | `openssl rand -base64 32` | **YES** |
+| `NEXTAUTH_URL` | `https://your-app.vercel.app` | **YES** |
+
+**Note**: The `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are found in your Supabase Dashboard → Project Settings → API.
+
+See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for detailed Supabase configuration instructions.
 
 ### 3. Structural Changes made:
 - Added a root `package.json` for monorepo awareness.

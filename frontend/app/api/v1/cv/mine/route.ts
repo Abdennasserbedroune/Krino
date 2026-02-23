@@ -7,6 +7,7 @@ export async function GET() {
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
         if (authError || !user) {
+            console.error("Auth error in /api/v1/cv/mine:", authError);
             return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
         }
 
@@ -14,18 +15,23 @@ export async function GET() {
             .from("cvs")
             .select("*")
             .eq("user_id", user.id)
-            // Order by creation date descending, assuming 'id' increments or we have created_at
             .order("id", { ascending: false });
 
         if (dbError) {
             console.error("DB Error fetching CVs:", dbError);
-            return NextResponse.json({ detail: "Failed to fetch CVs" }, { status: 500 });
+            return NextResponse.json({ 
+                detail: "Failed to fetch CVs", 
+                error: dbError.message 
+            }, { status: 500 });
         }
 
         return NextResponse.json(cvs || [], { status: 200 });
 
     } catch (error: any) {
         console.error("Fetch CVs handler failed:", error);
-        return NextResponse.json({ detail: "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ 
+            detail: "Internal Server Error",
+            error: error.message 
+        }, { status: 500 });
     }
 }
