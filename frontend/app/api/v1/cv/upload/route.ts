@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import pdfParse from "pdf-parse";
+import { parsePdf } from "@/lib/pdf-parse";
 import mammoth from "mammoth";
 
 export async function POST(req: NextRequest) {
@@ -60,7 +60,10 @@ export async function POST(req: NextRequest) {
 
         if (uploadError) {
             console.error("Storage upload failed:", uploadError);
-            return NextResponse.json({ detail: "Failed to upload file to storage" }, { status: 500 });
+            return NextResponse.json({ 
+                detail: "Failed to upload file to storage",
+                error: uploadError.message 
+            }, { status: 500 });
         }
 
         // 5. Parse File locally
@@ -70,7 +73,7 @@ export async function POST(req: NextRequest) {
 
         try {
             if (ext === "pdf") {
-                const pdfData = await pdfParse(buffer);
+                const pdfData = await parsePdf(buffer);
                 rawText = pdfData.text || "";
                 pageCount = pdfData.numpages || 1;
                 // Heuristic: if very little text, might be scanned
@@ -137,13 +140,19 @@ export async function POST(req: NextRequest) {
             console.error("DB Insert failed:", dbError);
             // Rollback storage
             await supabase.storage.from("cvs").remove([filePath]);
-            return NextResponse.json({ detail: "Failed to save CV record" }, { status: 500 });
+            return NextResponse.json({ 
+                detail: "Failed to save CV record",
+                error: dbError?.message || "Unknown error" 
+            }, { status: 500 });
         }
 
         return NextResponse.json(newCv, { status: 201 });
 
     } catch (error: any) {
         console.error("Upload handler failed:", error);
-        return NextResponse.json({ detail: "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ 
+            detail: "Internal Server Error",
+            error: error.message 
+        }, { status: 500 });
     }
 }
