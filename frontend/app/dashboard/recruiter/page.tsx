@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth/client";
@@ -27,6 +27,9 @@ import {
     Zap,
     Copy,
     Check,
+    X,
+    Trash2,
+    RefreshCw,
 } from "lucide-react";
 import { ProfileDropdown } from "@/components/ui/profile-dropdown";
 import Protected from "@/components/Protected";
@@ -230,7 +233,10 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
     const [results, setResults] = useState<MatchResult[]>([]);
     const [isRunning, setIsRunning] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [uploadingFileNames, setUploadingFileNames] = useState<string[]>([]);
+    const [matchError, setMatchError] = useState<string | null>(null);
     const [focusedIndex, setFocusedIndex] = useState(0);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const backendBaseUrl = "";
 
@@ -243,8 +249,13 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
     const canContinueFromStep1 = Boolean(jobDomain && experienceRange && salaryRange);
     const canRunMatching = selectedCvs.length > 0 && !isRunning;
 
-    const handleFilesChange = async (event: any) => {
-        const selectedFiles = Array.from(event.target.files || []);
+    // ─── UPLOAD ───────────────────────────────────────────────────────────────
+    const handleFilesChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const selectedFiles = Array.from(event.target.files || []) as File[];
+
+        // Always reset input value immediately so re-selecting same file works
+        if (fileInputRef.current) fileInputRef.current.value = "";
+
         if (!selectedFiles.length || !accessToken) return;
 
         const remainingSlots = 5 - selectedCvs.length;
@@ -253,66 +264,154 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
             return;
         }
 
+        const filesToProcess = selectedFiles.slice(0, remainingSlots);
         setUploading(true);
+        setUploadingFileNames(filesToProcess.map((f) => f.name));
+
+        // Track which CVs were successfully uploaded THIS batch so we can roll back on partial failure
+        const successfulThisBatch: SelectedCv[] = [];
+
         try {
-            for (const file of (selectedFiles as File[]).slice(0, remainingSlots)) {
+            for (const file of filesToProcess) {
                 const formData = new FormData();
                 formData.append("file", file);
-                const res = await fetch(`${backendBaseUrl}/api/v1/cv/upload`, { method: "POST", credentials: "include", body: formData });
+
+                let res: Response;
+                try {
+                    res = await fetch(`${backendBaseUrl}/api/v1/cv/upload`, {
+                        method: "POST",
+                        credentials: "include",
+                        body: formData,
+                    });
+                } catch (networkErr) {
+                    throw new Error(`Network error while uploading "${file.name}". Check your connection.`);
+                }
 
                 if (res.status === 409) {
+                    // File already exists — resolve to existing record
                     const existingRes = await fetch(`${backendBaseUrl}/api/v1/cv/mine`, { credentials: "include" });
                     if (existingRes.ok) {
                         const list = (await existingRes.json()) as { id: number; original_filename: string }[];
                         const match = list.find((cv) => cv.original_filename === file.name);
                         if (match) {
-                            setSelectedCvs((prev) => prev.find((c) => c.id === match.id) ? prev : [...prev, match].slice(0, 5));
+                            // Only add if not already in state or batch
+                            const alreadyAdded =
+                                selectedCvs.some((c) => c.id === match.id) ||
+                                successfulThisBatch.some((c) => c.id === match.id);
+                            if (!alreadyAdded) successfulThisBatch.push(match);
                             continue;
                         }
                     }
                     const d = await res.json().catch(() => null);
-                    throw new Error((d as any)?.detail ?? "Upload failed");
+                    throw new Error((d as any)?.detail ?? `"${file.name}" already exists but could not be resolved.`);
                 }
-                if (!res.ok) { const d = await res.json().catch(() => null); throw new Error((d as any)?.detail ?? "Upload failed"); }
+
+                if (!res.ok) {
+                    const d = await res.json().catch(() => null);
+                    throw new Error((d as any)?.detail ?? `Failed to upload "${file.name}".`);
+                }
+
                 const created = (await res.json()) as { id: number; original_filename: string };
-                setSelectedCvs((prev) => prev.find((c) => c.id === created.id) ? prev : [...prev, created].slice(0, 5));
+                const alreadyAdded =
+                    selectedCvs.some((c) => c.id === created.id) ||
+                    successfulThisBatch.some((c) => c.id === created.id);
+                if (!alreadyAdded) successfulThisBatch.push(created);
+            }
+
+            // Commit all successful uploads atomically — no ghost entries
+            if (successfulThisBatch.length > 0) {
+                setSelectedCvs((prev) => [...prev, ...successfulThisBatch].slice(0, 5));
             }
         } catch (err: any) {
-            toast({ variant: "destructive", title: "Upload failed", description: err?.message ?? "Something went wrong." });
+            // If some files in the batch uploaded successfully before the failure,
+            // still commit those — only drop the ones that failed
+            if (successfulThisBatch.length > 0) {
+                setSelectedCvs((prev) => [...prev, ...successfulThisBatch].slice(0, 5));
+            }
+            toast({
+                variant: "destructive",
+                title: "Upload failed",
+                description: err?.message ?? "Something went wrong. Successfully uploaded files are still attached.",
+            });
         } finally {
             setUploading(false);
-            if (event?.target) event.target.value = "";
+            setUploadingFileNames([]);
         }
     };
 
-    const handleRemoveFile = (index: number) => setSelectedCvs((prev) => prev.filter((_, i) => i !== index));
+    // ─── REMOVE SINGLE FILE ───────────────────────────────────────────────────
+    const handleRemoveFile = (index: number) => {
+        setSelectedCvs((prev) => prev.filter((_, i) => i !== index));
+    };
 
+    // ─── CLEAR ALL FILES ──────────────────────────────────────────────────────
+    const handleClearAll = () => {
+        setSelectedCvs([]);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    // ─── RUN MATCHING ─────────────────────────────────────────────────────────
     const handleRunMatching = async () => {
         if (!selectedCvs.length || !accessToken) return;
         setIsRunning(true);
         setResults([]);
+        setMatchError(null);
         try {
             const payload = {
-                job: { domain: jobDomain, experience_range: experienceRange, salary_range: salaryRange, location, contract_type: employmentType, skills_text: skills },
+                job: {
+                    domain: jobDomain,
+                    experience_range: experienceRange,
+                    salary_range: salaryRange,
+                    location,
+                    contract_type: employmentType,
+                    skills_text: skills,
+                },
                 cv_ids: selectedCvs.map((cv) => cv.id),
             };
             const res = await fetch(`${backendBaseUrl}/api/v1/recruiter/match-cvs`, {
-                method: "POST", credentials: "include",
+                method: "POST",
+                credentials: "include",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
-            if (!res.ok) { const d = await res.json().catch(() => null); throw new Error((d as any)?.detail ?? "Matching failed"); }
+            if (!res.ok) {
+                const d = await res.json().catch(() => null);
+                throw new Error((d as any)?.detail ?? "Matching failed");
+            }
             const data = (await res.json()) as { results: MatchResult[] };
             setResults(data.results || []);
             setStep(3);
         } catch (err: any) {
-            toast({ variant: "destructive", title: "Matching failed", description: err?.message ?? "Could not run AI matching." });
+            const msg = err?.message ?? "Could not run AI matching.";
+            setMatchError(msg);
+            toast({ variant: "destructive", title: "Matching failed", description: msg });
+            // Stay on step 2 — do NOT reset selectedCvs so user can retry
         } finally {
             setIsRunning(false);
         }
     };
 
-    const handleReset = () => { setStep(1); setSelectedCvs([]); setResults([]); setFocusedIndex(0); };
+    // ─── RETRY (re-run with same CVs and job) ─────────────────────────────────
+    const handleRetry = () => {
+        setMatchError(null);
+        handleRunMatching();
+    };
+
+    // ─── REMOVE FILE FROM RESULTS STEP ───────────────────────────────────────
+    const handleRemoveFromResults = (cvId: number) => {
+        setResults((prev) => prev.filter((r) => r.cv_id !== cvId));
+        setSelectedCvs((prev) => prev.filter((cv) => cv.id !== cvId));
+        setFocusedIndex(0);
+    };
+
+    const handleReset = () => {
+        setStep(1);
+        setSelectedCvs([]);
+        setResults([]);
+        setMatchError(null);
+        setFocusedIndex(0);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
 
     const hasResults = results.length > 0;
     const safeIndex = Math.min(focusedIndex, Math.max(results.length - 1, 0));
@@ -349,7 +448,6 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                         {/* CV selector pills */}
                         <div className="flex flex-wrap gap-2">
                             {results.map((r, idx) => {
-                                const v = verdictFromScore(r.match_score);
                                 const isActive = idx === safeIndex;
                                 return (
                                     <button
@@ -751,7 +849,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                 })}
             </div>
 
-            {/* Step 1 */}
+            {/* ── Step 1 ── */}
             {step === 1 && (
                 <div className="grid gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] items-start">
                     <div className="space-y-6 rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
@@ -844,7 +942,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                 </div>
             )}
 
-            {/* Step 2 */}
+            {/* ── Step 2 ── */}
             {step === 2 && (
                 <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] items-start">
                     <div className="space-y-6 rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
@@ -853,36 +951,119 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                             <h3 className="font-serif text-2xl md:text-3xl text-foreground">Upload up to 5 CVs</h3>
                         </div>
                         <p className="text-sm text-muted-foreground">Supported formats: PDF, DOC, DOCX. Maximum five files per matching run.</p>
-                        <label htmlFor="cvFiles" className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-recruiter/60 bg-background/60 px-6 py-10 text-center hover:border-recruiter hover:bg-recruiter/5">
-                            <Upload className="h-8 w-8 text-recruiter" />
-                            <span className="text-sm font-semibold text-foreground">{uploading ? "Uploading CVs..." : "Click to browse or drop CV files here"}</span>
-                            <span className="text-xs text-muted-foreground">You can attach up to five CVs at once.</span>
+
+                        {/* Drop zone */}
+                        <label
+                            htmlFor="cvFiles"
+                            className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition ${
+                                uploading
+                                    ? "border-recruiter/40 bg-recruiter/5 cursor-not-allowed"
+                                    : "border-recruiter/60 bg-background/60 hover:border-recruiter hover:bg-recruiter/5"
+                            }`}
+                        >
+                            {uploading ? (
+                                <>
+                                    <svg className="animate-spin h-8 w-8 text-recruiter" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                    <span className="text-sm font-semibold text-recruiter">
+                                        Uploading {uploadingFileNames.length > 1 ? `${uploadingFileNames.length} files` : uploadingFileNames[0] ?? "file"}…
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">Please wait</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Upload className="h-8 w-8 text-recruiter" />
+                                    <span className="text-sm font-semibold text-foreground">Click to browse or drop CV files here</span>
+                                    <span className="text-xs text-muted-foreground">You can attach up to five CVs at once.</span>
+                                </>
+                            )}
                         </label>
-                        <input id="cvFiles" type="file" multiple accept=".pdf,.doc,.docx" className="hidden" onChange={handleFilesChange} />
+                        <input
+                            ref={fileInputRef}
+                            id="cvFiles"
+                            type="file"
+                            multiple
+                            accept=".pdf,.doc,.docx"
+                            className="hidden"
+                            disabled={uploading}
+                            onChange={handleFilesChange}
+                        />
+
+                        {/* File list */}
                         {selectedCvs.length > 0 && (
                             <div className="space-y-2">
-                                <div className="flex justify-between text-xs text-muted-foreground">
+                                <div className="flex items-center justify-between text-xs text-muted-foreground">
                                     <span>{selectedCvs.length} file{selectedCvs.length > 1 ? "s" : ""} selected</span>
-                                    <span>Maximum 5 CVs</span>
+                                    <button
+                                        onClick={handleClearAll}
+                                        className="flex items-center gap-1.5 text-xs font-semibold text-red-500 hover:text-red-700 transition"
+                                    >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                        Clear all
+                                    </button>
                                 </div>
                                 {selectedCvs.map((cv, i) => (
-                                    <div key={cv.id + "-" + i} className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-background px-3 py-2 text-xs">
-                                        <div className="flex items-center gap-2">
-                                            <FileText className="h-4 w-4 text-recruiter" />
-                                            <span className="font-medium text-foreground truncate max-w-[200px]">{cv.original_filename}</span>
+                                    <div
+                                        key={`${cv.id}-${i}`}
+                                        className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-background px-3 py-2 text-xs"
+                                    >
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <FileText className="h-4 w-4 text-recruiter flex-shrink-0" />
+                                            <span className="font-medium text-foreground truncate">{cv.original_filename}</span>
                                         </div>
-                                        <button onClick={() => handleRemoveFile(i)} className="text-xs font-semibold text-muted-foreground hover:text-foreground">Remove</button>
+                                        <button
+                                            onClick={() => handleRemoveFile(i)}
+                                            className="flex-shrink-0 rounded-md p-1 text-muted-foreground hover:bg-red-50 hover:text-red-600 transition"
+                                            title="Remove file"
+                                        >
+                                            <X className="h-3.5 w-3.5" />
+                                        </button>
                                     </div>
                                 ))}
                             </div>
                         )}
+
+                        {/* Matching error + retry */}
+                        {matchError && (
+                            <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                                <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-red-800">Matching failed</p>
+                                    <p className="text-xs text-red-700 mt-0.5">{matchError}</p>
+                                </div>
+                                <button
+                                    onClick={handleRetry}
+                                    disabled={isRunning}
+                                    className="flex-shrink-0 flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 transition disabled:opacity-50"
+                                >
+                                    <RefreshCw className={`h-3.5 w-3.5 ${isRunning ? "animate-spin" : ""}`} />
+                                    Retry
+                                </button>
+                            </div>
+                        )}
+
                         <div className="pt-2 flex gap-3">
                             <button onClick={() => setStep(1)} className="inline-flex items-center justify-center rounded-full border border-border/70 bg-background px-5 py-2 text-sm font-semibold text-foreground hover:bg-secondary/60">
                                 Back
                             </button>
-                            <button disabled={!canRunMatching} onClick={handleRunMatching}
-                                className="inline-flex items-center justify-center rounded-full bg-recruiter px-6 py-2.5 text-sm font-semibold text-white shadow-md transition disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-0.5 hover:shadow-lg">
-                                {isRunning ? "Matching..." : "Run AI matching"}
+                            <button
+                                disabled={!canRunMatching}
+                                onClick={handleRunMatching}
+                                className="inline-flex items-center justify-center gap-2 rounded-full bg-recruiter px-6 py-2.5 text-sm font-semibold text-white shadow-md transition disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-0.5 hover:shadow-lg"
+                            >
+                                {isRunning ? (
+                                    <>
+                                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                        Matching…
+                                    </>
+                                ) : (
+                                    "Run AI matching"
+                                )}
                             </button>
                         </div>
                     </div>
@@ -898,7 +1079,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                 </div>
             )}
 
-            {/* Step 3 */}
+            {/* ── Step 3 ── */}
             {step === 3 && (
                 <div className="space-y-6">
                     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] items-start">
@@ -935,24 +1116,34 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                             )}
                         </div>
                     </div>
+
+                    {/* Other candidates — with per-card remove */}
                     {results.length > 1 && (
                         <div className="grid gap-4 md:grid-cols-2">
                             {results.slice(1).map((r) => (
-                                <div key={r.cv_id} className="flex items-start gap-3 rounded-2xl border border-border/60 bg-card/80 p-4">
-                                    <FileText className="mt-1 h-5 w-5 text-recruiter" />
-                                    <div className="space-y-1">
+                                <div key={r.cv_id} className="flex items-start gap-3 rounded-2xl border border-border/60 bg-card/80 p-4 group">
+                                    <FileText className="mt-1 h-5 w-5 text-recruiter flex-shrink-0" />
+                                    <div className="space-y-1 flex-1 min-w-0">
                                         <div className="flex items-center justify-between gap-2">
-                                            <p className="text-sm font-semibold text-foreground">{r.file_name}</p>
-                                            <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">{r.match_score}/100</span>
+                                            <p className="text-sm font-semibold text-foreground truncate">{r.file_name}</p>
+                                            <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground flex-shrink-0">{r.match_score}/100</span>
                                         </div>
                                         <p className="text-xs text-muted-foreground">{r.reasons.overall_reason}</p>
                                     </div>
+                                    <button
+                                        onClick={() => handleRemoveFromResults(r.cv_id)}
+                                        className="flex-shrink-0 rounded-md p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 transition"
+                                        title="Remove candidate"
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
                                 </div>
                             ))}
                         </div>
                     )}
+
                     <div className="flex gap-3 pt-2">
-                        <button onClick={() => setStep(2)} className="inline-flex items-center justify-center rounded-full border border-border/70 bg-background px-5 py-2 text-sm font-semibold text-foreground hover:bg-secondary/60">
+                        <button onClick={() => { setStep(2); setMatchError(null); }} className="inline-flex items-center justify-center rounded-full border border-border/70 bg-background px-5 py-2 text-sm font-semibold text-foreground hover:bg-secondary/60">
                             Back to CVs
                         </button>
                         <button onClick={handleReset} className="inline-flex items-center justify-center rounded-full bg-recruiter px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:-translate-y-0.5 hover:shadow-lg">
