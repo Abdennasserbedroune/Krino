@@ -2,13 +2,15 @@
 
 This is used by the recruiter dashboard to compare a job definition with up to
 five stored CVs and return match scores plus natural-language reasons.
+Each result now also carries a deterministic HR Toolkit (scorecard + verification
+questions) so recruiters can conduct structured interviews without any extra step.
 """
 
 from __future__ import annotations
 
 import json
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -18,16 +20,19 @@ from app.db.models.cv import CV
 from app.db.models.user import User
 from app.db.session import get_db
 from app.schemas.recruiter import (
+    HrToolkit,
     JobProfile,
     MatchCvRequest,
     MatchReason,
     MatchResult,
     MatchSessionResponse,
+    ScorecardRow,
 )
 from app.services.ai.groq_client import match_cv_to_job_with_groq
 from app.services.cv.analysis import analyze_cv_local
 from app.services.cv.structure import extract_structured_data
 from app.services.cv.text_extraction import extract_text_from_file
+from app.services.recruiter.hr_toolkit import generate_hr_toolkit
 
 router = APIRouter(prefix="/recruiter", tags=["recruiter"])
 
@@ -73,6 +78,7 @@ async def match_cvs_to_job(
     - Ensure they have raw text, analysis_result and structured_data
     - Compute deterministic scores for domain, experience and skills
     - Use Groq to generate natural-language reasons for each CV
+    - Build a deterministic HR Toolkit (scorecard + verification questions) per CV
     """
     if not payload.cv_ids:
         raise HTTPException(
@@ -138,6 +144,39 @@ async def match_cvs_to_job(
             risks=reasons_dict.get("risks", []) or [],
         )
 
+        # Build the deterministic HR Toolkit — no extra API call
+        match_result_dict = {
+            "match_score": total_score,
+            "experience_score": experience_score,
+            "skills_match_score": skills_score,
+            "cv_quality_score": cv_quality_score,
+            "reasons": {
+                "strengths": reasons.strengths,
+                "risks": reasons.risks,
+            },
+        }
+        toolkit_dict = generate_hr_toolkit(
+            job_domain=job.domain,
+            job_skills_text=job.skills_text or "",
+            experience_range=job.experience_range,
+            match_result_dict=match_result_dict,
+            cv_analysis=analysis,
+        )
+        hr_toolkit = HrToolkit(
+            scorecard=[
+                ScorecardRow(
+                    competency=row["competency"],
+                    weight_pct=row["weight_pct"],
+                    score=row["score"],
+                    notes=row.get("notes", ""),
+                )
+                for row in toolkit_dict["scorecard"]
+            ],
+            verification_questions=toolkit_dict["verification_questions"],
+            red_flags=toolkit_dict["red_flags"],
+            recommended_decision=toolkit_dict["recommended_decision"],
+        )
+
         results.append(
             MatchResult(
                 cv_id=cv.id,
@@ -147,21 +186,16 @@ async def match_cvs_to_job(
                 experience_score=experience_score,
                 cv_quality_score=cv_quality_score,
                 reasons=reasons,
+                hr_toolkit=hr_toolkit,
             )
         )
 
-    # Sort by match_score descending in the response
     results_sorted = sorted(results, key=lambda r: r.match_score, reverse=True)
 
     return MatchSessionResponse(job=job, results=results_sorted)
 
 
 def _build_job_summary(job: JobProfile) -> str:
-    """Convert a JobProfile into a compact text summary for Groq.
-
-    This is intentionally simple text so the LLM clearly sees the key
-    constraints (domain, experience, salary, skills, etc.).
-    """
     parts: List[str] = []
     if job.domain:
         parts.append(f"Domain: {job.domain}")
@@ -179,10 +213,6 @@ def _build_job_summary(job: JobProfile) -> str:
 
 
 def _ensure_cv_data(cv: CV, db: Session) -> Tuple[str, Dict[str, Any], Dict[str, Any]]:
-    """Ensure CV has raw text, analysis_result and structured_data.
-
-    Returns (raw_text, analysis_result, structured_data).
-    """
     extracted = cv.extracted_cv or {}
     if isinstance(extracted, str):
         try:
@@ -225,11 +255,6 @@ def _ensure_cv_data(cv: CV, db: Session) -> Tuple[str, Dict[str, Any], Dict[str,
 
 
 def _parse_years_experience(text: str) -> int:
-    """Best-effort extraction of years of experience from CV text.
-
-    Returns an integer number of years (approximate). If multiple matches are
-    found we take the maximum, assuming it is overall experience.
-    """
     matches = YEARS_REGEX.findall(text or "")
     if not matches:
         return 0
@@ -241,7 +266,6 @@ def _parse_years_experience(text: str) -> int:
 
 
 def _parse_required_years(range_str: str) -> int:
-    """Parse a human text range like '2-4 years' or '8+ years' into a target value."""
     if not range_str:
         return 0
     digits = re.findall(r"\d+", range_str)
@@ -249,7 +273,6 @@ def _parse_required_years(range_str: str) -> int:
         return 0
     if len(digits) == 1:
         return int(digits[0])
-    # Use the average of a range like 2-4 -> 3
     low = int(digits[0])
     high = int(digits[1])
     return int((low + high) / 2)
@@ -259,11 +282,8 @@ def _compute_experience_score(candidate_years: int, job_experience_range: str) -
     required = _parse_required_years(job_experience_range)
     if required <= 0:
         return 60
-
-    # Strong penalty if the candidate is far below the requirement
     if candidate_years <= 0:
         return 30
-
     if candidate_years < required:
         shortfall = required - candidate_years
         if shortfall >= 4:
@@ -271,8 +291,6 @@ def _compute_experience_score(candidate_years: int, job_experience_range: str) -
         if shortfall >= 2:
             return 35
         return 50
-
-    # Candidate meets or exceeds requirement
     extra = candidate_years - required
     if extra <= 1:
         return 90
@@ -290,16 +308,10 @@ def _normalise_domain(domain: str) -> str:
 
 
 def _compute_domain_match_score(domain: str, raw_text: str) -> int:
-    """Compute how well the CV content matches the requested domain.
-
-    Uses keyword overlap; if almost nothing matches, score will be low even if
-    other components are strong.
-    """
     base = _normalise_domain(domain)
     keywords = DOMAIN_KEYWORDS.get(base)
     if not keywords:
         return 60
-
     text_lower = (raw_text or "").lower()
     hits = sum(1 for kw in keywords if kw in text_lower)
     if hits == 0:
@@ -312,9 +324,7 @@ def _compute_skills_overlap_score(job_skills_text: str, cv_skills: Any) -> int:
     job_text = (job_skills_text or "").lower()
     if not job_text:
         return 60
-
     job_tokens = {token.strip() for token in re.split(r"[,;/]", job_text) if token.strip()}
-
     cv_tokens: List[str] = []
     if isinstance(cv_skills, list):
         for item in cv_skills:
@@ -328,15 +338,12 @@ def _compute_skills_overlap_score(job_skills_text: str, cv_skills: Any) -> int:
                 for v in value:
                     if isinstance(v, str):
                         cv_tokens.extend([t.strip() for t in v.lower().split(",")])
-
     cv_set = {t for t in cv_tokens if t}
     if not job_tokens or not cv_set:
         return 50
-
     intersection = job_tokens & cv_set
     if not intersection:
         return 25
-
     ratio = len(intersection) / len(job_tokens)
     return max(40, min(95, int(ratio * 100)))
 
@@ -348,7 +355,6 @@ def _combine_scores(
     skills_score: int,
     cv_quality_score: int,
 ) -> int:
-    """Combine component scores into a final 0–100 match score."""
     total = (
         0.4 * domain_score
         + 0.3 * experience_score

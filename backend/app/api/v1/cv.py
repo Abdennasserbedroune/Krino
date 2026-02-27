@@ -1,4 +1,4 @@
-"""CV upload, listing, and analysis endpoints."""
+"""CV upload, listing, analysis and action-plan endpoints."""
 from datetime import datetime
 from typing import Any, Dict
 
@@ -18,6 +18,7 @@ from app.services.cv.analysis import analyze_cv_local
 from app.services.cv.structure import extract_structured_data
 from app.services.ai.groq_client import review_cv_with_groq, rewrite_cv_with_groq
 from app.services.cv.pdf_generator import generate_cv_pdf_bytes
+from app.services.cv.action_plan import generate_action_plan
 
 router = APIRouter(prefix="/cv", tags=["cv"])
 
@@ -75,16 +76,11 @@ async def upload_cv(
         )
 
     # 3. Save file
-    # Note: file_size is returned by save_cv_file
     file_path, file_size, ext = await save_cv_file(current_user.id, file)
     
-    # Validate file size (5MB limit)
     if file_size > settings.MAX_UPLOAD_SIZE:
-        # In a real app we might want to delete the file if it's too big, 
-        # but save_cv_file already wrote it. For now just error.
         raise HTTPException(status_code=400, detail="File too large (max 5MB)")
 
-    # Create initial DB record
     cv = CV(
         user_id=current_user.id,
         original_filename=file.filename,
@@ -101,7 +97,6 @@ async def upload_cv(
         extracted_data = parse_cv_file(file_path, ext)
         cv.extracted_cv = extracted_data
         
-        # Validate page count (max 5 pages)
         if extracted_data.get("page_count", 0) > 5:
              db.delete(cv)
              db.commit()
@@ -142,14 +137,37 @@ async def delete_cv(
     if not cv:
         raise HTTPException(status_code=404, detail="CV not found")
         
-    # Delete file from filesystem
     from app.services.storage.file_storage import delete_cv_file
     delete_cv_file(cv.file_path)
     
-    # Delete from DB
     db.delete(cv)
     db.commit()
     return None
+
+
+@router.get("/{cv_id}/action-plan")
+async def get_action_plan(
+    cv_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_supabase_user),
+) -> Dict[str, Any]:
+    """Return a deterministic Career Action Plan for a CV.
+
+    Uses already-stored analysis_result, structured_data and suggestions.
+    No external API calls — instant response.
+    """
+    cv = db.query(CV).filter(CV.id == cv_id, CV.user_id == current_user.id).first()
+    if not cv:
+        raise HTTPException(status_code=404, detail="CV not found")
+
+    cv_data = {
+        "score": cv.score,
+        "analysis_result": cv.analysis_result or {},
+        "structured_data": cv.structured_data or {},
+        "suggestions": cv.suggestions or {},
+        "original_filename": cv.original_filename,
+    }
+    return generate_action_plan(cv_data)
 
 
 @router.get("/{cv_id}/pdf")
@@ -208,17 +226,12 @@ async def analyze_cv(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_supabase_user),
 ) -> CVRead:
-    """Trigger Groq AI review (Stage 5).
-    
-    Uses the already extracted and structured data to generate suggestions.
-    """
+    """Trigger Groq AI review (Stage 5)."""
     cv = db.query(CV).filter(CV.id == cv_id, CV.user_id == current_user.id).first()
     if not cv:
         raise HTTPException(status_code=404, detail="CV not found")
         
-    # Ensure we have data to analyze
     if not cv.extracted_cv or not cv.structured_data:
-        # If data is missing (e.g. old CV), try to re-process locally first
         try:
             extracted_data = parse_cv_file(cv.file_path, cv.file_type)
             cv.extracted_cv = extracted_data
@@ -233,15 +246,13 @@ async def analyze_cv(
             
             db.add(cv)
             db.commit()
-            db.refresh(cv) # Refresh to ensure fields are loaded
+            db.refresh(cv)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to process CV data: {e}")
 
-    # Double check data availability
     if not cv.extracted_cv:
          raise HTTPException(status_code=500, detail="Failed to extract CV text.")
 
-    # Call Groq Review
     suggestions = review_cv_with_groq(
         cv.extracted_cv,
         cv.structured_data,

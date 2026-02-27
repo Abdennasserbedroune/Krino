@@ -1,5 +1,5 @@
 """Schemas for recruiter CV-to-job matching."""
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -30,6 +30,24 @@ class MatchReason(BaseModel):
     risks: List[str]
 
 
+class ScorecardRow(BaseModel):
+    """One competency row in the HR interview scorecard."""
+
+    competency: str
+    weight_pct: int
+    score: int  # 1-5 pre-filled from match metrics; recruiter can override in UI
+    notes: str = ""
+
+
+class HrToolkit(BaseModel):
+    """Deterministic HR toolkit generated per matched CV."""
+
+    scorecard: List[ScorecardRow]
+    verification_questions: List[str]
+    red_flags: List[str]
+    recommended_decision: str
+
+
 class MatchResult(BaseModel):
     """Single CV match result."""
 
@@ -40,6 +58,7 @@ class MatchResult(BaseModel):
     experience_score: int
     cv_quality_score: int
     reasons: MatchReason
+    hr_toolkit: Optional[HrToolkit] = None
 
 
 class MatchSessionResponse(BaseModel):
