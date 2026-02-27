@@ -8,45 +8,38 @@ import { useToast } from "@/hooks/use-toast";
 import {
     Users,
     BarChart3,
-    MessageSquare,
     Briefcase,
     SlidersHorizontal,
     Upload,
     CheckCircle2,
     FileText,
-    ClipboardList,
+    Sparkles,
     Star,
-    AlertOctagon,
+    AlertTriangle,
     ThumbsUp,
-    HelpCircle,
+    ThumbsDown,
+    Minus,
+    MessageCircle,
+    BarChart2,
+    ShieldAlert,
+    Trophy,
+    Target,
+    Zap,
+    Copy,
+    Check,
 } from "lucide-react";
 import { ProfileDropdown } from "@/components/ui/profile-dropdown";
 import Protected from "@/components/Protected";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-type TabId = "candidates" | "analytics" | "chat" | "toolkit" | "jobs";
-
+type TabId = "candidates" | "analytics" | "yourtoolkit" | "jobs";
 type MatchStep = 1 | 2 | 3;
 
 interface MatchReason {
     overall_reason: string;
     strengths: string[];
     risks: string[];
-}
-
-interface ScorecardRow {
-    competency: string;
-    weight_pct: number;
-    score: number; // 1-5
-    notes: string;
-}
-
-interface HrToolkit {
-    scorecard: ScorecardRow[];
-    verification_questions: string[];
-    red_flags: string[];
-    recommended_decision: string;
 }
 
 interface MatchResult {
@@ -57,7 +50,6 @@ interface MatchResult {
     experience_score: number;
     cv_quality_score: number;
     reasons: MatchReason;
-    hr_toolkit?: HrToolkit | null;
 }
 
 interface SelectedCv {
@@ -65,46 +57,101 @@ interface SelectedCv {
     original_filename: string;
 }
 
-// ─── Decision badge colour helper ──────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function decisionStyle(text: string): string {
-    const t = text.toLowerCase();
-    if (t.includes("strongly")) return "bg-emerald-100 text-emerald-800 border-emerald-300";
-    if (t.includes("recommend interviewing")) return "bg-blue-100 text-blue-800 border-blue-300";
-    if (t.includes("borderline")) return "bg-amber-100 text-amber-800 border-amber-300";
-    return "bg-red-100 text-red-800 border-red-300";
+function verdictFromScore(score: number): {
+    label: string;
+    sublabel: string;
+    icon: React.ReactNode;
+    cls: string;
+    bar: string;
+} {
+    if (score >= 80) return {
+        label: "Strong Hire",
+        sublabel: "This candidate is an excellent match for the role.",
+        icon: <Trophy className="h-6 w-6" />,
+        cls: "bg-emerald-50 border-emerald-300 text-emerald-800",
+        bar: "bg-emerald-500",
+    };
+    if (score >= 65) return {
+        label: "Recommended",
+        sublabel: "Good profile — worth a first interview.",
+        icon: <ThumbsUp className="h-6 w-6" />,
+        cls: "bg-blue-50 border-blue-300 text-blue-800",
+        bar: "bg-blue-500",
+    };
+    if (score >= 45) return {
+        label: "Borderline",
+        sublabel: "Some gaps to probe — keep as backup.",
+        icon: <Minus className="h-6 w-6" />,
+        cls: "bg-amber-50 border-amber-300 text-amber-800",
+        bar: "bg-amber-500",
+    };
+    return {
+        label: "Not Recommended",
+        sublabel: "Profile doesn't meet the core requirements.",
+        icon: <ThumbsDown className="h-6 w-6" />,
+        cls: "bg-red-50 border-red-300 text-red-800",
+        bar: "bg-red-500",
+    };
 }
 
-// ─── Star rating display ────────────────────────────────────────────────────────
-
-function StarRating({ score }: { score: number }) {
+function ScoreRing({ value, label, color }: { value: number; label: string; color: string }) {
+    const r = 26;
+    const circ = 2 * Math.PI * r;
+    const dash = (value / 100) * circ;
     return (
-        <div className="flex items-center gap-0.5">
-            {[1, 2, 3, 4, 5].map((n) => (
-                <Star
-                    key={n}
-                    className={`h-4 w-4 ${
-                        n <= score ? "fill-recruiter text-recruiter" : "fill-muted text-muted"
-                    }`}
+        <div className="flex flex-col items-center gap-1.5">
+            <svg width="68" height="68" viewBox="0 0 68 68">
+                <circle cx="34" cy="34" r={r} fill="none" strokeWidth="6" className="stroke-muted" />
+                <circle
+                    cx="34" cy="34" r={r}
+                    fill="none"
+                    strokeWidth="6"
+                    stroke={color}
+                    strokeLinecap="round"
+                    strokeDasharray={`${dash} ${circ}`}
+                    transform="rotate(-90 34 34)"
+                    style={{ transition: "stroke-dasharray 0.6s ease" }}
                 />
-            ))}
-            <span className="ml-1 text-xs font-semibold text-muted-foreground">{score}/5</span>
+                <text x="34" y="38" textAnchor="middle" fontSize="13" fontWeight="700" fill="currentColor" className="fill-foreground">
+                    {value}
+                </text>
+            </svg>
+            <span className="text-[11px] font-semibold text-center text-muted-foreground leading-tight max-w-[64px]">{label}</span>
         </div>
     );
 }
 
-// ─── Page ────────────────────────────────────────────────────────────────────
+function CopyButton({ text }: { text: string }) {
+    const [copied, setCopied] = useState(false);
+    const handleCopy = () => {
+        navigator.clipboard.writeText(text).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1800);
+        });
+    };
+    return (
+        <button
+            onClick={handleCopy}
+            className="ml-auto flex-shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition"
+            title="Copy question"
+        >
+            {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+        </button>
+    );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function RecruiterDashboardPage() {
-    const { user, email, accessToken } = useAuth();
+    const { email, accessToken } = useAuth();
     const [activeTab, setActiveTab] = useState<TabId>("candidates");
-    const router = useRouter();
 
     const tabs = [
         { id: "candidates" as TabId, label: "Candidates", icon: Users },
         { id: "analytics" as TabId, label: "Analytics", icon: BarChart3 },
-        { id: "chat" as TabId, label: "AI Assistant", icon: MessageSquare },
-        { id: "toolkit" as TabId, label: "Interview Toolkit", icon: ClipboardList },
+        { id: "yourtoolkit" as TabId, label: "Your Toolkit", icon: Sparkles },
         { id: "jobs" as TabId, label: "Job Postings", icon: Briefcase },
     ];
 
@@ -112,8 +159,8 @@ export default function RecruiterDashboardPage() {
         <Protected>
             <div className="min-h-screen bg-background font-sans text-foreground overflow-x-hidden">
                 <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-                    <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-recruiter/10 rounded-full blur-[100px] animate-blob mix-blend-multiply"></div>
-                    <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-orange-500/10 rounded-full blur-[100px] animate-blob animation-delay-4000 mix-blend-multiply"></div>
+                    <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-recruiter/10 rounded-full blur-[100px] animate-blob mix-blend-multiply" />
+                    <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-orange-500/10 rounded-full blur-[100px] animate-blob animation-delay-4000 mix-blend-multiply" />
                 </div>
 
                 <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/40">
@@ -132,9 +179,7 @@ export default function RecruiterDashboardPage() {
                         <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-recruiter/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-recruiter">
                             Recruiter Dashboard
                         </div>
-                        <h1 className="font-serif text-4xl md:text-5xl text-foreground mb-4">
-                            Talent Management
-                        </h1>
+                        <h1 className="font-serif text-4xl md:text-5xl text-foreground mb-4">Talent Management</h1>
                         <p className="text-lg text-muted-foreground max-w-2xl">
                             Screen candidates, analyze resumes, and match multiple CVs to the role you need to fill.
                         </p>
@@ -160,6 +205,7 @@ export default function RecruiterDashboardPage() {
                             );
                         })}
                     </div>
+
                     <div className="pt-2">
                         <RecruiterMatchFlow accessToken={accessToken ?? null} activeTab={activeTab} />
                     </div>
@@ -169,7 +215,7 @@ export default function RecruiterDashboardPage() {
     );
 }
 
-// ─── RecruiterMatchFlow ───────────────────────────────────────────────────────────
+// ─── RecruiterMatchFlow ───────────────────────────────────────────────────────
 
 function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | null; activeTab: TabId }) {
     const { toast } = useToast();
@@ -203,150 +249,98 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
 
         const remainingSlots = 5 - selectedCvs.length;
         if (remainingSlots <= 0) {
-            toast({
-                variant: "destructive",
-                title: "Limit reached",
-                description: "You can only attach up to 5 CVs for one matching run.",
-            });
+            toast({ variant: "destructive", title: "Limit reached", description: "You can only attach up to 5 CVs." });
             return;
         }
 
         setUploading(true);
         try {
-            const toUpload = selectedFiles.slice(0, remainingSlots);
-            for (const file of toUpload) {
+            for (const file of (selectedFiles as File[]).slice(0, remainingSlots)) {
                 const formData = new FormData();
                 formData.append("file", file);
-
-                const res = await fetch(`${backendBaseUrl}/api/v1/cv/upload`, {
-                    method: "POST",
-                    credentials: "include",
-                    body: formData,
-                });
+                const res = await fetch(`${backendBaseUrl}/api/v1/cv/upload`, { method: "POST", credentials: "include", body: formData });
 
                 if (res.status === 409) {
-                    const existingRes = await fetch(`${backendBaseUrl}/api/v1/cv/mine`, {
-                        credentials: "include",
-                    });
+                    const existingRes = await fetch(`${backendBaseUrl}/api/v1/cv/mine`, { credentials: "include" });
                     if (existingRes.ok) {
-                        const existingList = (await existingRes.json()) as { id: number; original_filename: string }[];
-                        const match = existingList.find((cv) => cv.original_filename === file.name);
+                        const list = (await existingRes.json()) as { id: number; original_filename: string }[];
+                        const match = list.find((cv) => cv.original_filename === file.name);
                         if (match) {
-                            setSelectedCvs((prev) => {
-                                if (prev.find((cv) => cv.id === match.id)) return prev;
-                                return [...prev, { id: match.id, original_filename: match.original_filename }].slice(0, 5);
-                            });
+                            setSelectedCvs((prev) => prev.find((c) => c.id === match.id) ? prev : [...prev, match].slice(0, 5));
                             continue;
                         }
                     }
-                    const data = await res.json().catch(() => null);
-                    throw new Error((data as any)?.detail ?? "Upload failed");
+                    const d = await res.json().catch(() => null);
+                    throw new Error((d as any)?.detail ?? "Upload failed");
                 }
-
-                if (!res.ok) {
-                    const data = await res.json().catch(() => null);
-                    throw new Error((data as any)?.detail ?? "Upload failed");
-                }
-
+                if (!res.ok) { const d = await res.json().catch(() => null); throw new Error((d as any)?.detail ?? "Upload failed"); }
                 const created = (await res.json()) as { id: number; original_filename: string };
-                setSelectedCvs((prev) => {
-                    if (prev.find((cv) => cv.id === created.id)) return prev;
-                    return [...prev, { id: created.id, original_filename: created.original_filename }].slice(0, 5);
-                });
+                setSelectedCvs((prev) => prev.find((c) => c.id === created.id) ? prev : [...prev, created].slice(0, 5));
             }
         } catch (err: any) {
-            console.error(err);
-            toast({
-                variant: "destructive",
-                title: "Upload failed",
-                description: err?.message ?? "Something went wrong while uploading CVs.",
-            });
+            toast({ variant: "destructive", title: "Upload failed", description: err?.message ?? "Something went wrong." });
         } finally {
             setUploading(false);
             if (event?.target) event.target.value = "";
         }
     };
 
-    const handleRemoveFile = (index: number) => {
-        setSelectedCvs((prev) => prev.filter((_, i) => i !== index));
-    };
+    const handleRemoveFile = (index: number) => setSelectedCvs((prev) => prev.filter((_, i) => i !== index));
 
     const handleRunMatching = async () => {
         if (!selectedCvs.length || !accessToken) return;
         setIsRunning(true);
         setResults([]);
-
         try {
             const payload = {
-                job: {
-                    domain: jobDomain,
-                    experience_range: experienceRange,
-                    salary_range: salaryRange,
-                    location,
-                    contract_type: employmentType,
-                    skills_text: skills,
-                },
+                job: { domain: jobDomain, experience_range: experienceRange, salary_range: salaryRange, location, contract_type: employmentType, skills_text: skills },
                 cv_ids: selectedCvs.map((cv) => cv.id),
             };
-
             const res = await fetch(`${backendBaseUrl}/api/v1/recruiter/match-cvs`, {
-                method: "POST",
-                credentials: "include",
+                method: "POST", credentials: "include",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
-
-            if (!res.ok) {
-                const data = await res.json().catch(() => null);
-                throw new Error((data as any)?.detail ?? "Matching failed");
-            }
-
+            if (!res.ok) { const d = await res.json().catch(() => null); throw new Error((d as any)?.detail ?? "Matching failed"); }
             const data = (await res.json()) as { results: MatchResult[] };
             setResults(data.results || []);
             setStep(3);
         } catch (err: any) {
-            console.error(err);
-            toast({
-                variant: "destructive",
-                title: "Matching failed",
-                description: err?.message ?? "Could not run AI matching for these CVs.",
-            });
+            toast({ variant: "destructive", title: "Matching failed", description: err?.message ?? "Could not run AI matching." });
         } finally {
             setIsRunning(false);
         }
     };
 
-    const handleReset = () => {
-        setStep(1);
-        setSelectedCvs([]);
-        setResults([]);
-        setFocusedIndex(0);
-    };
+    const handleReset = () => { setStep(1); setSelectedCvs([]); setResults([]); setFocusedIndex(0); };
 
     const hasResults = results.length > 0;
     const safeIndex = Math.min(focusedIndex, Math.max(results.length - 1, 0));
     const focusedResult = hasResults ? results[safeIndex] : null;
 
-    // ── Interview Toolkit tab ──────────────────────────────────────────────────
-
-    if (activeTab === "toolkit") {
+    // ─── YOUR TOOLKIT TAB ────────────────────────────────────────────────────
+    if (activeTab === "yourtoolkit") {
         return (
             <div className="space-y-8">
+                {/* Header */}
                 <div>
-                    <p className="inline-flex items-center gap-2 rounded-full bg-recruiter/10 px-3 py-1 text-xs md:text-sm font-medium uppercase tracking-wide text-recruiter">
-                        Interview Toolkit
+                    <p className="inline-flex items-center gap-2 rounded-full bg-recruiter/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-recruiter">
+                        <Sparkles className="h-3.5 w-3.5" /> AI-Powered
                     </p>
-                    <h2 className="mt-4 font-serif text-3xl md:text-4xl text-foreground">
-                        Structured interview guide
-                    </h2>
+                    <h2 className="mt-4 font-serif text-3xl md:text-4xl text-foreground">Your Toolkit</h2>
                     <p className="mt-2 text-sm md:text-base text-muted-foreground max-w-2xl">
-                        For each matched candidate you get a scored competency card, targeted questions, and a hiring recommendation — ready to use in the interview room.
+                        Everything you need to make a confident hiring decision — hiring verdict, score breakdown, tailored interview questions, and red flags — all in one place.
                     </p>
                 </div>
 
+                {/* Empty state */}
                 {!hasResults && (
-                    <div className="rounded-3xl border border-dashed border-border/60 bg-card/60 p-10 text-center text-sm md:text-base text-muted-foreground">
-                        Run a match in the <span className="font-semibold text-foreground">Candidates</span> tab first to unlock the Interview Toolkit.
+                    <div className="rounded-3xl border-2 border-dashed border-recruiter/30 bg-recruiter/5 p-14 text-center">
+                        <Sparkles className="mx-auto h-12 w-12 text-recruiter/40 mb-4" />
+                        <p className="text-lg font-semibold text-foreground">No candidates yet</p>
+                        <p className="mt-2 text-sm text-muted-foreground max-w-xs mx-auto">
+                            Go to the <span className="font-semibold text-foreground">Candidates</span> tab, define the role, upload CVs and run the AI match. Your full toolkit will appear here instantly.
+                        </p>
                     </div>
                 )}
 
@@ -355,19 +349,22 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                         {/* CV selector pills */}
                         <div className="flex flex-wrap gap-2">
                             {results.map((r, idx) => {
+                                const v = verdictFromScore(r.match_score);
                                 const isActive = idx === safeIndex;
                                 return (
                                     <button
                                         key={r.cv_id}
                                         onClick={() => setFocusedIndex(idx)}
-                                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs md:text-sm font-semibold transition ${
+                                        className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all ${
                                             isActive
-                                                ? "border-recruiter bg-recruiter text-white"
-                                                : "border-border/60 bg-card/80 text-foreground hover:border-recruiter/70"
+                                                ? "border-recruiter bg-recruiter text-white shadow-md"
+                                                : "border-border/60 bg-card/80 text-foreground hover:border-recruiter/60"
                                         }`}
                                     >
-                                        <span className="truncate max-w-[140px] md:max-w-[220px]">{r.file_name}</span>
-                                        <span className="text-[11px] md:text-xs opacity-80">{r.match_score}/100</span>
+                                        <span className="truncate max-w-[150px] md:max-w-[240px]">{r.file_name}</span>
+                                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                                            isActive ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                                        }`}>{r.match_score}/100</span>
                                     </button>
                                 );
                             })}
@@ -376,118 +373,228 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                         {focusedResult && (
                             <div className="space-y-6">
 
-                                {/* ── Recommended decision banner ── */}
-                                {focusedResult.hr_toolkit && (
-                                    <div
-                                        className={`flex items-start gap-3 rounded-2xl border px-5 py-4 ${
-                                            decisionStyle(focusedResult.hr_toolkit.recommended_decision)
-                                        }`}
-                                    >
-                                        <ThumbsUp className="mt-0.5 h-5 w-5 flex-shrink-0" />
-                                        <div>
-                                            <p className="text-xs font-bold uppercase tracking-widest opacity-70">Hiring recommendation</p>
-                                            <p className="mt-0.5 text-sm md:text-base font-semibold">
-                                                {focusedResult.hr_toolkit.recommended_decision}
-                                            </p>
+                                {/* ── 1. HIRING VERDICT ── */}
+                                {(() => {
+                                    const v = verdictFromScore(focusedResult.match_score);
+                                    return (
+                                        <div className={`flex items-start gap-4 rounded-2xl border-2 px-6 py-5 ${v.cls}`}>
+                                            <div className="flex-shrink-0 mt-0.5">{v.icon}</div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-3 flex-wrap">
+                                                    <p className="text-xs font-bold uppercase tracking-widest opacity-60">AI Hiring Verdict</p>
+                                                    <span className="rounded-full border px-3 py-0.5 text-sm font-bold border-current">{v.label}</span>
+                                                </div>
+                                                <p className="mt-1.5 text-sm md:text-base font-medium">{v.sublabel}</p>
+                                                <p className="mt-1 text-xs md:text-sm opacity-80 leading-relaxed">{focusedResult.reasons.overall_reason}</p>
+                                            </div>
+                                            <div className="flex-shrink-0 text-right hidden sm:block">
+                                                <div className="text-4xl font-black">{focusedResult.match_score}</div>
+                                                <div className="text-[10px] uppercase tracking-widest opacity-60">/ 100</div>
+                                            </div>
                                         </div>
+                                    );
+                                })()}
+
+                                {/* ── 2. SCORE BREAKDOWN ── */}
+                                <div className="rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
+                                    <div className="mb-6 flex items-center gap-2">
+                                        <BarChart2 className="h-5 w-5 text-recruiter" />
+                                        <h3 className="font-serif text-xl md:text-2xl text-foreground">Score Breakdown</h3>
+                                    </div>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 justify-items-center">
+                                        <ScoreRing value={focusedResult.match_score} label="Overall Match" color="var(--color-recruiter, #f97316)" />
+                                        <ScoreRing value={focusedResult.skills_match_score} label="Skills" color="#3b82f6" />
+                                        <ScoreRing value={focusedResult.experience_score} label="Experience" color="#8b5cf6" />
+                                        <ScoreRing value={focusedResult.cv_quality_score} label="CV Quality" color="#10b981" />
+                                    </div>
+                                    <div className="mt-6 grid gap-3 md:grid-cols-2">
+                                        {[
+                                            { label: "Overall Match", value: focusedResult.match_score, color: "bg-recruiter" },
+                                            { label: "Skills Match", value: focusedResult.skills_match_score, color: "bg-blue-500" },
+                                            { label: "Experience", value: focusedResult.experience_score, color: "bg-violet-500" },
+                                            { label: "CV Quality", value: focusedResult.cv_quality_score, color: "bg-emerald-500" },
+                                        ].map((m) => (
+                                            <div key={m.label} className="space-y-1">
+                                                <div className="flex justify-between text-xs font-semibold text-foreground">
+                                                    <span>{m.label}</span><span>{m.value}/100</span>
+                                                </div>
+                                                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                                    <div className={`h-full rounded-full ${m.color} transition-all duration-700`} style={{ width: `${Math.max(0, Math.min(100, m.value))}%` }} />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* ── 3. INTERVIEW QUESTIONS ── */}
+                                <div className="rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
+                                    <div className="mb-2 flex items-center gap-2">
+                                        <MessageCircle className="h-5 w-5 text-recruiter" />
+                                        <h3 className="font-serif text-xl md:text-2xl text-foreground">AI Interview Questions</h3>
+                                    </div>
+                                    <p className="mb-6 text-xs md:text-sm text-muted-foreground">
+                                        Generated from this candidate&apos;s profile and the role. Click the copy icon to grab any question.
+                                    </p>
+
+                                    <div className="space-y-5">
+                                        {/* General */}
+                                        <div>
+                                            <div className="mb-3 flex items-center gap-2">
+                                                <Target className="h-4 w-4 text-foreground/60" />
+                                                <span className="text-xs font-bold uppercase tracking-widest text-foreground/60">General Fit</span>
+                                            </div>
+                                            <div className="space-y-2">
+                                                {[
+                                                    `Walk me through your most relevant experience for this ${jobDomain} role and why it fits.`,
+                                                    `What would your first 90 days look like if you joined us in this position?`,
+                                                    `How do you stay current in ${jobDomain}? Any recent learning or projects?`,
+                                                ].map((q, i) => (
+                                                    <div key={i} className="flex items-start gap-3 rounded-xl bg-muted/40 px-4 py-3 hover:bg-muted/70 transition group">
+                                                        <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-recruiter/10 text-[11px] font-bold text-recruiter mt-0.5">{i + 1}</span>
+                                                        <p className="flex-1 text-sm text-foreground leading-relaxed">{q}</p>
+                                                        <CopyButton text={q} />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Strengths */}
+                                        {focusedResult.reasons.strengths?.length > 0 && (
+                                            <div>
+                                                <div className="mb-3 flex items-center gap-2">
+                                                    <Zap className="h-4 w-4 text-emerald-600" />
+                                                    <span className="text-xs font-bold uppercase tracking-widest text-emerald-700">Explore Strengths</span>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    {focusedResult.reasons.strengths.map((s, i) => {
+                                                        const q = `Your profile shows strength in "${s}" — can you walk me through a specific project or situation where this made a real impact?`;
+                                                        return (
+                                                            <div key={i} className="flex items-start gap-3 rounded-xl bg-emerald-50/60 border border-emerald-100 px-4 py-3 hover:bg-emerald-50 transition group">
+                                                                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-bold text-emerald-700 mt-0.5">{i + 1}</span>
+                                                                <p className="flex-1 text-sm text-emerald-900 leading-relaxed">{q}</p>
+                                                                <CopyButton text={q} />
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Risks */}
+                                        {focusedResult.reasons.risks?.length > 0 && (
+                                            <div>
+                                                <div className="mb-3 flex items-center gap-2">
+                                                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                                                    <span className="text-xs font-bold uppercase tracking-widest text-amber-700">Probe the Gaps</span>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    {focusedResult.reasons.risks.map((r, i) => {
+                                                        const q = `I noticed "${r}" in the profile. How do you approach this in your day-to-day work, and how have you improved in this area?`;
+                                                        return (
+                                                            <div key={i} className="flex items-start gap-3 rounded-xl bg-amber-50/60 border border-amber-100 px-4 py-3 hover:bg-amber-50 transition group">
+                                                                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 text-[11px] font-bold text-amber-700 mt-0.5">{i + 1}</span>
+                                                                <p className="flex-1 text-sm text-amber-900 leading-relaxed">{q}</p>
+                                                                <CopyButton text={q} />
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* ── 4. RED FLAGS ── */}
+                                {focusedResult.reasons.risks?.length > 0 && (
+                                    <div className="rounded-3xl border border-red-200 bg-red-50/50 p-6 md:p-8">
+                                        <div className="mb-2 flex items-center gap-2">
+                                            <ShieldAlert className="h-5 w-5 text-red-600" />
+                                            <h3 className="font-serif text-xl md:text-2xl text-red-800">Red Flags to Verify</h3>
+                                        </div>
+                                        <p className="mb-5 text-xs md:text-sm text-red-700/80">
+                                            These signals came up during the AI analysis. Dig into them before making your decision.
+                                        </p>
+                                        <div className="space-y-3">
+                                            {focusedResult.reasons.risks.map((flag, i) => (
+                                                <div key={i} className="flex items-start gap-3 rounded-xl bg-white/70 border border-red-100 px-4 py-3">
+                                                    <span className="mt-1.5 h-2.5 w-2.5 flex-shrink-0 rounded-full bg-red-500" />
+                                                    <p className="text-sm text-red-800 leading-relaxed">{flag}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {focusedResult.experience_score < 50 && (
+                                            <div className="mt-3 flex items-start gap-3 rounded-xl bg-white/70 border border-red-100 px-4 py-3">
+                                                <span className="mt-1.5 h-2.5 w-2.5 flex-shrink-0 rounded-full bg-red-500" />
+                                                <p className="text-sm text-red-800 leading-relaxed">
+                                                    Experience score is below 50 — verify claimed years of experience and seniority level during the interview.
+                                                </p>
+                                            </div>
+                                        )}
+                                        {focusedResult.skills_match_score < 50 && (
+                                            <div className="mt-3 flex items-start gap-3 rounded-xl bg-white/70 border border-red-100 px-4 py-3">
+                                                <span className="mt-1.5 h-2.5 w-2.5 flex-shrink-0 rounded-full bg-red-500" />
+                                                <p className="text-sm text-red-800 leading-relaxed">
+                                                    Skills overlap is limited — test hands-on proficiency for the key tools required by this role.
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
-                                {/* ── Scorecard table ── */}
-                                {focusedResult.hr_toolkit?.scorecard && focusedResult.hr_toolkit.scorecard.length > 0 && (
+                                {/* ── 5. CANDIDATE COMPARISON TABLE ── */}
+                                {results.length > 1 && (
                                     <div className="rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
                                         <div className="mb-5 flex items-center gap-2">
-                                            <ClipboardList className="h-5 w-5 text-recruiter" />
-                                            <h3 className="font-serif text-xl md:text-2xl text-foreground">Competency Scorecard</h3>
+                                            <BarChart3 className="h-5 w-5 text-recruiter" />
+                                            <h3 className="font-serif text-xl md:text-2xl text-foreground">All Candidates at a Glance</h3>
                                         </div>
-                                        <p className="mb-5 text-xs md:text-sm text-muted-foreground">
-                                            Pre-filled from match data. Override scores during or after the interview.
-                                        </p>
                                         <div className="overflow-x-auto">
                                             <table className="w-full text-sm">
                                                 <thead>
                                                     <tr className="border-b border-border/60 text-left text-xs uppercase tracking-widest text-muted-foreground">
-                                                        <th className="pb-3 pr-4 font-semibold">Competency</th>
-                                                        <th className="pb-3 pr-4 font-semibold">Weight</th>
-                                                        <th className="pb-3 pr-4 font-semibold">Pre-filled score</th>
+                                                        <th className="pb-3 pr-3 font-semibold">Candidate</th>
+                                                        <th className="pb-3 pr-3 font-semibold">Overall</th>
+                                                        <th className="pb-3 pr-3 font-semibold">Skills</th>
+                                                        <th className="pb-3 pr-3 font-semibold">Exp.</th>
+                                                        <th className="pb-3 font-semibold">Verdict</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-border/40">
-                                                    {focusedResult.hr_toolkit.scorecard.map((row, idx) => (
-                                                        <tr key={idx} className="py-3">
-                                                            <td className="py-3 pr-4 font-medium text-foreground">
-                                                                {row.competency}
-                                                            </td>
-                                                            <td className="py-3 pr-4">
-                                                                <span className="rounded-full bg-recruiter/10 px-2.5 py-0.5 text-xs font-semibold text-recruiter">
-                                                                    {row.weight_pct}%
-                                                                </span>
-                                                            </td>
-                                                            <td className="py-3">
-                                                                <StarRating score={row.score} />
-                                                            </td>
-                                                        </tr>
-                                                    ))}
+                                                    {[...results]
+                                                        .sort((a, b) => b.match_score - a.match_score)
+                                                        .map((r, idx) => {
+                                                            const v = verdictFromScore(r.match_score);
+                                                            const isSelected = r.cv_id === focusedResult.cv_id;
+                                                            return (
+                                                                <tr
+                                                                    key={r.cv_id}
+                                                                    onClick={() => setFocusedIndex(results.indexOf(r))}
+                                                                    className={`cursor-pointer transition ${
+                                                                        isSelected ? "bg-recruiter/5" : "hover:bg-muted/30"
+                                                                    }`}
+                                                                >
+                                                                    <td className="py-3 pr-3">
+                                                                        <div className="flex items-center gap-2">
+                                                                            {idx === 0 && <Trophy className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />}
+                                                                            <span className={`truncate max-w-[140px] font-medium ${
+                                                                                isSelected ? "text-recruiter" : "text-foreground"
+                                                                            }`}>{r.file_name}</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="py-3 pr-3 font-bold text-foreground">{r.match_score}</td>
+                                                                    <td className="py-3 pr-3 text-muted-foreground">{r.skills_match_score}</td>
+                                                                    <td className="py-3 pr-3 text-muted-foreground">{r.experience_score}</td>
+                                                                    <td className="py-3">
+                                                                        <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${v.cls}`}>
+                                                                            {v.label}
+                                                                        </span>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
                                                 </tbody>
                                             </table>
                                         </div>
-                                    </div>
-                                )}
-
-                                {/* ── Verification questions ── */}
-                                {focusedResult.hr_toolkit?.verification_questions &&
-                                    focusedResult.hr_toolkit.verification_questions.length > 0 && (
-                                    <div className="rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
-                                        <div className="mb-5 flex items-center gap-2">
-                                            <HelpCircle className="h-5 w-5 text-recruiter" />
-                                            <h3 className="font-serif text-xl md:text-2xl text-foreground">Interview Questions</h3>
-                                        </div>
-                                        <p className="mb-5 text-xs md:text-sm text-muted-foreground">
-                                            Tailored to this candidate’s profile and the role. Use them to probe key gaps.
-                                        </p>
-                                        <ol className="space-y-4">
-                                            {focusedResult.hr_toolkit.verification_questions.map((q, idx) => (
-                                                <li key={idx} className="flex items-start gap-3">
-                                                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-recruiter/10 text-xs font-bold text-recruiter">
-                                                        {idx + 1}
-                                                    </span>
-                                                    <p className="pt-0.5 text-sm md:text-base text-foreground leading-relaxed">
-                                                        {q}
-                                                    </p>
-                                                </li>
-                                            ))}
-                                        </ol>
-                                    </div>
-                                )}
-
-                                {/* ── Red flags ── */}
-                                {focusedResult.hr_toolkit?.red_flags &&
-                                    focusedResult.hr_toolkit.red_flags.length > 0 && (
-                                    <div className="rounded-3xl border border-red-200 bg-red-50/60 p-6 md:p-8">
-                                        <div className="mb-5 flex items-center gap-2">
-                                            <AlertOctagon className="h-5 w-5 text-red-600" />
-                                            <h3 className="font-serif text-xl md:text-2xl text-red-800">Red Flags</h3>
-                                        </div>
-                                        <p className="mb-4 text-xs md:text-sm text-red-700/80">
-                                            These are signals to verify before making a hiring decision.
-                                        </p>
-                                        <ul className="space-y-3">
-                                            {focusedResult.hr_toolkit.red_flags.map((flag, idx) => (
-                                                <li key={idx} className="flex items-start gap-3">
-                                                    <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-red-500"></span>
-                                                    <p className="text-sm md:text-base text-red-800 leading-relaxed">
-                                                        {flag}
-                                                    </p>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
-
-                                {/* fallback when toolkit is missing */}
-                                {!focusedResult.hr_toolkit && (
-                                    <div className="rounded-3xl border border-dashed border-border/60 bg-card/60 p-8 text-center text-sm text-muted-foreground">
-                                        No toolkit data for this CV. Re-run the match to generate it.
                                     </div>
                                 )}
                             </div>
@@ -498,23 +605,18 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
         );
     }
 
-    // ── Analytics tab ───────────────────────────────────────────────────────────
-
+    // ─── ANALYTICS TAB ────────────────────────────────────────────────────────
     if (activeTab === "analytics") {
         return (
             <div className="space-y-8">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <p className="inline-flex items-center gap-2 rounded-full bg-recruiter/10 px-3 py-1 text-xs md:text-sm font-medium uppercase tracking-wide text-recruiter">
-                            Analytics Dashboard
-                        </p>
-                        <h2 className="mt-4 font-serif text-3xl md:text-4xl text-foreground">
-                            Compare candidates in depth
-                        </h2>
-                        <p className="mt-2 text-sm md:text-base text-muted-foreground max-w-2xl">
-                            Select a CV to see how skills, experience and overall profile align with this role.
-                        </p>
-                    </div>
+                <div>
+                    <p className="inline-flex items-center gap-2 rounded-full bg-recruiter/10 px-3 py-1 text-xs md:text-sm font-medium uppercase tracking-wide text-recruiter">
+                        Analytics Dashboard
+                    </p>
+                    <h2 className="mt-4 font-serif text-3xl md:text-4xl text-foreground">Compare candidates in depth</h2>
+                    <p className="mt-2 text-sm md:text-base text-muted-foreground max-w-2xl">
+                        Select a CV to see how skills, experience and overall profile align with this role.
+                    </p>
                 </div>
 
                 {!hasResults && (
@@ -526,104 +628,63 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                 {hasResults && focusedResult && (
                     <>
                         <div className="flex flex-wrap gap-2">
-                            {results.map((r, idx) => {
-                                const isActive = idx === safeIndex;
-                                return (
-                                    <button
-                                        key={r.cv_id}
-                                        onClick={() => setFocusedIndex(idx)}
-                                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs md:text-sm font-semibold transition ${
-                                            isActive
-                                                ? "border-recruiter bg-recruiter text-white"
-                                                : "border-border/60 bg-card/80 text-foreground hover:border-recruiter/70"
-                                        }`}
-                                    >
-                                        <span className="truncate max-w-[140px] md:max-w-[220px]">{r.file_name}</span>
-                                        <span className="text-[11px] md:text-xs opacity-80">{r.match_score}/100</span>
-                                    </button>
-                                );
-                            })}
+                            {results.map((r, idx) => (
+                                <button key={r.cv_id} onClick={() => setFocusedIndex(idx)}
+                                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs md:text-sm font-semibold transition ${
+                                        idx === safeIndex ? "border-recruiter bg-recruiter text-white" : "border-border/60 bg-card/80 text-foreground hover:border-recruiter/70"
+                                    }`}>
+                                    <span className="truncate max-w-[140px] md:max-w-[220px]">{r.file_name}</span>
+                                    <span className="text-[11px] md:text-xs opacity-80">{r.match_score}/100</span>
+                                </button>
+                            ))}
                         </div>
-
                         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] items-start">
                             <div className="space-y-5 rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
                                 <div className="flex items-center justify-between gap-3">
                                     <div>
                                         <h3 className="font-serif text-xl md:text-2xl text-foreground">Match metrics</h3>
-                                        <p className="mt-1 text-xs md:text-sm text-muted-foreground">
-                                            Detailed scores for this CV against the current role.
-                                        </p>
+                                        <p className="mt-1 text-xs md:text-sm text-muted-foreground">Detailed scores for this CV against the current role.</p>
                                     </div>
                                     <div className="text-right">
-                                        <div className="text-3xl md:text-4xl font-bold text-recruiter">
-                                            {focusedResult.match_score}
-                                        </div>
-                                        <div className="text-[11px] md:text-xs uppercase tracking-wide text-muted-foreground">
-                                            Overall match / 100
-                                        </div>
+                                        <div className="text-3xl md:text-4xl font-bold text-recruiter">{focusedResult.match_score}</div>
+                                        <div className="text-[11px] md:text-xs uppercase tracking-wide text-muted-foreground">Overall match / 100</div>
                                     </div>
                                 </div>
                                 <div className="space-y-3">
-                                    {[{
-                                        label: "Domain fit",
-                                        value: focusedResult.match_score,
-                                        helper: "Overall score already includes domain fit weighting.",
-                                    }, {
-                                        label: "Skills match",
-                                        value: focusedResult.skills_match_score,
-                                        helper: "Overlap between job skills and CV skills.",
-                                    }, {
-                                        label: "Experience alignment",
-                                        value: focusedResult.experience_score,
-                                        helper: "Years of experience vs requested range.",
-                                    }, {
-                                        label: "CV quality",
-                                        value: focusedResult.cv_quality_score,
-                                        helper: "Structure, readability and richness of the CV.",
-                                    }].map((metric) => (
-                                        <div key={metric.label} className="space-y-1">
+                                    {[
+                                        { label: "Domain fit", value: focusedResult.match_score, helper: "Overall score already includes domain fit weighting." },
+                                        { label: "Skills match", value: focusedResult.skills_match_score, helper: "Overlap between job skills and CV skills." },
+                                        { label: "Experience alignment", value: focusedResult.experience_score, helper: "Years of experience vs requested range." },
+                                        { label: "CV quality", value: focusedResult.cv_quality_score, helper: "Structure, readability and richness of the CV." },
+                                    ].map((m) => (
+                                        <div key={m.label} className="space-y-1">
                                             <div className="flex items-center justify-between text-xs md:text-sm font-medium text-foreground">
-                                                <span>{metric.label}</span>
-                                                <span>{metric.value}/100</span>
+                                                <span>{m.label}</span><span>{m.value}/100</span>
                                             </div>
                                             <div className="h-2 rounded-full bg-muted overflow-hidden">
-                                                <div
-                                                    className="h-full rounded-full bg-recruiter transition-all duration-500"
-                                                    style={{ width: `${Math.max(0, Math.min(100, metric.value))}%` }}
-                                                />
+                                                <div className="h-full rounded-full bg-recruiter transition-all duration-500" style={{ width: `${Math.max(0, Math.min(100, m.value))}%` }} />
                                             </div>
-                                            <p className="text-[11px] md:text-xs text-muted-foreground">{metric.helper}</p>
+                                            <p className="text-[11px] md:text-xs text-muted-foreground">{m.helper}</p>
                                         </div>
                                     ))}
                                 </div>
                             </div>
-
                             <div className="space-y-4 rounded-3xl border border-border/60 bg-card/70 p-6 md:p-8">
                                 <h3 className="font-serif text-xl md:text-2xl text-foreground">Fit explanation</h3>
-                                <p className="text-sm md:text-base text-muted-foreground">
-                                    {focusedResult.reasons.overall_reason}
-                                </p>
+                                <p className="text-sm md:text-base text-muted-foreground">{focusedResult.reasons.overall_reason}</p>
                                 {focusedResult.reasons.strengths?.length > 0 && (
                                     <div>
-                                        <h4 className="text-xs md:text-sm font-semibold uppercase tracking-wide text-emerald-700 mb-1">
-                                            Strengths
-                                        </h4>
+                                        <h4 className="text-xs md:text-sm font-semibold uppercase tracking-wide text-emerald-700 mb-1">Strengths</h4>
                                         <ul className="list-disc pl-5 text-xs md:text-sm text-emerald-700 space-y-1">
-                                            {focusedResult.reasons.strengths.map((item, idx) => (
-                                                <li key={idx}>{item}</li>
-                                            ))}
+                                            {focusedResult.reasons.strengths.map((item, i) => <li key={i}>{item}</li>)}
                                         </ul>
                                     </div>
                                 )}
                                 {focusedResult.reasons.risks?.length > 0 && (
                                     <div>
-                                        <h4 className="text-xs md:text-sm font-semibold uppercase tracking-wide text-amber-700 mb-1">
-                                            Risks & gaps
-                                        </h4>
+                                        <h4 className="text-xs md:text-sm font-semibold uppercase tracking-wide text-amber-700 mb-1">Risks & gaps</h4>
                                         <ul className="list-disc pl-5 text-xs md:text-sm text-amber-700 space-y-1">
-                                            {focusedResult.reasons.risks.map((item, idx) => (
-                                                <li key={idx}>{item}</li>
-                                            ))}
+                                            {focusedResult.reasons.risks.map((item, i) => <li key={i}>{item}</li>)}
                                         </ul>
                                     </div>
                                 )}
@@ -635,127 +696,20 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
         );
     }
 
-    // ── Chat tab ─────────────────────────────────────────────────────────────
-
-    if (activeTab === "chat") {
-        return (
-            <div className="space-y-8">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <p className="inline-flex items-center gap-2 rounded-full bg-recruiter/10 px-3 py-1 text-xs md:text-sm font-medium uppercase tracking-wide text-recruiter">
-                            AI Interview Assistant
-                        </p>
-                        <h2 className="mt-4 font-serif text-3xl md:text-4xl text-foreground">
-                            Prepare smarter interview questions
-                        </h2>
-                        <p className="mt-2 text-sm md:text-base text-muted-foreground max-w-2xl">
-                            Pick a CV to get tailored questions and focus points for your interview.
-                        </p>
-                    </div>
-                </div>
-
-                {!hasResults && (
-                    <div className="rounded-3xl border border-dashed border-border/60 bg-card/60 p-8 text-center text-sm md:text-base text-muted-foreground">
-                        Run a match in the Candidates tab first to see interview suggestions here.
-                    </div>
-                )}
-
-                {hasResults && focusedResult && (
-                    <>
-                        <div className="flex flex-wrap gap-2">
-                            {results.map((r, idx) => {
-                                const isActive = idx === safeIndex;
-                                return (
-                                    <button
-                                        key={r.cv_id}
-                                        onClick={() => setFocusedIndex(idx)}
-                                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs md:text-sm font-semibold transition ${
-                                            isActive
-                                                ? "border-recruiter bg-recruiter text-white"
-                                                : "border-border/60 bg-card/80 text-foreground hover:border-recruiter/70"
-                                        }`}
-                                    >
-                                        <span className="truncate max-w-[140px] md:max-w-[220px]">{r.file_name}</span>
-                                        <span className="text-[11px] md:text-xs opacity-80">{r.match_score}/100</span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-
-                        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] items-start">
-                            <div className="space-y-5 rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
-                                <h3 className="font-serif text-xl md:text-2xl text-foreground mb-2">Suggested questions</h3>
-                                <div className="space-y-4 text-xs md:text-sm text-muted-foreground">
-                                    <div>
-                                        <h4 className="font-semibold text-foreground mb-1">General fit</h4>
-                                        <ul className="list-disc pl-5 space-y-1">
-                                            <li>{`Walk me through your recent experience and how it relates to this ${jobDomain} role.`}</li>
-                                            <li>"If you joined us in this position, what would you focus on in your first 90 days?"</li>
-                                        </ul>
-                                    </div>
-                                    {focusedResult.reasons.strengths?.length > 0 && (
-                                        <div>
-                                            <h4 className="font-semibold text-emerald-700 mb-1">Deep dive on strengths</h4>
-                                            <ul className="list-disc pl-5 space-y-1">
-                                                {focusedResult.reasons.strengths.map((s, idx) => (
-                                                    <li key={idx}>{`You seem strong in "${s}". Can you share a specific project where you demonstrated this?`}</li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
-                                    {focusedResult.reasons.risks?.length > 0 && (
-                                        <div>
-                                            <h4 className="font-semibold text-amber-700 mb-1">Probe risks & gaps</h4>
-                                            <ul className="list-disc pl-5 space-y-1">
-                                                {focusedResult.reasons.risks.map((r, idx) => (
-                                                    <li key={idx}>{`I noticed "${r}". Can you tell me more about this and how you handle it in your current work?`}</li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="space-y-4 rounded-3xl border border-border/60 bg-card/70 p-6 md:p-8">
-                                <h3 className="font-serif text-xl md:text-2xl text-foreground mb-2">Focus points</h3>
-                                <p className="text-sm md:text-base text-muted-foreground">
-                                    {jobDomain} · {experienceRange || "Experience not set"} · {salaryRange || "Salary not set"}
-                                </p>
-                                <ul className="mt-3 space-y-2 text-xs md:text-sm text-muted-foreground">
-                                    {focusedResult.experience_score < 50 && (
-                                        <li>Verify the candidate's real years of experience and seniority; the CV looks below the requested range.</li>
-                                    )}
-                                    {focusedResult.skills_match_score < 50 && (
-                                        <li>Check hands-on level with the key skills for this role; the overlap with the job description seems limited.</li>
-                                    )}
-                                    {focusedResult.reasons.risks.slice(0, 2).map((r, idx) => (
-                                        <li key={idx}>{r}</li>
-                                    ))}
-                                </ul>
-                            </div>
-                        </div>
-                    </>
-                )}
-            </div>
-        );
-    }
-
-    // ── Jobs tab ─────────────────────────────────────────────────────────────
-
+    // ─── JOBS TAB ─────────────────────────────────────────────────────────────
     if (activeTab === "jobs") {
         return (
             <div className="bg-card rounded-3xl shadow-craft border border-border/40 min-h-[500px]">
                 <div className="p-6 md:p-10 text-center py-20">
                     <Briefcase className="w-16 h-16 text-recruiter mx-auto mb-4 opacity-50" />
                     <h2 className="text-2xl font-serif font-bold mb-2">Job Postings</h2>
-                    <p className="text-muted-foreground">Manage your job listings - Coming Soon</p>
+                    <p className="text-muted-foreground">Manage your job listings — Coming Soon</p>
                 </div>
             </div>
         );
     }
 
-    // ── Candidates tab (default: 3-step matching flow) ───────────────────────
-
+    // ─── CANDIDATES TAB (default — 3-step flow) ───────────────────────────────
     return (
         <div className="space-y-8">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -763,9 +717,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                     <p className="inline-flex items-center gap-2 rounded-full bg-recruiter/10 px-3 py-1 text-xs md:text-sm font-medium uppercase tracking-wide text-recruiter">
                         Recruiter workspace
                     </p>
-                    <h2 className="mt-4 font-serif text-3xl md:text-4xl text-foreground">
-                        Match multiple CVs to one role
-                    </h2>
+                    <h2 className="mt-4 font-serif text-3xl md:text-4xl text-foreground">Match multiple CVs to one role</h2>
                     <p className="mt-2 text-sm md:text-base text-muted-foreground max-w-2xl">
                         First describe the job, then upload up to five CVs. The AI will highlight which profiles fit best and why.
                     </p>
@@ -779,36 +731,27 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                 </div>
             </div>
 
+            {/* Step tracker */}
             <div className="grid gap-4 md:grid-cols-3">
                 {steps.map((item) => {
                     const isActive = step === item.id;
                     const isCompleted = step > item.id;
                     return (
-                        <div
-                            key={item.id}
-                            className={`flex items-center gap-3 rounded-2xl border px-4 py-3 md:px-5 md:py-4 ${
-                                isActive ? "border-recruiter bg-recruiter/5" : "border-border/60 bg-card/60"
-                            }`}
-                        >
-                            <div
-                                className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
-                                    isActive
-                                        ? "bg-recruiter text-white"
-                                        : isCompleted
-                                        ? "bg-emerald-500 text-white"
-                                        : "bg-muted text-muted-foreground"
-                                }`}
-                            >
+                        <div key={item.id} className={`flex items-center gap-3 rounded-2xl border px-4 py-3 md:px-5 md:py-4 ${
+                            isActive ? "border-recruiter bg-recruiter/5" : "border-border/60 bg-card/60"
+                        }`}>
+                            <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
+                                isActive ? "bg-recruiter text-white" : isCompleted ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"
+                            }`}>
                                 {isCompleted ? <CheckCircle2 className="h-4 w-4" /> : item.id}
                             </div>
-                            <div className="text-xs md:text-sm font-medium uppercase tracking-wide">
-                                {item.label}
-                            </div>
+                            <div className="text-xs md:text-sm font-medium uppercase tracking-wide">{item.label}</div>
                         </div>
                     );
                 })}
             </div>
 
+            {/* Step 1 */}
             {step === 1 && (
                 <div className="grid gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] items-start">
                     <div className="space-y-6 rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
@@ -819,11 +762,8 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                         <div className="space-y-4">
                             <div className="grid gap-2">
                                 <label className="text-sm font-medium text-muted-foreground">Job domain</label>
-                                <select
-                                    value={jobDomain}
-                                    onChange={(e) => setJobDomain(e.target.value)}
-                                    className="h-11 rounded-xl border border-border bg-background px-3 text-sm md:text-base text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60"
-                                >
+                                <select value={jobDomain} onChange={(e) => setJobDomain(e.target.value)}
+                                    className="h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60">
                                     <option>AI & Data</option>
                                     <option>Software Engineering</option>
                                     <option>Product Management</option>
@@ -835,11 +775,8 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div className="grid gap-2">
                                     <label className="text-sm font-medium text-muted-foreground">Experience range</label>
-                                    <select
-                                        value={experienceRange}
-                                        onChange={(e) => setExperienceRange(e.target.value)}
-                                        className="h-11 rounded-xl border border-border bg-background px-3 text-sm md:text-base text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60"
-                                    >
+                                    <select value={experienceRange} onChange={(e) => setExperienceRange(e.target.value)}
+                                        className="h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60">
                                         <option value="">Select experience</option>
                                         <option>0-1 years</option>
                                         <option>2-4 years</option>
@@ -849,11 +786,8 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                 </div>
                                 <div className="grid gap-2">
                                     <label className="text-sm font-medium text-muted-foreground">Salary range</label>
-                                    <select
-                                        value={salaryRange}
-                                        onChange={(e) => setSalaryRange(e.target.value)}
-                                        className="h-11 rounded-xl border border-border bg-background px-3 text-sm md:text-base text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60"
-                                    >
+                                    <select value={salaryRange} onChange={(e) => setSalaryRange(e.target.value)}
+                                        className="h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60">
                                         <option value="">Select salary</option>
                                         <option>$40k - $60k</option>
                                         <option>$60k - $90k</option>
@@ -865,20 +799,14 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div className="grid gap-2">
                                     <label className="text-sm font-medium text-muted-foreground">Location</label>
-                                    <input
-                                        value={location}
-                                        onChange={(e) => setLocation(e.target.value)}
+                                    <input value={location} onChange={(e) => setLocation(e.target.value)}
                                         placeholder="Remote, Paris, London..."
-                                        className="h-11 rounded-xl border border-border bg-background px-3 text-sm md:text-base text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60"
-                                    />
+                                        className="h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60" />
                                 </div>
                                 <div className="grid gap-2">
                                     <label className="text-sm font-medium text-muted-foreground">Contract type</label>
-                                    <select
-                                        value={employmentType}
-                                        onChange={(e) => setEmploymentType(e.target.value)}
-                                        className="h-11 rounded-xl border border-border bg-background px-3 text-sm md:text-base text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60"
-                                    >
+                                    <select value={employmentType} onChange={(e) => setEmploymentType(e.target.value)}
+                                        className="h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60">
                                         <option value="">Select type</option>
                                         <option>Full-time</option>
                                         <option>Part-time</option>
@@ -889,46 +817,34 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                             </div>
                             <div className="grid gap-2">
                                 <label className="text-sm font-medium text-muted-foreground">Key skills or notes</label>
-                                <textarea
-                                    value={skills}
-                                    onChange={(e) => setSkills(e.target.value)}
-                                    rows={3}
+                                <textarea value={skills} onChange={(e) => setSkills(e.target.value)} rows={3}
                                     placeholder="Python, SQL, MLOps, stakeholder management..."
-                                    className="rounded-xl border border-border bg-background px-3 py-2 text-sm md:text-base text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60"
-                                />
+                                    className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60" />
                             </div>
                         </div>
-                        <div className="pt-2 flex flex-wrap gap-3">
-                            <button
-                                disabled={!canContinueFromStep1}
-                                onClick={() => setStep(2)}
-                                className="inline-flex items-center justify-center rounded-full bg-recruiter px-6 py-2.5 text-sm md:text-base font-semibold text-white shadow-md transition disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-0.5 hover:shadow-lg"
-                            >
+                        <div className="pt-2">
+                            <button disabled={!canContinueFromStep1} onClick={() => setStep(2)}
+                                className="inline-flex items-center justify-center rounded-full bg-recruiter px-6 py-2.5 text-sm font-semibold text-white shadow-md transition disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-0.5 hover:shadow-lg">
                                 Continue to CVs
                             </button>
                         </div>
                     </div>
                     <div className="space-y-4 rounded-3xl border border-dashed border-recruiter/40 bg-recruiter/5 p-6 md:p-8">
-                        <h3 className="font-serif text-xl md:text-2xl text-foreground mb-1">Role summary</h3>
-                        <p className="text-sm md:text-base text-muted-foreground">
-                            This is what the AI will see when scoring the CVs.
-                        </p>
-                        <ul className="mt-4 space-y-2 text-sm md:text-base text-muted-foreground">
+                        <h3 className="font-serif text-xl md:text-2xl text-foreground">Role summary</h3>
+                        <p className="text-sm text-muted-foreground">This is what the AI will see when scoring the CVs.</p>
+                        <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
                             <li><span className="font-semibold text-foreground">Domain:</span> {jobDomain}</li>
                             <li><span className="font-semibold text-foreground">Experience:</span> {experienceRange || "Not set yet"}</li>
                             <li><span className="font-semibold text-foreground">Salary:</span> {salaryRange || "Not set yet"}</li>
                             <li><span className="font-semibold text-foreground">Location:</span> {location || "Not set yet"}</li>
                             <li><span className="font-semibold text-foreground">Contract:</span> {employmentType || "Not set yet"}</li>
                         </ul>
-                        {skills && (
-                            <div className="mt-3 text-sm md:text-base text-muted-foreground">
-                                <span className="font-semibold text-foreground">Key skills:</span> {skills}
-                            </div>
-                        )}
+                        {skills && <p className="mt-2 text-sm text-muted-foreground"><span className="font-semibold text-foreground">Key skills:</span> {skills}</p>}
                     </div>
                 </div>
             )}
 
+            {/* Step 2 */}
             {step === 2 && (
                 <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] items-start">
                     <div className="space-y-6 rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
@@ -936,183 +852,110 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                             <Upload className="h-5 w-5 text-recruiter" />
                             <h3 className="font-serif text-2xl md:text-3xl text-foreground">Upload up to 5 CVs</h3>
                         </div>
-                        <p className="text-sm md:text-base text-muted-foreground">
-                            Drop CVs for this role. Supported formats: PDF, DOC, DOCX. Maximum five files per matching run.
-                        </p>
-                        <label
-                            htmlFor="cvFiles"
-                            className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-recruiter/60 bg-background/60 px-6 py-10 text-center hover:border-recruiter hover:bg-recruiter/5"
-                        >
+                        <p className="text-sm text-muted-foreground">Supported formats: PDF, DOC, DOCX. Maximum five files per matching run.</p>
+                        <label htmlFor="cvFiles" className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-recruiter/60 bg-background/60 px-6 py-10 text-center hover:border-recruiter hover:bg-recruiter/5">
                             <Upload className="h-8 w-8 text-recruiter" />
-                            <span className="text-sm md:text-base font-semibold text-foreground">
-                                {uploading ? "Uploading CVs..." : "Click to browse or drop CV files here"}
-                            </span>
-                            <span className="text-xs md:text-sm text-muted-foreground">
-                                You can attach up to five CVs at once.
-                            </span>
+                            <span className="text-sm font-semibold text-foreground">{uploading ? "Uploading CVs..." : "Click to browse or drop CV files here"}</span>
+                            <span className="text-xs text-muted-foreground">You can attach up to five CVs at once.</span>
                         </label>
-                        <input
-                            id="cvFiles"
-                            type="file"
-                            multiple
-                            accept=".pdf,.doc,.docx"
-                            className="hidden"
-                            onChange={handleFilesChange}
-                        />
+                        <input id="cvFiles" type="file" multiple accept=".pdf,.doc,.docx" className="hidden" onChange={handleFilesChange} />
                         {selectedCvs.length > 0 && (
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between text-xs md:text-sm text-muted-foreground">
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-xs text-muted-foreground">
                                     <span>{selectedCvs.length} file{selectedCvs.length > 1 ? "s" : ""} selected</span>
                                     <span>Maximum 5 CVs</span>
                                 </div>
-                                <div className="space-y-2">
-                                    {selectedCvs.map((cv, index) => (
-                                        <div
-                                            key={cv.id + "-" + index}
-                                            className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-background px-3 py-2 text-xs md:text-sm"
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <FileText className="h-4 w-4 text-recruiter" />
-                                                <span className="font-medium text-foreground truncate max-w-[160px] md:max-w-[260px]">
-                                                    {cv.original_filename}
-                                                </span>
-                                            </div>
-                                            <button
-                                                onClick={() => handleRemoveFile(index)}
-                                                className="text-xs font-semibold text-muted-foreground hover:text-foreground"
-                                            >
-                                                Remove
-                                            </button>
+                                {selectedCvs.map((cv, i) => (
+                                    <div key={cv.id + "-" + i} className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-background px-3 py-2 text-xs">
+                                        <div className="flex items-center gap-2">
+                                            <FileText className="h-4 w-4 text-recruiter" />
+                                            <span className="font-medium text-foreground truncate max-w-[200px]">{cv.original_filename}</span>
                                         </div>
-                                    ))}
-                                </div>
+                                        <button onClick={() => handleRemoveFile(i)} className="text-xs font-semibold text-muted-foreground hover:text-foreground">Remove</button>
+                                    </div>
+                                ))}
                             </div>
                         )}
-                        <div className="pt-2 flex flex-wrap gap-3">
-                            <button
-                                onClick={() => setStep(1)}
-                                className="inline-flex items-center justify-center rounded-full border border-border/70 bg-background px-5 py-2 text-sm md:text-base font-semibold text-foreground hover:bg-secondary/60"
-                            >
-                                Back to job details
+                        <div className="pt-2 flex gap-3">
+                            <button onClick={() => setStep(1)} className="inline-flex items-center justify-center rounded-full border border-border/70 bg-background px-5 py-2 text-sm font-semibold text-foreground hover:bg-secondary/60">
+                                Back
                             </button>
-                            <button
-                                disabled={!canRunMatching}
-                                onClick={handleRunMatching}
-                                className="inline-flex items-center justify-center rounded-full bg-recruiter px-6 py-2.5 text-sm md:text-base font-semibold text-white shadow-md transition disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-0.5 hover:shadow-lg"
-                            >
+                            <button disabled={!canRunMatching} onClick={handleRunMatching}
+                                className="inline-flex items-center justify-center rounded-full bg-recruiter px-6 py-2.5 text-sm font-semibold text-white shadow-md transition disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-0.5 hover:shadow-lg">
                                 {isRunning ? "Matching..." : "Run AI matching"}
                             </button>
                         </div>
                     </div>
                     <div className="space-y-4 rounded-3xl border border-dashed border-recruiter/40 bg-recruiter/5 p-6 md:p-8">
-                        <h3 className="font-serif text-xl md:text-2xl text-foreground mb-1">What happens next</h3>
-                        <p className="text-sm md:text-base text-muted-foreground">
-                            The backend will compare each CV with the role you defined, then score and comment on every profile so you can justify why it fits.
-                        </p>
-                        <ul className="mt-3 space-y-2 text-sm md:text-base text-muted-foreground">
-                            <li>We extract the text and structure of each CV.</li>
-                            <li>We look for skills, experience and domain fit with your job.</li>
-                            <li>You receive a match score and a short explanation per CV.</li>
+                        <h3 className="font-serif text-xl md:text-2xl text-foreground">What happens next</h3>
+                        <p className="text-sm text-muted-foreground">The backend compares each CV to your role, then scores and explains every profile.</p>
+                        <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                            <li>We extract text and structure from each CV.</li>
+                            <li>We check skills, experience and domain fit.</li>
+                            <li>You get a score and explanation per CV — instantly.</li>
                         </ul>
                     </div>
                 </div>
             )}
 
+            {/* Step 3 */}
             {step === 3 && (
                 <div className="space-y-6">
                     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] items-start">
-                        <div className="space-y-4">
-                            <div className="rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
-                                <div className="mb-4 flex items-center gap-3">
-                                    <CheckCircle2 className="h-6 w-6 text-emerald-500" />
-                                    <h3 className="font-serif text-2xl md:text-3xl text-foreground">Best matched CV</h3>
-                                </div>
-                                {results.length > 0 && (
-                                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                                        <div>
-                                            <p className="text-base md:text-lg font-semibold text-foreground">
-                                                {results[0].file_name}
-                                            </p>
-                                            <p className="mt-1 text-sm md:text-base text-muted-foreground">
-                                                {results[0].reasons.overall_reason}
-                                            </p>
-                                            {(results[0].reasons.strengths?.length || 0) > 0 && (
-                                                <ul className="mt-3 list-disc pl-5 text-xs md:text-sm text-emerald-700">
-                                                    {results[0].reasons.strengths.map((item, idx) => (
-                                                        <li key={idx}>{item}</li>
-                                                    ))}
-                                                </ul>
-                                            )}
-                                            {(results[0].reasons.risks?.length || 0) > 0 && (
-                                                <ul className="mt-2 list-disc pl-5 text-xs md:text-sm text-amber-700">
-                                                    {results[0].reasons.risks.map((item, idx) => (
-                                                        <li key={idx}>{item}</li>
-                                                    ))}
-                                                </ul>
-                                            )}
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-4xl md:text-5xl font-bold text-recruiter">
-                                                {results[0].match_score}
-                                            </div>
-                                            <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                                                Match score / 100
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
+                        <div className="rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
+                            <div className="mb-4 flex items-center gap-3">
+                                <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                                <h3 className="font-serif text-2xl md:text-3xl text-foreground">Best matched CV</h3>
                             </div>
+                            {results.length > 0 && (
+                                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                                    <div>
+                                        <p className="text-base font-semibold text-foreground">{results[0].file_name}</p>
+                                        <p className="mt-1 text-sm text-muted-foreground">{results[0].reasons.overall_reason}</p>
+                                        {results[0].reasons.strengths?.length > 0 && (
+                                            <ul className="mt-3 list-disc pl-5 text-xs text-emerald-700">
+                                                {results[0].reasons.strengths.map((item, i) => <li key={i}>{item}</li>)}
+                                            </ul>
+                                        )}
+                                    </div>
+                                    <div className="text-right flex-shrink-0">
+                                        <div className="text-4xl font-bold text-recruiter">{results[0].match_score}</div>
+                                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Match / 100</div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <div className="rounded-3xl border border-border/60 bg-card/70 p-6 md:p-8">
                             <h3 className="font-serif text-xl md:text-2xl text-foreground mb-2">Job overview</h3>
-                            <p className="text-sm md:text-base text-muted-foreground">
-                                {jobDomain} · {experienceRange || "Experience not set"} · {salaryRange || "Salary not set"}
-                            </p>
+                            <p className="text-sm text-muted-foreground">{jobDomain} · {experienceRange || "Exp. not set"} · {salaryRange || "Salary not set"}</p>
                             {(location || employmentType || skills) && (
-                                <p className="mt-1 text-xs md:text-sm text-muted-foreground">
-                                    {location && `${location} · `}
-                                    {employmentType}
-                                    {skills && ` · Skills: ${skills}`}
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    {[location, employmentType, skills && `Skills: ${skills}`].filter(Boolean).join(" · ")}
                                 </p>
                             )}
                         </div>
                     </div>
                     {results.length > 1 && (
                         <div className="grid gap-4 md:grid-cols-2">
-                            {results.slice(1).map((result) => (
-                                <div
-                                    key={result.cv_id}
-                                    className="flex items-start gap-3 rounded-2xl border border-border/60 bg-card/80 p-4"
-                                >
+                            {results.slice(1).map((r) => (
+                                <div key={r.cv_id} className="flex items-start gap-3 rounded-2xl border border-border/60 bg-card/80 p-4">
                                     <FileText className="mt-1 h-5 w-5 text-recruiter" />
                                     <div className="space-y-1">
                                         <div className="flex items-center justify-between gap-2">
-                                            <p className="text-sm md:text-base font-semibold text-foreground">
-                                                {result.file_name}
-                                            </p>
-                                            <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
-                                                {result.match_score}/100
-                                            </span>
+                                            <p className="text-sm font-semibold text-foreground">{r.file_name}</p>
+                                            <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">{r.match_score}/100</span>
                                         </div>
-                                        <p className="text-xs md:text-sm text-muted-foreground">
-                                            {result.reasons.overall_reason}
-                                        </p>
+                                        <p className="text-xs text-muted-foreground">{r.reasons.overall_reason}</p>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     )}
-                    <div className="flex flex-wrap gap-3 pt-2">
-                        <button
-                            onClick={() => setStep(2)}
-                            className="inline-flex items-center justify-center rounded-full border border-border/70 bg-background px-5 py-2 text-sm md:text-base font-semibold text-foreground hover:bg-secondary/60"
-                        >
+                    <div className="flex gap-3 pt-2">
+                        <button onClick={() => setStep(2)} className="inline-flex items-center justify-center rounded-full border border-border/70 bg-background px-5 py-2 text-sm font-semibold text-foreground hover:bg-secondary/60">
                             Back to CVs
                         </button>
-                        <button
-                            onClick={handleReset}
-                            className="inline-flex items-center justify-center rounded-full bg-recruiter px-6 py-2.5 text-sm md:text-base font-semibold text-white shadow-md transition hover:-translate-y-0.5 hover:shadow-lg"
-                        >
+                        <button onClick={handleReset} className="inline-flex items-center justify-center rounded-full bg-recruiter px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:-translate-y-0.5 hover:shadow-lg">
                             Start a new match
                         </button>
                     </div>
