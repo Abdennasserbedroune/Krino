@@ -5,11 +5,27 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth/client";
 import { useToast } from "@/hooks/use-toast";
-import { Users, BarChart3, MessageSquare, Briefcase, SlidersHorizontal, Upload, CheckCircle2, FileText } from "lucide-react";
+import {
+    Users,
+    BarChart3,
+    MessageSquare,
+    Briefcase,
+    SlidersHorizontal,
+    Upload,
+    CheckCircle2,
+    FileText,
+    ClipboardList,
+    Star,
+    AlertOctagon,
+    ThumbsUp,
+    HelpCircle,
+} from "lucide-react";
 import { ProfileDropdown } from "@/components/ui/profile-dropdown";
 import Protected from "@/components/Protected";
 
-type TabId = "candidates" | "analytics" | "chat" | "jobs";
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type TabId = "candidates" | "analytics" | "chat" | "toolkit" | "jobs";
 
 type MatchStep = 1 | 2 | 3;
 
@@ -17,6 +33,20 @@ interface MatchReason {
     overall_reason: string;
     strengths: string[];
     risks: string[];
+}
+
+interface ScorecardRow {
+    competency: string;
+    weight_pct: number;
+    score: number; // 1-5
+    notes: string;
+}
+
+interface HrToolkit {
+    scorecard: ScorecardRow[];
+    verification_questions: string[];
+    red_flags: string[];
+    recommended_decision: string;
 }
 
 interface MatchResult {
@@ -27,12 +57,43 @@ interface MatchResult {
     experience_score: number;
     cv_quality_score: number;
     reasons: MatchReason;
+    hr_toolkit?: HrToolkit | null;
 }
 
 interface SelectedCv {
     id: number;
     original_filename: string;
 }
+
+// ─── Decision badge colour helper ──────────────────────────────────────────────
+
+function decisionStyle(text: string): string {
+    const t = text.toLowerCase();
+    if (t.includes("strongly")) return "bg-emerald-100 text-emerald-800 border-emerald-300";
+    if (t.includes("recommend interviewing")) return "bg-blue-100 text-blue-800 border-blue-300";
+    if (t.includes("borderline")) return "bg-amber-100 text-amber-800 border-amber-300";
+    return "bg-red-100 text-red-800 border-red-300";
+}
+
+// ─── Star rating display ────────────────────────────────────────────────────────
+
+function StarRating({ score }: { score: number }) {
+    return (
+        <div className="flex items-center gap-0.5">
+            {[1, 2, 3, 4, 5].map((n) => (
+                <Star
+                    key={n}
+                    className={`h-4 w-4 ${
+                        n <= score ? "fill-recruiter text-recruiter" : "fill-muted text-muted"
+                    }`}
+                />
+            ))}
+            <span className="ml-1 text-xs font-semibold text-muted-foreground">{score}/5</span>
+        </div>
+    );
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function RecruiterDashboardPage() {
     const { user, email, accessToken } = useAuth();
@@ -43,6 +104,7 @@ export default function RecruiterDashboardPage() {
         { id: "candidates" as TabId, label: "Candidates", icon: Users },
         { id: "analytics" as TabId, label: "Analytics", icon: BarChart3 },
         { id: "chat" as TabId, label: "AI Assistant", icon: MessageSquare },
+        { id: "toolkit" as TabId, label: "Interview Toolkit", icon: ClipboardList },
         { id: "jobs" as TabId, label: "Job Postings", icon: Briefcase },
     ];
 
@@ -86,10 +148,11 @@ export default function RecruiterDashboardPage() {
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
-                                    className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm md:text-base font-semibold transition-all ${isActive
-                                        ? "bg-recruiter text-white shadow-md"
-                                        : "bg-white text-muted-foreground hover:bg-secondary/50 hover:text-foreground border border-border/50"
-                                        }`}
+                                    className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm md:text-base font-semibold transition-all ${
+                                        isActive
+                                            ? "bg-recruiter text-white shadow-md"
+                                            : "bg-white text-muted-foreground hover:bg-secondary/50 hover:text-foreground border border-border/50"
+                                    }`}
                                 >
                                     <Icon className="h-4 w-4 md:h-5 md:w-5" />
                                     {tab.label}
@@ -105,6 +168,8 @@ export default function RecruiterDashboardPage() {
         </Protected>
     );
 }
+
+// ─── RecruiterMatchFlow ───────────────────────────────────────────────────────────
 
 function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | null; activeTab: TabId }) {
     const { toast } = useToast();
@@ -134,9 +199,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
 
     const handleFilesChange = async (event: any) => {
         const selectedFiles = Array.from(event.target.files || []);
-        if (!selectedFiles.length || !accessToken) {
-            return;
-        }
+        if (!selectedFiles.length || !accessToken) return;
 
         const remainingSlots = 5 - selectedCvs.length;
         if (remainingSlots <= 0) {
@@ -162,11 +225,9 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                 });
 
                 if (res.status === 409) {
-                    // CV with this filename already exists for this user: just reuse it
                     const existingRes = await fetch(`${backendBaseUrl}/api/v1/cv/mine`, {
                         credentials: "include",
                     });
-
                     if (existingRes.ok) {
                         const existingList = (await existingRes.json()) as { id: number; original_filename: string }[];
                         const match = existingList.find((cv) => cv.original_filename === file.name);
@@ -178,16 +239,13 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                             continue;
                         }
                     }
-
                     const data = await res.json().catch(() => null);
-                    const detail = (data as any)?.detail ?? "Upload failed";
-                    throw new Error(detail);
+                    throw new Error((data as any)?.detail ?? "Upload failed");
                 }
 
                 if (!res.ok) {
                     const data = await res.json().catch(() => null);
-                    const detail = (data as any)?.detail ?? "Upload failed";
-                    throw new Error(detail);
+                    throw new Error((data as any)?.detail ?? "Upload failed");
                 }
 
                 const created = (await res.json()) as { id: number; original_filename: string };
@@ -205,9 +263,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
             });
         } finally {
             setUploading(false);
-            if (event?.target) {
-                event.target.value = "";
-            }
+            if (event?.target) event.target.value = "";
         }
     };
 
@@ -216,9 +272,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
     };
 
     const handleRunMatching = async () => {
-        if (!selectedCvs.length || !accessToken) {
-            return;
-        }
+        if (!selectedCvs.length || !accessToken) return;
         setIsRunning(true);
         setResults([]);
 
@@ -238,16 +292,13 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
             const res = await fetch(`${backendBaseUrl}/api/v1/recruiter/match-cvs`, {
                 method: "POST",
                 credentials: "include",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
 
             if (!res.ok) {
                 const data = await res.json().catch(() => null);
-                const detail = (data as any)?.detail ?? "Matching failed";
-                throw new Error(detail);
+                throw new Error((data as any)?.detail ?? "Matching failed");
             }
 
             const data = (await res.json()) as { results: MatchResult[] };
@@ -275,6 +326,179 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
     const hasResults = results.length > 0;
     const safeIndex = Math.min(focusedIndex, Math.max(results.length - 1, 0));
     const focusedResult = hasResults ? results[safeIndex] : null;
+
+    // ── Interview Toolkit tab ──────────────────────────────────────────────────
+
+    if (activeTab === "toolkit") {
+        return (
+            <div className="space-y-8">
+                <div>
+                    <p className="inline-flex items-center gap-2 rounded-full bg-recruiter/10 px-3 py-1 text-xs md:text-sm font-medium uppercase tracking-wide text-recruiter">
+                        Interview Toolkit
+                    </p>
+                    <h2 className="mt-4 font-serif text-3xl md:text-4xl text-foreground">
+                        Structured interview guide
+                    </h2>
+                    <p className="mt-2 text-sm md:text-base text-muted-foreground max-w-2xl">
+                        For each matched candidate you get a scored competency card, targeted questions, and a hiring recommendation — ready to use in the interview room.
+                    </p>
+                </div>
+
+                {!hasResults && (
+                    <div className="rounded-3xl border border-dashed border-border/60 bg-card/60 p-10 text-center text-sm md:text-base text-muted-foreground">
+                        Run a match in the <span className="font-semibold text-foreground">Candidates</span> tab first to unlock the Interview Toolkit.
+                    </div>
+                )}
+
+                {hasResults && (
+                    <>
+                        {/* CV selector pills */}
+                        <div className="flex flex-wrap gap-2">
+                            {results.map((r, idx) => {
+                                const isActive = idx === safeIndex;
+                                return (
+                                    <button
+                                        key={r.cv_id}
+                                        onClick={() => setFocusedIndex(idx)}
+                                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs md:text-sm font-semibold transition ${
+                                            isActive
+                                                ? "border-recruiter bg-recruiter text-white"
+                                                : "border-border/60 bg-card/80 text-foreground hover:border-recruiter/70"
+                                        }`}
+                                    >
+                                        <span className="truncate max-w-[140px] md:max-w-[220px]">{r.file_name}</span>
+                                        <span className="text-[11px] md:text-xs opacity-80">{r.match_score}/100</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {focusedResult && (
+                            <div className="space-y-6">
+
+                                {/* ── Recommended decision banner ── */}
+                                {focusedResult.hr_toolkit && (
+                                    <div
+                                        className={`flex items-start gap-3 rounded-2xl border px-5 py-4 ${
+                                            decisionStyle(focusedResult.hr_toolkit.recommended_decision)
+                                        }`}
+                                    >
+                                        <ThumbsUp className="mt-0.5 h-5 w-5 flex-shrink-0" />
+                                        <div>
+                                            <p className="text-xs font-bold uppercase tracking-widest opacity-70">Hiring recommendation</p>
+                                            <p className="mt-0.5 text-sm md:text-base font-semibold">
+                                                {focusedResult.hr_toolkit.recommended_decision}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* ── Scorecard table ── */}
+                                {focusedResult.hr_toolkit?.scorecard && focusedResult.hr_toolkit.scorecard.length > 0 && (
+                                    <div className="rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
+                                        <div className="mb-5 flex items-center gap-2">
+                                            <ClipboardList className="h-5 w-5 text-recruiter" />
+                                            <h3 className="font-serif text-xl md:text-2xl text-foreground">Competency Scorecard</h3>
+                                        </div>
+                                        <p className="mb-5 text-xs md:text-sm text-muted-foreground">
+                                            Pre-filled from match data. Override scores during or after the interview.
+                                        </p>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-sm">
+                                                <thead>
+                                                    <tr className="border-b border-border/60 text-left text-xs uppercase tracking-widest text-muted-foreground">
+                                                        <th className="pb-3 pr-4 font-semibold">Competency</th>
+                                                        <th className="pb-3 pr-4 font-semibold">Weight</th>
+                                                        <th className="pb-3 pr-4 font-semibold">Pre-filled score</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-border/40">
+                                                    {focusedResult.hr_toolkit.scorecard.map((row, idx) => (
+                                                        <tr key={idx} className="py-3">
+                                                            <td className="py-3 pr-4 font-medium text-foreground">
+                                                                {row.competency}
+                                                            </td>
+                                                            <td className="py-3 pr-4">
+                                                                <span className="rounded-full bg-recruiter/10 px-2.5 py-0.5 text-xs font-semibold text-recruiter">
+                                                                    {row.weight_pct}%
+                                                                </span>
+                                                            </td>
+                                                            <td className="py-3">
+                                                                <StarRating score={row.score} />
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* ── Verification questions ── */}
+                                {focusedResult.hr_toolkit?.verification_questions &&
+                                    focusedResult.hr_toolkit.verification_questions.length > 0 && (
+                                    <div className="rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
+                                        <div className="mb-5 flex items-center gap-2">
+                                            <HelpCircle className="h-5 w-5 text-recruiter" />
+                                            <h3 className="font-serif text-xl md:text-2xl text-foreground">Interview Questions</h3>
+                                        </div>
+                                        <p className="mb-5 text-xs md:text-sm text-muted-foreground">
+                                            Tailored to this candidate’s profile and the role. Use them to probe key gaps.
+                                        </p>
+                                        <ol className="space-y-4">
+                                            {focusedResult.hr_toolkit.verification_questions.map((q, idx) => (
+                                                <li key={idx} className="flex items-start gap-3">
+                                                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-recruiter/10 text-xs font-bold text-recruiter">
+                                                        {idx + 1}
+                                                    </span>
+                                                    <p className="pt-0.5 text-sm md:text-base text-foreground leading-relaxed">
+                                                        {q}
+                                                    </p>
+                                                </li>
+                                            ))}
+                                        </ol>
+                                    </div>
+                                )}
+
+                                {/* ── Red flags ── */}
+                                {focusedResult.hr_toolkit?.red_flags &&
+                                    focusedResult.hr_toolkit.red_flags.length > 0 && (
+                                    <div className="rounded-3xl border border-red-200 bg-red-50/60 p-6 md:p-8">
+                                        <div className="mb-5 flex items-center gap-2">
+                                            <AlertOctagon className="h-5 w-5 text-red-600" />
+                                            <h3 className="font-serif text-xl md:text-2xl text-red-800">Red Flags</h3>
+                                        </div>
+                                        <p className="mb-4 text-xs md:text-sm text-red-700/80">
+                                            These are signals to verify before making a hiring decision.
+                                        </p>
+                                        <ul className="space-y-3">
+                                            {focusedResult.hr_toolkit.red_flags.map((flag, idx) => (
+                                                <li key={idx} className="flex items-start gap-3">
+                                                    <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-red-500"></span>
+                                                    <p className="text-sm md:text-base text-red-800 leading-relaxed">
+                                                        {flag}
+                                                    </p>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {/* fallback when toolkit is missing */}
+                                {!focusedResult.hr_toolkit && (
+                                    <div className="rounded-3xl border border-dashed border-border/60 bg-card/60 p-8 text-center text-sm text-muted-foreground">
+                                        No toolkit data for this CV. Re-run the match to generate it.
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+        );
+    }
+
+    // ── Analytics tab ───────────────────────────────────────────────────────────
 
     if (activeTab === "analytics") {
         return (
@@ -308,10 +532,11 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                     <button
                                         key={r.cv_id}
                                         onClick={() => setFocusedIndex(idx)}
-                                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs md:text-sm font-semibold transition ${isActive
-                                            ? "border-recruiter bg-recruiter text-white"
-                                            : "border-border/60 bg-card/80 text-foreground hover:border-recruiter/70"}
-                                        `}
+                                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs md:text-sm font-semibold transition ${
+                                            isActive
+                                                ? "border-recruiter bg-recruiter text-white"
+                                                : "border-border/60 bg-card/80 text-foreground hover:border-recruiter/70"
+                                        }`}
                                     >
                                         <span className="truncate max-w-[140px] md:max-w-[220px]">{r.file_name}</span>
                                         <span className="text-[11px] md:text-xs opacity-80">{r.match_score}/100</span>
@@ -321,7 +546,6 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                         </div>
 
                         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] items-start">
-                            {/* Metrics */}
                             <div className="space-y-5 rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
                                 <div className="flex items-center justify-between gap-3">
                                     <div>
@@ -339,7 +563,6 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                         </div>
                                     </div>
                                 </div>
-
                                 <div className="space-y-3">
                                     {[{
                                         label: "Domain fit",
@@ -367,7 +590,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                                 <div
                                                     className="h-full rounded-full bg-recruiter transition-all duration-500"
                                                     style={{ width: `${Math.max(0, Math.min(100, metric.value))}%` }}
-                                                ></div>
+                                                />
                                             </div>
                                             <p className="text-[11px] md:text-xs text-muted-foreground">{metric.helper}</p>
                                         </div>
@@ -375,7 +598,6 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                 </div>
                             </div>
 
-                            {/* Explanation */}
                             <div className="space-y-4 rounded-3xl border border-border/60 bg-card/70 p-6 md:p-8">
                                 <h3 className="font-serif text-xl md:text-2xl text-foreground">Fit explanation</h3>
                                 <p className="text-sm md:text-base text-muted-foreground">
@@ -413,6 +635,8 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
         );
     }
 
+    // ── Chat tab ─────────────────────────────────────────────────────────────
+
     if (activeTab === "chat") {
         return (
             <div className="space-y-8">
@@ -445,10 +669,11 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                     <button
                                         key={r.cv_id}
                                         onClick={() => setFocusedIndex(idx)}
-                                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs md:text-sm font-semibold transition ${isActive
-                                            ? "border-recruiter bg-recruiter text-white"
-                                            : "border-border/60 bg-card/80 text-foreground hover:border-recruiter/70"}
-                                        `}
+                                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs md:text-sm font-semibold transition ${
+                                            isActive
+                                                ? "border-recruiter bg-recruiter text-white"
+                                                : "border-border/60 bg-card/80 text-foreground hover:border-recruiter/70"
+                                        }`}
                                     >
                                         <span className="truncate max-w-[140px] md:max-w-[220px]">{r.file_name}</span>
                                         <span className="text-[11px] md:text-xs opacity-80">{r.match_score}/100</span>
@@ -458,19 +683,14 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                         </div>
 
                         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] items-start">
-                            {/* Suggested questions */}
                             <div className="space-y-5 rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
                                 <h3 className="font-serif text-xl md:text-2xl text-foreground mb-2">Suggested questions</h3>
                                 <div className="space-y-4 text-xs md:text-sm text-muted-foreground">
                                     <div>
                                         <h4 className="font-semibold text-foreground mb-1">General fit</h4>
                                         <ul className="list-disc pl-5 space-y-1">
-                                            <li>
-                                                {`Walk me through your recent experience and how it relates to this ${jobDomain} role.`}
-                                            </li>
-                                            <li>
-                                                "If you joined us in this position, what would you focus on in your first 90 days?"
-                                            </li>
+                                            <li>{`Walk me through your recent experience and how it relates to this ${jobDomain} role.`}</li>
+                                            <li>"If you joined us in this position, what would you focus on in your first 90 days?"</li>
                                         </ul>
                                     </div>
                                     {focusedResult.reasons.strengths?.length > 0 && (
@@ -478,9 +698,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                             <h4 className="font-semibold text-emerald-700 mb-1">Deep dive on strengths</h4>
                                             <ul className="list-disc pl-5 space-y-1">
                                                 {focusedResult.reasons.strengths.map((s, idx) => (
-                                                    <li key={idx}>
-                                                        {`You seem strong in "${s}". Can you share a specific project where you demonstrated this?`}
-                                                    </li>
+                                                    <li key={idx}>{`You seem strong in "${s}". Can you share a specific project where you demonstrated this?`}</li>
                                                 ))}
                                             </ul>
                                         </div>
@@ -490,9 +708,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                             <h4 className="font-semibold text-amber-700 mb-1">Probe risks & gaps</h4>
                                             <ul className="list-disc pl-5 space-y-1">
                                                 {focusedResult.reasons.risks.map((r, idx) => (
-                                                    <li key={idx}>
-                                                        {`I noticed "${r}". Can you tell me more about this and how you handle it in your current work?`}
-                                                    </li>
+                                                    <li key={idx}>{`I noticed "${r}". Can you tell me more about this and how you handle it in your current work?`}</li>
                                                 ))}
                                             </ul>
                                         </div>
@@ -500,7 +716,6 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                 </div>
                             </div>
 
-                            {/* Focus points */}
                             <div className="space-y-4 rounded-3xl border border-border/60 bg-card/70 p-6 md:p-8">
                                 <h3 className="font-serif text-xl md:text-2xl text-foreground mb-2">Focus points</h3>
                                 <p className="text-sm md:text-base text-muted-foreground">
@@ -508,14 +723,10 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                 </p>
                                 <ul className="mt-3 space-y-2 text-xs md:text-sm text-muted-foreground">
                                     {focusedResult.experience_score < 50 && (
-                                        <li>
-                                            Verify the candidate's real years of experience and seniority; the CV looks below the requested range.
-                                        </li>
+                                        <li>Verify the candidate's real years of experience and seniority; the CV looks below the requested range.</li>
                                     )}
                                     {focusedResult.skills_match_score < 50 && (
-                                        <li>
-                                            Check hands-on level with the key skills for this role; the overlap with the job description seems limited.
-                                        </li>
+                                        <li>Check hands-on level with the key skills for this role; the overlap with the job description seems limited.</li>
                                     )}
                                     {focusedResult.reasons.risks.slice(0, 2).map((r, idx) => (
                                         <li key={idx}>{r}</li>
@@ -529,6 +740,8 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
         );
     }
 
+    // ── Jobs tab ─────────────────────────────────────────────────────────────
+
     if (activeTab === "jobs") {
         return (
             <div className="bg-card rounded-3xl shadow-craft border border-border/40 min-h-[500px]">
@@ -541,7 +754,8 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
         );
     }
 
-    // Default: Candidates tab with the 3-step matching flow
+    // ── Candidates tab (default: 3-step matching flow) ───────────────────────
+
     return (
         <div className="space-y-8">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -561,9 +775,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                         <SlidersHorizontal className="h-4 w-4 text-recruiter" />
                         Quick matching flow
                     </div>
-                    <p className="mt-1">
-                        Step 1: Job details · Step 2: Upload CVs · Step 3: AI match summary.
-                    </p>
+                    <p className="mt-1">Step 1: Job details · Step 2: Upload CVs · Step 3: AI match summary.</p>
                 </div>
             </div>
 
@@ -574,15 +786,18 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                     return (
                         <div
                             key={item.id}
-                            className={`flex items-center gap-3 rounded-2xl border px-4 py-3 md:px-5 md:py-4 ${isActive ? "border-recruiter bg-recruiter/5" : "border-border/60 bg-card/60"}`}
+                            className={`flex items-center gap-3 rounded-2xl border px-4 py-3 md:px-5 md:py-4 ${
+                                isActive ? "border-recruiter bg-recruiter/5" : "border-border/60 bg-card/60"
+                            }`}
                         >
                             <div
-                                className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${isActive
-                                    ? "bg-recruiter text-white"
-                                    : isCompleted
+                                className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
+                                    isActive
+                                        ? "bg-recruiter text-white"
+                                        : isCompleted
                                         ? "bg-emerald-500 text-white"
                                         : "bg-muted text-muted-foreground"
-                                    }`}
+                                }`}
                             >
                                 {isCompleted ? <CheckCircle2 className="h-4 w-4" /> : item.id}
                             </div>
@@ -699,21 +914,11 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                             This is what the AI will see when scoring the CVs.
                         </p>
                         <ul className="mt-4 space-y-2 text-sm md:text-base text-muted-foreground">
-                            <li>
-                                <span className="font-semibold text-foreground">Domain:</span> {jobDomain}
-                            </li>
-                            <li>
-                                <span className="font-semibold text-foreground">Experience:</span> {experienceRange || "Not set yet"}
-                            </li>
-                            <li>
-                                <span className="font-semibold text-foreground">Salary:</span> {salaryRange || "Not set yet"}
-                            </li>
-                            <li>
-                                <span className="font-semibold text-foreground">Location:</span> {location || "Not set yet"}
-                            </li>
-                            <li>
-                                <span className="font-semibold text-foreground">Contract:</span> {employmentType || "Not set yet"}
-                            </li>
+                            <li><span className="font-semibold text-foreground">Domain:</span> {jobDomain}</li>
+                            <li><span className="font-semibold text-foreground">Experience:</span> {experienceRange || "Not set yet"}</li>
+                            <li><span className="font-semibold text-foreground">Salary:</span> {salaryRange || "Not set yet"}</li>
+                            <li><span className="font-semibold text-foreground">Location:</span> {location || "Not set yet"}</li>
+                            <li><span className="font-semibold text-foreground">Contract:</span> {employmentType || "Not set yet"}</li>
                         </ul>
                         {skills && (
                             <div className="mt-3 text-sm md:text-base text-muted-foreground">
@@ -757,9 +962,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                         {selectedCvs.length > 0 && (
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between text-xs md:text-sm text-muted-foreground">
-                                    <span>
-                                        {selectedCvs.length} file{selectedCvs.length > 1 ? "s" : ""} selected
-                                    </span>
+                                    <span>{selectedCvs.length} file{selectedCvs.length > 1 ? "s" : ""} selected</span>
                                     <span>Maximum 5 CVs</span>
                                 </div>
                                 <div className="space-y-2">
