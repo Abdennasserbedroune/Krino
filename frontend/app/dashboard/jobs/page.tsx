@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   Briefcase, Search, MapPin, Clock, ExternalLink,
   Loader2, AlertCircle, RefreshCw, X,
@@ -45,18 +45,20 @@ function timeAgo(dateStr: string): string {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function JobsPage() {
-  // `activeFilter` tracks which quick-search pill is highlighted.
-  // `query` is the actual search term sent to the API.
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [input,        setInput]        = useState("developer");
-  const [query,        setQuery]        = useState("developer");
+  const [input,        setInput]        = useState("");
+  const [query,        setQuery]        = useState("");
   const [jobs,         setJobs]         = useState<RemotiveJob[]>([]);
   const [loading,      setLoading]      = useState(false);
   const [error,        setError]        = useState("");
+  // null = no search done yet, false/true = search done
+  const [searched,     setSearched]     = useState(false);
 
   const fetchJobs = useCallback(async (search: string) => {
+    if (!search.trim()) return;
     setLoading(true);
     setError("");
+    setSearched(true);
     try {
       const res = await fetch(`/api/jobs?search=${encodeURIComponent(search)}&limit=20`);
       const data = await res.json();
@@ -70,25 +72,21 @@ export default function JobsPage() {
     }
   }, []);
 
-  useEffect(() => { fetchJobs(query); }, []);
-
-  // Manual search from input field
   const handleSearch = () => {
     const trimmed = input.trim();
     if (!trimmed) return;
-    setActiveFilter(null); // clear pill highlight on manual search
+    setActiveFilter(null);
     setQuery(trimmed);
     fetchJobs(trimmed);
   };
 
-  // Quick-search pill — toggle: click active pill to deselect and reset to default
   const handlePillClick = (term: string) => {
     if (activeFilter === term) {
-      // Deselect: clear filter, reset input + query to default
       setActiveFilter(null);
-      setInput("developer");
-      setQuery("developer");
-      fetchJobs("developer");
+      setInput("");
+      setQuery("");
+      setJobs([]);
+      setSearched(false);
     } else {
       setActiveFilter(term);
       setInput(term);
@@ -112,14 +110,16 @@ export default function JobsPage() {
             Live listings — powered by Remotive
           </p>
         </div>
-        <button
-          onClick={() => fetchJobs(query)}
-          disabled={loading}
-          className="inline-flex items-center gap-2 border-2 border-foreground bg-secondary px-5 py-2.5 text-sm font-bold uppercase tracking-widest shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-40"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </button>
+        {searched && (
+          <button
+            onClick={() => fetchJobs(query)}
+            disabled={loading}
+            className="inline-flex items-center gap-2 border-2 border-foreground bg-secondary px-5 py-2.5 text-sm font-bold uppercase tracking-widest shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-40"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        )}
       </div>
 
       {/* Search bar */}
@@ -132,20 +132,20 @@ export default function JobsPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              placeholder="Search by role, skill or technology…"
+              placeholder="e.g. Product Manager, Data Analyst, React…"
               className="w-full border-2 border-foreground pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <button
             onClick={handleSearch}
-            disabled={loading}
+            disabled={loading || !input.trim()}
             className="border-2 border-foreground bg-primary px-6 py-3 text-sm font-bold uppercase tracking-widest text-primary-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-x-0 active:translate-y-0 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-40"
           >
             Search
           </button>
         </div>
 
-        {/* Toggleable quick-search pills */}
+        {/* Quick-search pills */}
         <div className="flex flex-wrap gap-2 items-center">
           {QUICK_SEARCHES.map((term) => {
             const isActive = activeFilter === term;
@@ -164,8 +164,6 @@ export default function JobsPage() {
               </button>
             );
           })}
-
-          {/* Clear active filter badge */}
           {activeFilter && (
             <button
               onClick={() => handlePillClick(activeFilter)}
@@ -177,11 +175,26 @@ export default function JobsPage() {
         </div>
       </div>
 
+      {/* Empty state — no search done yet */}
+      {!searched && !loading && (
+        <div className="flex flex-col items-center gap-4 py-20 border-2 border-dashed border-slate-200 rounded-xl">
+          <div className="h-16 w-16 rounded-full bg-blue-50 flex items-center justify-center">
+            <Search className="h-8 w-8 text-blue-400" />
+          </div>
+          <div className="text-center">
+            <p className="text-base font-bold text-foreground">Search for your next remote role</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Type a job title, skill, or category above — e.g. <span className="font-semibold text-foreground">"Product Manager"</span> or <span className="font-semibold text-foreground">"Data Analyst"</span>
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Loading */}
       {loading && (
         <div className="flex flex-col items-center gap-3 py-16">
           <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-          <p className="text-sm font-medium text-muted-foreground">Fetching live jobs for “{query}”…</p>
+          <p className="text-sm font-medium text-muted-foreground">Fetching live jobs for &ldquo;{query}&rdquo;&hellip;</p>
         </div>
       )}
 
@@ -197,11 +210,11 @@ export default function JobsPage() {
       )}
 
       {/* Results */}
-      {!loading && !error && (
+      {!loading && !error && searched && (
         <>
           {jobs.length > 0 && (
             <p className="text-xs text-muted-foreground font-medium">
-              {jobs.length} remote role{jobs.length !== 1 ? "s" : ""} found for “{query}”
+              {jobs.length} remote role{jobs.length !== 1 ? "s" : ""} found for &ldquo;{query}&rdquo;
             </p>
           )}
 
@@ -284,8 +297,8 @@ export default function JobsPage() {
           {jobs.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-16 border-2 border-dashed border-slate-200">
               <Briefcase className="h-10 w-10 text-slate-300" />
-              <p className="text-sm font-medium text-muted-foreground">No remote jobs found for “{query}”</p>
-              <p className="text-xs text-muted-foreground">Try a different keyword — e.g. “Python”, “React”, “Data”</p>
+              <p className="text-sm font-medium text-muted-foreground">No remote jobs found for &ldquo;{query}&rdquo;</p>
+              <p className="text-xs text-muted-foreground">Try a different keyword — e.g. &ldquo;Python&rdquo;, &ldquo;React&rdquo;, &ldquo;Data&rdquo;</p>
             </div>
           )}
         </>
