@@ -14,21 +14,23 @@ function normalizeStringArray(raw: unknown): string[] {
       if (typeof item === "object") {
         const o = item as Record<string, unknown>;
         const label =
-          (typeof o.skill       === "string" && o.skill)    ||
-          (typeof o.category    === "string" && o.category) ||
-          (typeof o.type        === "string" && o.type)     || "";
+          (typeof o.skill === "string" && o.skill) ||
+          (typeof o.category === "string" && o.category) ||
+          (typeof o.type === "string" && o.type) ||
+          "";
         const body =
           (typeof o.description === "string" && o.description) ||
-          (typeof o.text        === "string" && o.text)        ||
-          (typeof o.advice      === "string" && o.advice)      ||
-          (typeof o.tip         === "string" && o.tip)         ||
-          (typeof o.point       === "string" && o.point)       ||
-          (typeof o.item        === "string" && o.item)        ||
-          (typeof o.content     === "string" && o.content)     ||
-          (typeof o.value       === "string" && o.value)       || "";
+          (typeof o.text === "string" && o.text) ||
+          (typeof o.advice === "string" && o.advice) ||
+          (typeof o.tip === "string" && o.tip) ||
+          (typeof o.point === "string" && o.point) ||
+          (typeof o.item === "string" && o.item) ||
+          (typeof o.content === "string" && o.content) ||
+          (typeof o.value === "string" && o.value) ||
+          "";
         if (label && body) return `${label} — ${body}`;
-        if (body)           return body;
-        if (label)          return label;
+        if (body) return body;
+        if (label) return label;
         const fallback = Object.values(o)
           .filter((v): v is string => typeof v === "string")
           .join(" — ");
@@ -37,6 +39,32 @@ function normalizeStringArray(raw: unknown): string[] {
       return String(item).trim();
     })
     .filter(Boolean);
+}
+
+// ─── Guardrail: reject gibberish / low-signal job descriptions ───────────────────────────────
+// We must prevent the model from inventing requirements when the user pasted noise.
+function isMeaningfulJobDescription(desc: string): boolean {
+  const text = (desc || "").trim();
+  if (text.length < 120) return false;
+
+  const alpha = text.replace(/[^a-zA-Z]/g, "");
+  if (alpha.length < 60) return false;
+
+  const vowels = (alpha.match(/[aeiouAEIOU]/g) || []).length;
+  if (vowels / alpha.length < 0.15) return false;
+
+  const tokens = text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(" ")
+    .filter((t) => t.length >= 3);
+
+  if (tokens.length < 18) return false;
+  const unique = new Set(tokens).size;
+  if (unique < 10) return false;
+  if (unique / tokens.length < 0.35) return false;
+
+  return true;
 }
 
 // ─── Deterministic helpers (domain + experience) ───────────────────────────────────────────────
@@ -72,53 +100,164 @@ function experienceScore(candidateYears: number, requiredRange: string): number 
 
 const DOMAIN_KW: Record<string, string[]> = {
   "ai & data": [
-    "data", "analytics", "machine learning", "ml", "ai", "python", "sql",
-    "pandas", "tableau", "power bi", "statistics", "modeling", "etl",
-    "big data", "visualization", "scikit", "tensorflow", "spark",
+    "data",
+    "analytics",
+    "machine learning",
+    "ml",
+    "ai",
+    "python",
+    "sql",
+    "pandas",
+    "tableau",
+    "power bi",
+    "statistics",
+    "modeling",
+    "etl",
+    "big data",
+    "visualization",
+    "scikit",
+    "tensorflow",
+    "spark",
   ],
   "software engineering": [
-    "software", "developer", "engineer", "javascript", "typescript", "react",
-    "node", "java", "c#", "c++", "backend", "frontend", "api", "git",
-    "agile", "devops", "cloud", "aws", "azure", "docker", "kubernetes",
+    "software",
+    "developer",
+    "engineer",
+    "javascript",
+    "typescript",
+    "react",
+    "node",
+    "java",
+    "c#",
+    "c++",
+    "backend",
+    "frontend",
+    "api",
+    "git",
+    "agile",
+    "devops",
+    "cloud",
+    "aws",
+    "azure",
+    "docker",
+    "kubernetes",
   ],
   "product management": [
-    "product manager", "roadmap", "backlog", "stakeholder", "kpi",
-    "agile", "scrum", "user story", "product", "launch", "market research",
-    "go-to-market", "okr",
+    "product manager",
+    "roadmap",
+    "backlog",
+    "stakeholder",
+    "kpi",
+    "agile",
+    "scrum",
+    "user story",
+    "product",
+    "launch",
+    "market research",
+    "go-to-market",
+    "okr",
   ],
   "marketing & growth": [
-    "marketing", "campaign", "seo", "sem", "growth", "branding",
-    "content", "social media", "digital", "ads", "conversion",
-    "email marketing", "copywriting", "inbound",
+    "marketing",
+    "campaign",
+    "seo",
+    "sem",
+    "growth",
+    "branding",
+    "content",
+    "social media",
+    "digital",
+    "ads",
+    "conversion",
+    "email marketing",
+    "copywriting",
+    "inbound",
   ],
   "finance & banking": [
-    "finance", "financial", "bank", "investment", "valuation",
-    "accounting", "audit", "cfa", "excel", "modeling", "budget",
-    "p&l", "treasury", "risk", "compliance",
+    "finance",
+    "financial",
+    "bank",
+    "investment",
+    "valuation",
+    "accounting",
+    "audit",
+    "cfa",
+    "excel",
+    "modeling",
+    "budget",
+    "p&l",
+    "treasury",
+    "risk",
+    "compliance",
   ],
   "design & ux": [
-    "design", "designer", "ux", "ui", "figma", "wireframe",
-    "prototype", "adobe", "sketch", "user research", "usability",
-    "interaction design", "visual design",
+    "design",
+    "designer",
+    "ux",
+    "ui",
+    "figma",
+    "wireframe",
+    "prototype",
+    "adobe",
+    "sketch",
+    "user research",
+    "usability",
+    "interaction design",
+    "visual design",
   ],
   "sales": [
-    "sales", "crm", "revenue", "quota", "pipeline", "b2b", "b2c",
-    "account manager", "closing", "negotiation", "prospecting",
-    "salesforce", "outbound", "cold calling", "business development",
+    "sales",
+    "crm",
+    "revenue",
+    "quota",
+    "pipeline",
+    "b2b",
+    "b2c",
+    "account manager",
+    "closing",
+    "negotiation",
+    "prospecting",
+    "salesforce",
+    "outbound",
+    "cold calling",
+    "business development",
   ],
   "hr & people": [
-    "hr", "human resources", "recruiting", "talent acquisition",
-    "onboarding", "payroll", "culture", "employee relations",
-    "performance review", "hris", "compensation",
+    "hr",
+    "human resources",
+    "recruiting",
+    "talent acquisition",
+    "onboarding",
+    "payroll",
+    "culture",
+    "employee relations",
+    "performance review",
+    "hris",
+    "compensation",
   ],
   "operations": [
-    "operations", "supply chain", "logistics", "procurement",
-    "process improvement", "lean", "six sigma", "warehouse",
-    "inventory", "vendor management",
+    "operations",
+    "supply chain",
+    "logistics",
+    "procurement",
+    "process improvement",
+    "lean",
+    "six sigma",
+    "warehouse",
+    "inventory",
+    "vendor management",
   ],
   "legal": [
-    "legal", "law", "attorney", "compliance", "regulatory",
-    "contract", "litigation", "counsel", "paralegal", "gdpr",
+    "legal",
+    "law",
+    "attorney",
+    "compliance",
+    "regulatory",
+    "contract",
+    "litigation",
+    "counsel",
+    "paralegal",
+    "gdpr",
   ],
 };
 
@@ -127,7 +266,10 @@ function domainScore(domain: string, rawText: string): number {
   const cvLower = rawText.toLowerCase();
   let jobKws: string[] | null = null;
   for (const [key, kws] of Object.entries(DOMAIN_KW)) {
-    if (base.includes(key)) { jobKws = kws; break; }
+    if (base.includes(key)) {
+      jobKws = kws;
+      break;
+    }
   }
   if (!jobKws) return 15;
   const hits = jobKws.filter((kw) => cvLower.includes(kw)).length;
@@ -143,16 +285,13 @@ function fallbackSkillsScore(requiredSkills: string[], cvSkills: unknown): numbe
   const cvTokens: string[] = [];
   if (Array.isArray(cvSkills)) {
     for (const item of cvSkills)
-      if (typeof item === "string")
-        cvTokens.push(...item.toLowerCase().split(",").map((s) => s.trim()));
+      if (typeof item === "string") cvTokens.push(...item.toLowerCase().split(",").map((s) => s.trim()));
   } else if (cvSkills && typeof cvSkills === "object") {
     for (const val of Object.values(cvSkills as Record<string, unknown>)) {
-      if (typeof val === "string")
-        cvTokens.push(...val.toLowerCase().split(",").map((s) => s.trim()));
+      if (typeof val === "string") cvTokens.push(...val.toLowerCase().split(",").map((s) => s.trim()));
       else if (Array.isArray(val))
         for (const v of val)
-          if (typeof v === "string")
-            cvTokens.push(...v.toLowerCase().split(",").map((s) => s.trim()));
+          if (typeof v === "string") cvTokens.push(...v.toLowerCase().split(",").map((s) => s.trim()));
     }
   }
   const cvSet = new Set(cvTokens.filter(Boolean));
@@ -163,7 +302,7 @@ function fallbackSkillsScore(requiredSkills: string[], cvSkills: unknown): numbe
 }
 
 function combineScores(domain: number, experience: number, skills: number, quality: number): number {
-  return Math.max(0, Math.min(100, Math.floor(0.40 * domain + 0.30 * skills + 0.20 * experience + 0.10 * quality)));
+  return Math.max(0, Math.min(100, Math.floor(0.4 * domain + 0.3 * skills + 0.2 * experience + 0.1 * quality)));
 }
 
 // ─── Step 1: Extract REAL job requirements (filter noise) ──────────────────────────────────
@@ -173,14 +312,16 @@ async function extractJobRequirements(
   desc: string,
   category: string,
   title: string,
-  skillsHint: string,
+  skillsHint: string
 ): Promise<Record<string, unknown>> {
   const snippet = desc.trim().slice(0, 3000);
   const prefix = [
-    category   ? `Job category: ${category}` : "",
-    title      ? `Job title: ${title}`        : "",
+    category ? `Job category: ${category}` : "",
+    title ? `Job title: ${title}` : "",
     skillsHint ? `Skills the applicant mentioned: ${skillsHint}` : "",
-  ].filter(Boolean).join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   try {
     const resp = await groq.chat.completions.create({
@@ -189,23 +330,19 @@ async function extractJobRequirements(
         {
           role: "system",
           content:
-            "You are a senior technical recruiter extracting REAL professional requirements from job descriptions.\n" +
-            "\n" +
+            "You are a senior technical recruiter extracting REAL professional requirements from job descriptions.\n\n" +
             "ONLY extract requirements that a candidate would realistically list on a CV or LinkedIn profile:\n" +
             "  • Technical tools, frameworks, programming languages, platforms\n" +
             "  • Domain-specific methodologies (e.g. Agile, Six Sigma, IFRS)\n" +
             "  • Industry certifications (e.g. PMP, CFA, AWS Solutions Architect)\n" +
-            "  • Language skills ONLY when they are a genuine business requirement " +
-            "    (e.g. client-facing role in French, documentation in Arabic) — NOT generic literacy\n" +
-            "\n" +
+            "  • Language skills ONLY when they are a genuine business requirement\n\n" +
             "IGNORE — do NOT extract these even if mentioned in the job description:\n" +
             "  • Hardware or equipment (computer, laptop, phone, internet connection, car)\n" +
             "  • Generic soft skills (communication, teamwork, problem-solving, motivation, adaptability)\n" +
             "  • Obvious prerequisites every professional has (ability to work, willingness to learn)\n" +
             "  • Physical requirements (ability to lift, driving license unless specifically required)\n" +
             "  • Company perks or benefits (free lunch, health insurance, flexible hours)\n" +
-            "  • Legal formalities (right to work, background check)\n" +
-            "\n" +
+            "  • Legal formalities (right to work, background check)\n\n" +
             "Be conservative: if unsure whether something belongs on a CV, leave it out.",
         },
         {
@@ -241,8 +378,6 @@ async function extractJobRequirements(
 }
 
 // ─── Step 2: Semantic narrative + skills score in one call ──────────────────────────────────
-// Returns everything needed for the UI PLUS a semantic_skills_score (0-100)
-// based on meaning, synonyms, and implied knowledge — not string overlap.
 
 async function analyzeCvAgainstJob(
   groq: Groq,
@@ -250,18 +385,24 @@ async function analyzeCvAgainstJob(
   cvStructured: Record<string, unknown>,
   rawCvText: string,
   cvScore: number,
-  jobTitle: string,
+  jobTitle: string
 ): Promise<Record<string, unknown>> {
   const titleLine = jobTitle ? `Job title: ${jobTitle}\n` : "";
   const reqJson = JSON.stringify(jobReqs, null, 2);
 
-  // Include both structured data AND a snippet of raw text so the model
-  // can find skills that weren't cleanly parsed into structured_data
-  const allowedKeys = ["personal_info", "summary", "experience", "education", "skills", "certifications", "languages"];
+  const allowedKeys = [
+    "personal_info",
+    "summary",
+    "experience",
+    "education",
+    "skills",
+    "certifications",
+    "languages",
+  ];
   const compact: Record<string, unknown> = {};
   for (const k of allowedKeys) if (cvStructured[k] !== undefined) compact[k] = cvStructured[k];
   const cvJson = JSON.stringify(compact, null, 2).slice(0, 2000);
-  const rawSnippet = (rawCvText || "").slice(0, 800); // extra context for synonyms
+  const rawSnippet = (rawCvText || "").slice(0, 800);
 
   try {
     const resp = await groq.chat.completions.create({
@@ -271,19 +412,14 @@ async function analyzeCvAgainstJob(
           role: "system",
           content:
             "You are a senior career advisor and technical recruiter. " +
-            "Evaluate how well a candidate's CV matches a job role with honesty and precision.\n" +
-            "\n" +
+            "Evaluate how well a candidate's CV matches a job role with honesty and precision.\n\n" +
+            "IMPORTANT: You MUST only judge against the provided ROLE REQUIREMENTS. " +
+            "Do NOT invent job requirements that are not present in the ROLE REQUIREMENTS JSON.\n\n" +
             "SKILLS ASSESSMENT RULES (for semantic_skills_score):\n" +
-            "  • Treat synonyms as matches: ML = machine learning, JS = JavaScript, " +
-            "    NLP = natural language processing, CV = computer vision\n" +
-            "  • Treat implied skills as matches: if the candidate uses PyTorch they know Python; " +
-            "    if they built REST APIs they know HTTP/JSON; if they use dbt they know SQL\n" +
-            "  • Treat technology families: scikit-learn ⇒ knows ML; React ⇒ knows JavaScript\n" +
-            "  • IGNORE requirements that are not real CV skills: " +
-            "    hardware, obvious soft skills, generic literacy, physical requirements\n" +
-            "  • Only penalise for skills that are GENUINELY absent from the candidate's background\n" +
-            "\n" +
-            "Be brutally honest in the narrative. Reference SPECIFIC tools and experience. " +
+            "  • Treat synonyms as matches: ML = machine learning, JS = JavaScript, NLP = natural language processing\n" +
+            "  • Treat implied skills as matches: PyTorch ⇒ Python; REST APIs ⇒ HTTP/JSON; dbt ⇒ SQL\n" +
+            "  • Treat technology families: React ⇒ JavaScript\n" +
+            "  • Only penalise for skills that are genuinely absent from the candidate's background\n\n" +
             "For gaps, state severity: [BLOCKING], [IMPORTANT], or [MINOR].",
         },
         {
@@ -295,14 +431,13 @@ async function analyzeCvAgainstJob(
             `=== CANDIDATE CV (raw text snippet for context) ===\n${rawSnippet}\n\n` +
             `CV quality score: ${cvScore}/100\n\n` +
             "Return JSON with EXACTLY these keys:\n" +
-            "  semantic_skills_score: integer 0-100 " +
-            "(how well the candidate's skills match the REAL requirements, using synonym/implication reasoning)\n" +
+            "  semantic_skills_score: integer 0-100\n" +
             "  overall_verdict: string (one sentence)\n" +
-            "  hire_probability: string (e.g. \"Low — 12%\", \"Moderate — 50%\", \"High — 82%\")\n" +
+            "  hire_probability: string\n" +
             "  overall_reason: string (2-3 sentences, specific)\n" +
-            "  strengths: array of plain strings (specific tools/skills that match)\n" +
+            "  strengths: array of plain strings\n" +
             "  gaps: array of plain strings (each starting with [BLOCKING], [IMPORTANT], or [MINOR])\n" +
-            "  actionable_advice: array of plain strings (concrete next steps)\n" +
+            "  actionable_advice: array of plain strings\n" +
             "  application_ready: boolean\n" +
             "IMPORTANT: all array values must be plain strings, never nested objects.",
         },
@@ -332,12 +467,15 @@ async function analyzeCvAgainstJob(
 export async function POST(req: NextRequest) {
   try {
     const supabase = createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json() as {
+    const body = (await req.json()) as {
       cv_id: number | string;
       job_category?: string;
       job_title?: string;
@@ -363,61 +501,74 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ detail: "Groq API key is not configured" }, { status: 500 });
     }
 
-    const rawText: string = (cv.extracted_cv as Record<string, unknown>)?.raw_text as string || "";
-    const structuredData  = (cv.structured_data  as Record<string, unknown>) || {};
+    const rawText: string = ((cv.extracted_cv as Record<string, unknown>)?.raw_text as string) || "";
+    const structuredData = (cv.structured_data as Record<string, unknown>) || {};
     const cvScore: number = (cv.score as number) || 0;
 
-    const jobCategory        = body.job_category        || "";
-    const jobTitle           = body.job_title           || "";
-    const jobDescription     = (body.job_description    || "").slice(0, 5000);
+    const jobCategory = body.job_category || "";
+    const jobTitle = body.job_title || "";
+    const jobDescription = (body.job_description || "").slice(0, 5000);
     const experienceRequired = body.experience_required || "";
-    const skillsRequired     = body.skills_required     || "";
+    const skillsRequired = body.skills_required || "";
+
+    // Hard guardrail: block nonsense descriptions to stop hallucinated requirements.
+    if (!isMeaningfulJobDescription(jobDescription)) {
+      return NextResponse.json(
+        {
+          detail:
+            "Job description looks invalid/too low-signal. Paste the real job post (responsibilities + requirements). " +
+            "Random text or repeated characters will produce unreliable results.",
+        },
+        { status: 400 }
+      );
+    }
 
     // Deterministic: domain + experience
     const candidateYears = parseCandidateYears(rawText);
     const expScore = experienceScore(candidateYears, experienceRequired);
     const domScore = domainScore(jobCategory, rawText);
 
-    // Step 1: Extract clean job requirements (noise filtered by prompt)
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+    // Step 1: Extract clean job requirements
     const jobReqs = await extractJobRequirements(groq, jobDescription, jobCategory, jobTitle, skillsRequired);
 
-    // Step 2: Semantic narrative + semantic_skills_score in one AI call
-    const aiResult = await analyzeCvAgainstJob(
-      groq, jobReqs, structuredData, rawText, cvScore, jobTitle
-    );
+    // Step 2: Semantic narrative + semantic_skills_score
+    const aiResult = await analyzeCvAgainstJob(groq, jobReqs, structuredData, rawText, cvScore, jobTitle);
 
-    // Skills score: prefer AI semantic score, fall back to string match
-    const aiSkillsScore = typeof aiResult.semantic_skills_score === "number"
-      ? Math.max(0, Math.min(100, Math.floor(aiResult.semantic_skills_score)))
-      : null;
+    const aiSkillsScore =
+      typeof aiResult.semantic_skills_score === "number"
+        ? Math.max(0, Math.min(100, Math.floor(aiResult.semantic_skills_score)))
+        : null;
 
     const requiredSkills = normalizeStringArray(jobReqs.required_skills);
     const fallbackSkills = skillsRequired.split(",").map((s) => s.trim()).filter(Boolean);
-    const skScore = aiSkillsScore ?? fallbackSkillsScore(
-      requiredSkills.length ? requiredSkills : fallbackSkills,
-      structuredData.skills
-    );
+
+    const skScore =
+      aiSkillsScore ??
+      fallbackSkillsScore(requiredSkills.length ? requiredSkills : fallbackSkills, structuredData.skills);
 
     const totalScore = combineScores(domScore, expScore, skScore, cvScore);
 
-    return NextResponse.json({
-      cv_id:              cv.id,
-      file_name:          cv.original_filename,
-      match_score:        totalScore,
-      skills_match_score: skScore,
-      experience_score:   expScore,
-      cv_quality_score:   cvScore,
-      overall_verdict:    typeof aiResult.overall_verdict === "string" ? aiResult.overall_verdict : "",
-      hire_probability:   typeof aiResult.hire_probability === "string" ? aiResult.hire_probability : "N/A",
-      overall_reason:     typeof aiResult.overall_reason   === "string" ? aiResult.overall_reason   : "",
-      strengths:          normalizeStringArray(aiResult.strengths),
-      gaps:               normalizeStringArray(aiResult.gaps),
-      actionable_advice:  normalizeStringArray(aiResult.actionable_advice),
-      application_ready:  Boolean(aiResult.application_ready),
-      job_requirements:   jobReqs,
-    }, { status: 200 });
-
+    return NextResponse.json(
+      {
+        cv_id: cv.id,
+        file_name: cv.original_filename,
+        match_score: totalScore,
+        skills_match_score: skScore,
+        experience_score: expScore,
+        cv_quality_score: cvScore,
+        overall_verdict: typeof aiResult.overall_verdict === "string" ? aiResult.overall_verdict : "",
+        hire_probability: typeof aiResult.hire_probability === "string" ? aiResult.hire_probability : "N/A",
+        overall_reason: typeof aiResult.overall_reason === "string" ? aiResult.overall_reason : "",
+        strengths: normalizeStringArray(aiResult.strengths),
+        gaps: normalizeStringArray(aiResult.gaps),
+        actionable_advice: normalizeStringArray(aiResult.actionable_advice),
+        application_ready: Boolean(aiResult.application_ready),
+        job_requirements: jobReqs,
+      },
+      { status: 200 }
+    );
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("[match-to-job] unhandled error:", msg);
