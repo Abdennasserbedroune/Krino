@@ -1,271 +1,283 @@
 "use client";
 
-import { useState } from "react";
-import { Briefcase, MapPin, DollarSign, Clock, RefreshCw, Crown } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import {
+  Briefcase, Search, MapPin, Clock, ExternalLink,
+  Loader2, AlertCircle, RefreshCw,
+} from "lucide-react";
 
-interface Job {
-    id: number;
-    title: string;
-    company: string;
-    location: string;
-    salary: string;
-    type: string;
-    category: string;
-    postedDays: number;
-    description: string;
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface RemotiveJob {
+  id: number;
+  url: string;
+  title: string;
+  company_name: string;
+  category: string;
+  tags: string[];
+  job_type: string;
+  publication_date: string;
+  candidate_required_location: string;
+  salary: string;
+  description: string;
+  company_logo_url: string;
 }
 
-const MOCK_JOBS: Job[] = [
-    {
-        id: 1,
-        title: "Senior Data Scientist",
-        company: "TechCorp AI",
-        location: "San Francisco, CA",
-        salary: "$120k - $180k",
-        type: "Full-time",
-        category: "IT",
-        postedDays: 2,
-        description: "Build ML models and drive data strategy. 5+ years experience required.",
-    },
-    {
-        id: 2,
-        title: "Full Stack Developer",
-        company: "StartupHub",
-        location: "Remote",
-        salary: "$90k - $140k",
-        type: "Full-time",
-        category: "IT",
-        postedDays: 1,
-        description: "React, Node.js, TypeScript. Build modern web applications.",
-    },
-    {
-        id: 3,
-        title: "Financial Analyst",
-        company: "InvestBank",
-        location: "New York, NY",
-        salary: "$80k - $110k",
-        type: "Full-time",
-        category: "Finance",
-        postedDays: 3,
-        description: "Analyze financial data and create investment strategies.",
-    },
-    {
-        id: 4,
-        title: "Marketing Manager",
-        company: "BrandX",
-        location: "Los Angeles, CA",
-        salary: "$70k - $100k",
-        type: "Full-time",
-        category: "Marketing",
-        postedDays: 5,
-        description: "Lead marketing campaigns and brand strategy.",
-    },
-    {
-        id: 5,
-        title: "Product Manager",
-        company: "CloudSoft",
-        location: "Seattle, WA",
-        salary: "$110k - $160k",
-        type: "Full-time",
-        category: "IT",
-        postedDays: 4,
-        description: "Define product roadmap and work with engineering teams.",
-    },
-    {
-        id: 6,
-        title: "UX Designer",
-        company: "DesignStudio",
-        location: "Austin, TX",
-        salary: "$75k - $115k",
-        type: "Contract",
-        category: "Design",
-        postedDays: 2,
-        description: "Create user-centered designs for web and mobile applications.",
-    },
-    {
-        id: 7,
-        title: "Blockchain Developer",
-        company: "CryptoVentures",
-        location: "Remote",
-        salary: "$130k - $200k",
-        type: "Full-time",
-        category: "IT",
-        postedDays: 1,
-        description: "Build decentralized applications on Ethereum and Solana.",
-    },
-    {
-        id: 8,
-        title: "Investment Banker",
-        company: "GlobalFinance",
-        location: "London, UK",
-        salary: "£90k - £150k",
-        type: "Full-time",
-        category: "Finance",
-        postedDays: 6,
-        description: "Advise clients on mergers, acquisitions, and capital raising.",
-    },
+// ─── Quick-search suggestions ────────────────────────────────────────────────
+
+const QUICK_SEARCHES = [
+  "Data Analyst", "React", "Python", "Product Manager",
+  "Power BI", "Full Stack", "UX Designer", "DevOps",
 ];
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / 86_400_000);
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7)  return `${days} days ago`;
+  if (days < 30) return `${Math.floor(days / 7)} week${Math.floor(days / 7) > 1 ? "s" : ""} ago`;
+  return `${Math.floor(days / 30)} month${Math.floor(days / 30) > 1 ? "s" : ""} ago`;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function JobsPage() {
-    const [selectedCategory, setSelectedCategory] = useState<string>("All");
-    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [query,   setQuery]   = useState("developer");
+  const [input,   setInput]   = useState("developer");
+  const [jobs,    setJobs]    = useState<RemotiveJob[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState("");
 
-    const categories = ["All", "IT", "Finance", "Marketing", "Design"];
+  const fetchJobs = useCallback(async (search: string) => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(
+        `/api/jobs?search=${encodeURIComponent(search)}&limit=20`,
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to fetch jobs");
+      setJobs(data.jobs ?? []);
+    } catch (e: any) {
+      setError(e.message ?? "Something went wrong.");
+      setJobs([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    const filteredJobs = selectedCategory === "All"
-        ? MOCK_JOBS
-        : MOCK_JOBS.filter((job) => job.category === selectedCategory);
+  // Auto-search on mount
+  useEffect(() => { fetchJobs(query); }, []);
 
-    const handleApply = () => {
-        setShowUpgradeModal(true);
-    };
+  const handleSearch = () => {
+    const trimmed = input.trim();
+    if (!trimmed) return;
+    setQuery(trimmed);
+    fetchJobs(trimmed);
+  };
 
-    const handleRefresh = () => {
-        setShowUpgradeModal(true);
-    };
+  const handleQuickSearch = (term: string) => {
+    setInput(term);
+    setQuery(term);
+    fetchJobs(term);
+  };
 
-    return (
-        <div className="space-y-8">
-            {/* Header */}
-            <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                    <div className="flex items-center gap-2 mb-3">
-                        <div className="h-1.5 w-7 bg-primary"></div>
-                        <h1 className="font-serif text-3xl md:text-4xl font-bold uppercase tracking-tight text-foreground">
-                            Job Board
-                        </h1>
-                    </div>
-                    <p className="text-sm md:text-base font-medium uppercase tracking-widest text-muted-foreground">
-                        Premium Feature • Upgrade to Apply
-                    </p>
-                </div>
-                <button
-                    onClick={handleRefresh}
-                    className="inline-flex items-center gap-2 border-2 border-foreground bg-secondary px-6 py-3 text-sm md:text-base font-bold uppercase tracking-widest text-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-0 active:translate-y-0 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                >
-                    <RefreshCw className="h-5 w-5" />
-                    Refresh
-                </button>
-            </div>
-
-            {/* Category Filter */}
-            <div className="flex items-center gap-4 overflow-x-auto pb-1">
-                {categories.map((category) => (
-                    <button
-                        key={category}
-                        onClick={() => setSelectedCategory(category)}
-                        className={`whitespace-nowrap border-2 border-foreground px-5 py-2 text-sm font-bold uppercase tracking-widest transition-all ${selectedCategory === category
-                                ? "bg-primary text-primary-foreground shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
-                                : "bg-background text-foreground shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
-                            }`}
-                    >
-                        {category}
-                    </button>
-                ))}
-            </div>
-
-            {/* Jobs Grid */}
-            <div className="grid gap-6 lg:grid-cols-2">
-                {filteredJobs.map((job) => (
-                    <div
-                        key={job.id}
-                        className="border-2 border-foreground bg-card p-7 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]"
-                    >
-                        {/* Job Header */}
-                        <div className="mb-4">
-                            <h3 className="font-serif text-2xl font-bold uppercase tracking-tight text-foreground">
-                                {job.title}
-                            </h3>
-                            <p className="text-base font-bold uppercase tracking-widest text-muted-foreground">
-                                {job.company}
-                            </p>
-                        </div>
-
-                        {/* Job Meta */}
-                        <div className="mb-4 space-y-2">
-                            <div className="flex items-center gap-2 text-sm font-medium uppercase tracking-widest text-foreground">
-                                <MapPin className="h-4 w-4" />
-                                {job.location}
-                            </div>
-                            <div className="flex items-center gap-2 text-sm font-medium uppercase tracking-widest text-foreground">
-                                <DollarSign className="h-4 w-4" />
-                                {job.salary}
-                            </div>
-                            <div className="flex items-center gap-2 text-xs md:text-sm font-medium uppercase tracking-widest text-muted-foreground">
-                                <Clock className="h-4 w-4" />
-                                Posted {job.postedDays} day{job.postedDays > 1 ? "s" : ""} ago
-                            </div>
-                        </div>
-
-                        {/* Description */}
-                        <p className="mb-5 text-base leading-relaxed text-foreground">
-                            {job.description}
-                        </p>
-
-                        {/* Apply Button */}
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={handleApply}
-                                className="inline-flex flex-1 items-center justify-center gap-2 border-2 border-foreground bg-primary px-7 py-3 text-sm md:text-base font-bold uppercase tracking-widest text-primary-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1 hover:translate-x-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-0 active:translate-y-0 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                            >
-                                <Briefcase className="h-5 w-5" />
-                                Apply Now
-                            </button>
-                            <span className="inline-flex h-9 w-9 items-center justify-center border-2 border-foreground bg-secondary text-foreground">
-                                <Crown className="h-4 w-4" />
-                            </span>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* No Results */}
-            {filteredJobs.length === 0 && (
-                <div className="border-2 border-dashed border-foreground bg-background/50 p-12 text-center">
-                    <Briefcase className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                    <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
-                        No jobs found in this category
-                    </p>
-                </div>
-            )}
-
-            {/* Upgrade Modal */}
-            {showUpgradeModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-                    <div className="relative w-full max-w-md border-4 border-foreground bg-background p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                        {/* Crown Icon */}
-                        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center border-2 border-foreground bg-primary">
-                            <Crown className="h-8 w-8 text-primary-foreground" />
-                        </div>
-
-                        {/* Title */}
-                        <h2 className="mb-3 text-center font-serif text-xl font-bold uppercase tracking-tight text-foreground">
-                            Premium Feature
-                        </h2>
-
-                        {/* Message */}
-                        <p className="mb-6 text-center text-sm font-medium leading-relaxed text-muted-foreground">
-                            You are not a <span className="font-bold text-foreground">PRO USER</span>.
-                            Upgrade to unlock job applications and personalized recommendations.
-                        </p>
-
-                        {/* Buttons */}
-                        <div className="space-y-3">
-                            <button
-                                className="w-full border-2 border-foreground bg-primary px-6 py-3 text-sm font-bold uppercase tracking-widest text-primary-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-0 active:translate-y-0 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                            >
-                                Upgrade to Pro
-                            </button>
-                            <button
-                                onClick={() => setShowUpgradeModal(false)}
-                                className="w-full border-2 border-foreground bg-background px-6 py-3 text-sm font-bold uppercase tracking-widest text-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-0 active:translate-y-0 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                            >
-                                Maybe Later
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Briefcase className="h-6 w-6 text-blue-600" />
+            <h1 className="font-serif text-3xl md:text-4xl font-bold uppercase tracking-tight">
+              Remote Jobs
+            </h1>
+          </div>
+          <p className="text-sm text-muted-foreground font-medium uppercase tracking-widest">
+            Live listings — powered by Remotive
+          </p>
         </div>
-    );
+        <button
+          onClick={() => fetchJobs(query)}
+          disabled={loading}
+          className="inline-flex items-center gap-2 border-2 border-foreground bg-secondary px-5 py-2.5 text-sm font-bold uppercase tracking-widest shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-40"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </button>
+      </div>
+
+      {/* Search bar */}
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              placeholder="Search by role, skill or technology…"
+              className="w-full border-2 border-foreground pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <button
+            onClick={handleSearch}
+            disabled={loading}
+            className="border-2 border-foreground bg-primary px-6 py-3 text-sm font-bold uppercase tracking-widest text-primary-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-x-0 active:translate-y-0 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-40"
+          >
+            Search
+          </button>
+        </div>
+
+        {/* Quick-search pills */}
+        <div className="flex flex-wrap gap-2">
+          {QUICK_SEARCHES.map((term) => (
+            <button
+              key={term}
+              onClick={() => handleQuickSearch(term)}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
+                query === term
+                  ? "border-blue-600 bg-blue-600 text-white"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-blue-400 hover:text-blue-700"
+              }`}
+            >
+              {term}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* State: loading */}
+      {loading && (
+        <div className="flex flex-col items-center gap-3 py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+          <p className="text-sm font-medium text-muted-foreground">
+            Fetching live jobs for “{query}”…
+          </p>
+        </div>
+      )}
+
+      {/* State: error */}
+      {!loading && error && (
+        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-5">
+          <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-red-700">Could not load jobs</p>
+            <p className="text-xs text-red-600 mt-0.5">{error}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Results */}
+      {!loading && !error && (
+        <>
+          {jobs.length > 0 && (
+            <p className="text-xs text-muted-foreground font-medium">
+              {jobs.length} remote role{jobs.length !== 1 ? "s" : ""} found for “{query}”
+            </p>
+          )}
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            {jobs.map((job) => (
+              <div
+                key={job.id}
+                className="border-2 border-foreground bg-card p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all flex flex-col gap-4"
+              >
+                {/* Top row: logo + title */}
+                <div className="flex items-start gap-3">
+                  {job.company_logo_url ? (
+                    <img
+                      src={job.company_logo_url}
+                      alt={job.company_name}
+                      className="h-10 w-10 rounded-lg object-contain border border-slate-100 bg-white flex-shrink-0"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                  ) : (
+                    <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <Briefcase className="h-5 w-5 text-blue-600" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-serif text-lg font-bold uppercase tracking-tight leading-tight line-clamp-2">
+                      {job.title}
+                    </h3>
+                    <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground mt-0.5">
+                      {job.company_name}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Meta row */}
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <MapPin className="h-3.5 w-3.5" />
+                    {job.candidate_required_location || "Worldwide"}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" />
+                    {timeAgo(job.publication_date)}
+                  </div>
+                  {job.job_type && (
+                    <span className="rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
+                      {job.job_type}
+                    </span>
+                  )}
+                  {job.salary && (
+                    <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                      {job.salary}
+                    </span>
+                  )}
+                </div>
+
+                {/* Category + tags */}
+                <div className="flex flex-wrap gap-1.5">
+                  {job.category && (
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                      {job.category}
+                    </span>
+                  )}
+                  {job.tags.slice(0, 4).map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-white border border-slate-200 px-2.5 py-0.5 text-xs font-medium text-slate-500"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Apply button */}
+                <a
+                  href={job.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-auto inline-flex items-center justify-center gap-2 border-2 border-foreground bg-primary px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-primary-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-0 active:translate-y-0 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  View & Apply
+                </a>
+              </div>
+            ))}
+          </div>
+
+          {/* Empty state */}
+          {jobs.length === 0 && (
+            <div className="flex flex-col items-center gap-3 py-16 border-2 border-dashed border-slate-200">
+              <Briefcase className="h-10 w-10 text-slate-300" />
+              <p className="text-sm font-medium text-muted-foreground">
+                No remote jobs found for “{query}”
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Try a different keyword — e.g. “Python”, “React”, “Data”
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
