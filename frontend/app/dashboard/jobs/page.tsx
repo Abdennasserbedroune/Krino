@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Briefcase, Search, MapPin, Clock, ExternalLink,
-  Loader2, AlertCircle, RefreshCw,
+  Loader2, AlertCircle, RefreshCw, X,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -45,19 +45,20 @@ function timeAgo(dateStr: string): string {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function JobsPage() {
-  const [query,   setQuery]   = useState("developer");
-  const [input,   setInput]   = useState("developer");
-  const [jobs,    setJobs]    = useState<RemotiveJob[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState("");
+  // `activeFilter` tracks which quick-search pill is highlighted.
+  // `query` is the actual search term sent to the API.
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [input,        setInput]        = useState("developer");
+  const [query,        setQuery]        = useState("developer");
+  const [jobs,         setJobs]         = useState<RemotiveJob[]>([]);
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState("");
 
   const fetchJobs = useCallback(async (search: string) => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(
-        `/api/jobs?search=${encodeURIComponent(search)}&limit=20`,
-      );
+      const res = await fetch(`/api/jobs?search=${encodeURIComponent(search)}&limit=20`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to fetch jobs");
       setJobs(data.jobs ?? []);
@@ -69,20 +70,31 @@ export default function JobsPage() {
     }
   }, []);
 
-  // Auto-search on mount
   useEffect(() => { fetchJobs(query); }, []);
 
+  // Manual search from input field
   const handleSearch = () => {
     const trimmed = input.trim();
     if (!trimmed) return;
+    setActiveFilter(null); // clear pill highlight on manual search
     setQuery(trimmed);
     fetchJobs(trimmed);
   };
 
-  const handleQuickSearch = (term: string) => {
-    setInput(term);
-    setQuery(term);
-    fetchJobs(term);
+  // Quick-search pill — toggle: click active pill to deselect and reset to default
+  const handlePillClick = (term: string) => {
+    if (activeFilter === term) {
+      // Deselect: clear filter, reset input + query to default
+      setActiveFilter(null);
+      setInput("developer");
+      setQuery("developer");
+      fetchJobs("developer");
+    } else {
+      setActiveFilter(term);
+      setInput(term);
+      setQuery(term);
+      fetchJobs(term);
+    }
   };
 
   return (
@@ -133,35 +145,47 @@ export default function JobsPage() {
           </button>
         </div>
 
-        {/* Quick-search pills */}
-        <div className="flex flex-wrap gap-2">
-          {QUICK_SEARCHES.map((term) => (
+        {/* Toggleable quick-search pills */}
+        <div className="flex flex-wrap gap-2 items-center">
+          {QUICK_SEARCHES.map((term) => {
+            const isActive = activeFilter === term;
+            return (
+              <button
+                key={term}
+                onClick={() => handlePillClick(term)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
+                  isActive
+                    ? "border-blue-600 bg-blue-600 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-blue-400 hover:text-blue-700"
+                }`}
+              >
+                {term}
+                {isActive && <X className="h-3 w-3" />}
+              </button>
+            );
+          })}
+
+          {/* Clear active filter badge */}
+          {activeFilter && (
             <button
-              key={term}
-              onClick={() => handleQuickSearch(term)}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
-                query === term
-                  ? "border-blue-600 bg-blue-600 text-white"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-blue-400 hover:text-blue-700"
-              }`}
+              onClick={() => handlePillClick(activeFilter)}
+              className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors ml-1"
             >
-              {term}
+              Clear filter
             </button>
-          ))}
+          )}
         </div>
       </div>
 
-      {/* State: loading */}
+      {/* Loading */}
       {loading && (
         <div className="flex flex-col items-center gap-3 py-16">
           <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-          <p className="text-sm font-medium text-muted-foreground">
-            Fetching live jobs for “{query}”…
-          </p>
+          <p className="text-sm font-medium text-muted-foreground">Fetching live jobs for “{query}”…</p>
         </div>
       )}
 
-      {/* State: error */}
+      {/* Error */}
       {!loading && error && (
         <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-5">
           <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
@@ -187,7 +211,6 @@ export default function JobsPage() {
                 key={job.id}
                 className="border-2 border-foreground bg-card p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all flex flex-col gap-4"
               >
-                {/* Top row: logo + title */}
                 <div className="flex items-start gap-3">
                   {job.company_logo_url ? (
                     <img
@@ -211,7 +234,6 @@ export default function JobsPage() {
                   </div>
                 </div>
 
-                {/* Meta row */}
                 <div className="flex flex-wrap gap-x-4 gap-y-1.5">
                   <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                     <MapPin className="h-3.5 w-3.5" />
@@ -233,7 +255,6 @@ export default function JobsPage() {
                   )}
                 </div>
 
-                {/* Category + tags */}
                 <div className="flex flex-wrap gap-1.5">
                   {job.category && (
                     <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
@@ -241,16 +262,12 @@ export default function JobsPage() {
                     </span>
                   )}
                   {job.tags.slice(0, 4).map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full bg-white border border-slate-200 px-2.5 py-0.5 text-xs font-medium text-slate-500"
-                    >
+                    <span key={tag} className="rounded-full bg-white border border-slate-200 px-2.5 py-0.5 text-xs font-medium text-slate-500">
                       {tag}
                     </span>
                   ))}
                 </div>
 
-                {/* Apply button */}
                 <a
                   href={job.url}
                   target="_blank"
@@ -264,16 +281,11 @@ export default function JobsPage() {
             ))}
           </div>
 
-          {/* Empty state */}
           {jobs.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-16 border-2 border-dashed border-slate-200">
               <Briefcase className="h-10 w-10 text-slate-300" />
-              <p className="text-sm font-medium text-muted-foreground">
-                No remote jobs found for “{query}”
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Try a different keyword — e.g. “Python”, “React”, “Data”
-              </p>
+              <p className="text-sm font-medium text-muted-foreground">No remote jobs found for “{query}”</p>
+              <p className="text-xs text-muted-foreground">Try a different keyword — e.g. “Python”, “React”, “Data”</p>
             </div>
           )}
         </>
