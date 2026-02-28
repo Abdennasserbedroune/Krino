@@ -209,9 +209,15 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
     }
   };
 
+  // ─ CV Delete — uses static POST endpoint to avoid Vercel dynamic-segment routing issues
   const handleDelete = async (cvId: number) => {
     try {
-      const res = await fetch(`/api/v1/cv/${cvId}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch("/api/v1/cv/delete", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: cvId }),
+      });
       if (!res.ok) throw new Error();
       setCvs((p) => p.filter((c) => c.id !== cvId));
       if (selectedCv === cvId) setSelectedCv(null);
@@ -547,7 +553,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
           <SectionLabel
             number={3}
             title="Your Match Result"
-            subtitle="Here’s an honest breakdown of how your CV stacks up against this role."
+            subtitle="Here's an honest breakdown of how your CV stacks up against this role."
           />
 
           {/* Score card */}
