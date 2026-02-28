@@ -221,6 +221,8 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
       if (!res.ok) throw new Error();
       setCvs((p) => p.filter((c) => c.id !== cvId));
       if (selectedCv === cvId) setSelectedCv(null);
+      // Notify chat tab (and any other mounted component) to refresh their CV list
+      window.dispatchEvent(new CustomEvent("cv:deleted", { detail: { id: cvId } }));
       showToast({ title: "CV deleted" });
     } catch {
       showToast({ variant: "destructive", title: "Delete failed" });

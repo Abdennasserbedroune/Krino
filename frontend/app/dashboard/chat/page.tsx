@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/client";
 import { Send, Bot, User, FileText, Sparkles } from "lucide-react";
 
@@ -26,17 +26,43 @@ export default function ChatPage() {
     const [loading, setLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    const backendBaseUrl = "";
-
-    useEffect(() => {
-        // Do NOT redirect here — the Protected wrapper handles auth.
-        // With the hidden-mount tab approach every tab mounts at once;
-        // redirecting from here would push the whole page to sign-in
-        // before auth has resolved.
+    const fetchCvs = useCallback(async (currentSelectedId?: number | null) => {
         if (!accessToken) return;
-        void fetchCvs();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        setLoading(true);
+        try {
+            const res = await fetch(`/api/v1/cv/mine`, { credentials: "include" });
+            if (!res.ok) throw new Error("Unable to load CVs");
+            const data = (await res.json()) as CvItem[];
+            setCvs(data);
+            // Only auto-select if current selection is gone or nothing was selected
+            const stillExists = data.some((c) => c.id === (currentSelectedId ?? -1));
+            if (!stillExists) {
+                setSelectedCvId(data.length > 0 ? data[0].id : null);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
     }, [accessToken]);
+
+    // Initial load
+    useEffect(() => {
+        if (!accessToken) return;
+        void fetchCvs(null);
+    }, [accessToken, fetchCvs]);
+
+    // Listen for cv:deleted events fired by the Job Match tab
+    useEffect(() => {
+        const handler = () => {
+            setSelectedCvId((prev) => {
+                void fetchCvs(prev);
+                return prev;
+            });
+        };
+        window.addEventListener("cv:deleted", handler);
+        return () => window.removeEventListener("cv:deleted", handler);
+    }, [fetchCvs]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -52,20 +78,10 @@ export default function ChatPage() {
                     setMessages(parsed);
                 } catch (error) {
                     console.error("Failed to parse stored messages:", error);
-                    setMessages([
-                        {
-                            role: "assistant",
-                            content: "Hello! I'm your AI career assistant. How can I help you with your CV or job search today?",
-                        },
-                    ]);
+                    setMessages([{ role: "assistant", content: "Hello! I'm your AI career assistant. How can I help you with your CV or job search today?" }]);
                 }
             } else {
-                setMessages([
-                    {
-                        role: "assistant",
-                        content: "Hello! I'm your AI career assistant powered by Groq. I can help you prepare for interviews, improve your CV, or answer job-related questions. How can I assist you today?",
-                    },
-                ]);
+                setMessages([{ role: "assistant", content: "Hello! I'm your AI career assistant powered by Groq. I can help you prepare for interviews, improve your CV, or answer job-related questions. How can I assist you today?" }]);
             }
         }
     }, [selectedCvId]);
@@ -76,28 +92,6 @@ export default function ChatPage() {
             localStorage.setItem(`chat_messages_${selectedCvId}`, JSON.stringify(messages));
         }
     }, [messages, selectedCvId]);
-
-    async function fetchCvs() {
-        if (!accessToken) return;
-        setLoading(true);
-        try {
-            const res = await fetch(`${backendBaseUrl}/api/v1/cv/mine`, {
-                credentials: "include",
-            });
-            if (!res.ok) {
-                throw new Error("Unable to load CVs");
-            }
-            const data = (await res.json()) as CvItem[];
-            setCvs(data);
-            if (data.length > 0) {
-                setSelectedCvId(data[0].id);
-            }
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    }
 
     const handleSend = async () => {
         if (!input.trim() || !selectedCvId || !accessToken || sending) return;
@@ -110,22 +104,14 @@ export default function ChatPage() {
 
         try {
             const recentMessages = updatedMessages.slice(-10);
-
-            const res = await fetch(`${backendBaseUrl}/api/v1/chat`, {
+            const res = await fetch(`/api/v1/chat`, {
                 method: "POST",
                 credentials: "include",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    cv_id: selectedCvId,
-                    messages: recentMessages,
-                }),
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ cv_id: selectedCvId, messages: recentMessages }),
             });
 
-            if (!res.ok) {
-                throw new Error("Failed to send message");
-            }
+            if (!res.ok) throw new Error("Failed to send message");
 
             const data = (await res.json()) as { reply: string };
 
@@ -141,19 +127,14 @@ export default function ChatPage() {
             for (let i = 0; i < words.length; i++) {
                 currentText += (i === 0 ? "" : " ") + words[i];
                 setMessages([...updatedMessages, { role: "assistant", content: currentText }]);
-                const delay = 30 + Math.random() * 40;
-                await new Promise(resolve => setTimeout(resolve, delay));
+                await new Promise(resolve => setTimeout(resolve, 30 + Math.random() * 40));
             }
 
             setIsTyping(false);
         } catch (err) {
             console.error(err);
             setIsTyping(false);
-            const errorMessage: ChatMessage = {
-                role: "assistant",
-                content: "Sorry, I encountered an error. Please try again.",
-            };
-            setMessages([...updatedMessages, errorMessage]);
+            setMessages([...updatedMessages, { role: "assistant", content: "Sorry, I encountered an error. Please try again." }]);
         } finally {
             setSending(false);
         }
@@ -170,9 +151,7 @@ export default function ChatPage() {
         return (
             <div className="flex items-center gap-3 border-2 border-foreground bg-background p-6">
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-                <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
-                    Loading chat...
-                </p>
+                <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Loading chat...</p>
             </div>
         );
     }
@@ -183,9 +162,7 @@ export default function ChatPage() {
                 <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center border-2 border-foreground bg-secondary">
                     <FileText className="h-8 w-8 text-foreground" />
                 </div>
-                <p className="font-serif text-xl font-bold uppercase tracking-tight mb-2">
-                    No CV uploaded yet
-                </p>
+                <p className="font-serif text-xl font-bold uppercase tracking-tight mb-2">No CV uploaded yet</p>
                 <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
                     Go to the <span className="font-bold text-foreground">Job Match</span> tab to upload your CV, then come back here to chat.
                 </p>
@@ -200,25 +177,20 @@ export default function ChatPage() {
                 <div className="space-y-4">
                     <div className="flex items-center gap-2">
                         <div className="h-1.5 w-7 bg-primary"></div>
-                        <h2 className="font-serif text-xl font-bold uppercase tracking-tight text-foreground">
-                            Select CV
-                        </h2>
+                        <h2 className="font-serif text-xl font-bold uppercase tracking-tight text-foreground">Select CV</h2>
                     </div>
                     <div className="space-y-3">
                         {cvs.map((cv) => (
                             <button
                                 key={cv.id}
-                                onClick={() => {
-                                    setSelectedCvId(cv.id);
-                                }}
-                                className={`w-full border-2 border-foreground p-4 text-left transition-all ${selectedCvId === cv.id
-                                    ? "bg-primary text-primary-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-                                    : "bg-background text-foreground shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
-                                    }`}
+                                onClick={() => setSelectedCvId(cv.id)}
+                                className={`w-full border-2 border-foreground p-4 text-left transition-all ${
+                                    selectedCvId === cv.id
+                                        ? "bg-primary text-primary-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                                        : "bg-background text-foreground shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
+                                }`}
                             >
-                                <p className="truncate text-base font-bold uppercase tracking-tight">
-                                    {cv.original_filename}
-                                </p>
+                                <p className="truncate text-base font-bold uppercase tracking-tight">{cv.original_filename}</p>
                                 <p className="text-sm font-medium uppercase tracking-widest opacity-80">
                                     {cv.analyzed_at ? "Analyzed" : "Not analyzed"}
                                 </p>
@@ -236,12 +208,8 @@ export default function ChatPage() {
                                 <Bot className="h-5 w-5 text-primary-foreground" />
                             </div>
                             <div>
-                                <h3 className="font-serif text-xl font-bold uppercase tracking-tight text-foreground">
-                                    AI Career Assistant
-                                </h3>
-                                <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
-                                    Powered by Groq
-                                </p>
+                                <h3 className="font-serif text-xl font-bold uppercase tracking-tight text-foreground">AI Career Assistant</h3>
+                                <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">Powered by Groq</p>
                             </div>
                         </div>
                     </div>
@@ -249,25 +217,17 @@ export default function ChatPage() {
                     {/* Messages */}
                     <div className="flex-1 space-y-4 overflow-y-auto p-6">
                         {messages.map((msg, idx) => (
-                            <div
-                                key={idx}
-                                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                            >
+                            <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                                 <div className="flex max-w-[85%] items-start gap-3">
                                     {msg.role === "assistant" && (
                                         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center border-2 border-foreground bg-secondary">
                                             <Sparkles className="h-4 w-4 text-foreground" />
                                         </div>
                                     )}
-                                    <div
-                                        className={`border-2 border-foreground px-4 py-3 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] ${msg.role === "user"
-                                            ? "bg-primary text-primary-foreground"
-                                            : "bg-background text-foreground"
-                                            }`}
-                                    >
-                                        <p className="text-lg font-medium leading-relaxed whitespace-pre-wrap">
-                                            {msg.content}
-                                        </p>
+                                    <div className={`border-2 border-foreground px-4 py-3 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] ${
+                                        msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-background text-foreground"
+                                    }`}>
+                                        <p className="text-lg font-medium leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                                     </div>
                                     {msg.role === "user" && (
                                         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center border-2 border-foreground bg-accent">
@@ -299,12 +259,8 @@ export default function ChatPage() {
                                     <Sparkles className="h-6 w-6" />
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-base font-bold text-red-600 uppercase tracking-tight">
-                                        Free limit reached for this CV
-                                    </p>
-                                    <p className="text-sm font-medium text-red-900/70">
-                                        Your 4 free messages are finished. Upgrade to PRO for unlimited conversations and deeper AI analysis.
-                                    </p>
+                                    <p className="text-base font-bold text-red-600 uppercase tracking-tight">Free limit reached for this CV</p>
+                                    <p className="text-sm font-medium text-red-900/70">Your 4 free messages are finished. Upgrade to PRO for unlimited conversations and deeper AI analysis.</p>
                                 </div>
                                 <button className="bg-red-500 px-6 py-2.5 text-sm font-bold uppercase tracking-widest text-white shadow-[4px_4px_0px_0px_rgba(153,27,27,1)] hover:-translate-y-0.5 transition-all active:translate-y-0">
                                     Upgrade to PRO
