@@ -39,13 +39,9 @@ function normalizeStringArray(raw: unknown): string[] {
     .filter(Boolean);
 }
 
-// ─── Realistic scoring helpers ────────────────────────────────────────────────────────────
-//
+// ─── Deterministic helpers (domain + experience) ───────────────────────────────────────────────
 // Weights:  domain 40%  •  skills 30%  •  experience 20%  •  cv-quality 10%
-//
-// Design principle: an unrelated job MUST score < 35.  A strong match MUST
-// score > 70.  The main levers are domain and skills; experience is a
-// modifier, not a gate.
+// Skills score now comes from the AI (semantic), not from string matching.
 
 function parseCandidateYears(text: string): number {
   const matches = (text || "").match(/(\d{1,2})\+?\s+years?/gi) || [];
@@ -62,8 +58,8 @@ function parseRequiredYears(rangeStr: string): number {
 
 function experienceScore(candidateYears: number, requiredRange: string): number {
   const required = parseRequiredYears(requiredRange);
-  if (required <= 0) return 55;         // neutral when not specified
-  if (candidateYears <= 0) return 20;   // no info = low (was 30)
+  if (required <= 0) return 55;
+  if (candidateYears <= 0) return 20;
   const shortfall = required - candidateYears;
   if (shortfall >= 4) return 15;
   if (shortfall >= 2) return 35;
@@ -74,7 +70,6 @@ function experienceScore(candidateYears: number, requiredRange: string): number 
   return 70;
 }
 
-// Expanded domain keyword map — covers all selectable categories
 const DOMAIN_KW: Record<string, string[]> = {
   "ai & data": [
     "data", "analytics", "machine learning", "ml", "ai", "python", "sql",
@@ -130,28 +125,21 @@ const DOMAIN_KW: Record<string, string[]> = {
 function domainScore(domain: string, rawText: string): number {
   const base = (domain || "").toLowerCase();
   const cvLower = rawText.toLowerCase();
-
   let jobKws: string[] | null = null;
   for (const [key, kws] of Object.entries(DOMAIN_KW)) {
     if (base.includes(key)) { jobKws = kws; break; }
   }
-
-  if (!jobKws) {
-    // "Other" or unknown category — cannot determine relevance
-    // Give a low base score; it would be dishonest to assume a match
-    return 15;
-  }
-
+  if (!jobKws) return 15;
   const hits = jobKws.filter((kw) => cvLower.includes(kw)).length;
-  if (hits === 0) return 10;  // domain completely absent from CV
-  if (hits === 1) return 25;  // barely relevant
+  if (hits === 0) return 10;
+  if (hits === 1) return 25;
   return Math.max(20, Math.min(95, Math.floor((hits / jobKws.length) * 100)));
 }
 
-function skillsScore(requiredSkills: string[], cvSkills: unknown): number {
-  if (!requiredSkills.length) return 50; // no info → neutral
+// Fallback string-match skills score (used only if AI omits semantic_skills_score)
+function fallbackSkillsScore(requiredSkills: string[], cvSkills: unknown): number {
+  if (!requiredSkills.length) return 50;
   const jobSet = new Set(requiredSkills.map((s) => s.toLowerCase().trim()).filter(Boolean));
-
   const cvTokens: string[] = [];
   if (Array.isArray(cvSkills)) {
     for (const item of cvSkills)
@@ -168,22 +156,17 @@ function skillsScore(requiredSkills: string[], cvSkills: unknown): number {
     }
   }
   const cvSet = new Set(cvTokens.filter(Boolean));
-
-  if (!cvSet.size) return 20;  // CV has no extractable skills → pessimistic (was 50)
-
+  if (!cvSet.size) return 20;
   const hits = [...jobSet].filter((t) => cvSet.has(t)).length;
-  if (!hits) return 10;        // zero overlap → very low (was 25)
+  if (!hits) return 10;
   return Math.max(15, Math.min(95, Math.floor((hits / jobSet.size) * 100)));
 }
 
 function combineScores(domain: number, experience: number, skills: number, quality: number): number {
-  // Domain + skills are the strongest signals of fit.
-  // Experience is a modifier. Quality is a tiebreaker.
-  const total = 0.40 * domain + 0.30 * skills + 0.20 * experience + 0.10 * quality;
-  return Math.max(0, Math.min(100, Math.floor(total)));
+  return Math.max(0, Math.min(100, Math.floor(0.40 * domain + 0.30 * skills + 0.20 * experience + 0.10 * quality)));
 }
 
-// ─── Groq helpers ──────────────────────────────────────────────────────────────────────
+// ─── Step 1: Extract REAL job requirements (filter noise) ──────────────────────────────────
 
 async function extractJobRequirements(
   groq: Groq,
@@ -194,9 +177,9 @@ async function extractJobRequirements(
 ): Promise<Record<string, unknown>> {
   const snippet = desc.trim().slice(0, 3000);
   const prefix = [
-    category ? `Job category: ${category}` : "",
-    title     ? `Job title: ${title}`       : "",
-    skillsHint ? `Skills mentioned by the applicant: ${skillsHint}` : "",
+    category   ? `Job category: ${category}` : "",
+    title      ? `Job title: ${title}`        : "",
+    skillsHint ? `Skills the applicant mentioned: ${skillsHint}` : "",
   ].filter(Boolean).join("\n");
 
   try {
@@ -206,17 +189,36 @@ async function extractJobRequirements(
         {
           role: "system",
           content:
-            "You are a precise job requirements extractor. Read the job description and return structured JSON. " +
-            "Be specific — pull exact tools, technologies, and experience levels. " +
-            "Do NOT invent requirements not stated in the description.",
+            "You are a senior technical recruiter extracting REAL professional requirements from job descriptions.\n" +
+            "\n" +
+            "ONLY extract requirements that a candidate would realistically list on a CV or LinkedIn profile:\n" +
+            "  • Technical tools, frameworks, programming languages, platforms\n" +
+            "  • Domain-specific methodologies (e.g. Agile, Six Sigma, IFRS)\n" +
+            "  • Industry certifications (e.g. PMP, CFA, AWS Solutions Architect)\n" +
+            "  • Language skills ONLY when they are a genuine business requirement " +
+            "    (e.g. client-facing role in French, documentation in Arabic) — NOT generic literacy\n" +
+            "\n" +
+            "IGNORE — do NOT extract these even if mentioned in the job description:\n" +
+            "  • Hardware or equipment (computer, laptop, phone, internet connection, car)\n" +
+            "  • Generic soft skills (communication, teamwork, problem-solving, motivation, adaptability)\n" +
+            "  • Obvious prerequisites every professional has (ability to work, willingness to learn)\n" +
+            "  • Physical requirements (ability to lift, driving license unless specifically required)\n" +
+            "  • Company perks or benefits (free lunch, health insurance, flexible hours)\n" +
+            "  • Legal formalities (right to work, background check)\n" +
+            "\n" +
+            "Be conservative: if unsure whether something belongs on a CV, leave it out.",
         },
         {
           role: "user",
           content:
             `${prefix ? prefix + "\n\n" : ""}=== JOB DESCRIPTION ===\n${snippet}\n\n` +
-            "Return JSON with exactly: required_skills (array of plain strings), nice_to_have (array of plain strings), " +
-            "seniority_level (string), key_responsibilities (array of plain strings, max 5), " +
-            "experience_years (string), domain (string). " +
+            "Return JSON with exactly these keys:\n" +
+            "  required_skills: array of plain strings (real CV-listable skills only)\n" +
+            "  nice_to_have: array of plain strings\n" +
+            "  seniority_level: string\n" +
+            "  key_responsibilities: array of plain strings (max 5, concise)\n" +
+            "  experience_years: string\n" +
+            "  domain: string\n" +
             "All array values MUST be plain strings, never objects.",
         },
       ],
@@ -238,20 +240,28 @@ async function extractJobRequirements(
   }
 }
 
+// ─── Step 2: Semantic narrative + skills score in one call ──────────────────────────────────
+// Returns everything needed for the UI PLUS a semantic_skills_score (0-100)
+// based on meaning, synonyms, and implied knowledge — not string overlap.
+
 async function analyzeCvAgainstJob(
   groq: Groq,
   jobReqs: Record<string, unknown>,
   cvStructured: Record<string, unknown>,
+  rawCvText: string,
   cvScore: number,
   jobTitle: string,
 ): Promise<Record<string, unknown>> {
   const titleLine = jobTitle ? `Job title: ${jobTitle}\n` : "";
   const reqJson = JSON.stringify(jobReqs, null, 2);
 
+  // Include both structured data AND a snippet of raw text so the model
+  // can find skills that weren't cleanly parsed into structured_data
   const allowedKeys = ["personal_info", "summary", "experience", "education", "skills", "certifications", "languages"];
   const compact: Record<string, unknown> = {};
   for (const k of allowedKeys) if (cvStructured[k] !== undefined) compact[k] = cvStructured[k];
-  const cvJson = JSON.stringify(compact, null, 2).slice(0, 2500);
+  const cvJson = JSON.stringify(compact, null, 2).slice(0, 2000);
+  const rawSnippet = (rawCvText || "").slice(0, 800); // extra context for synonyms
 
   try {
     const resp = await groq.chat.completions.create({
@@ -260,37 +270,52 @@ async function analyzeCvAgainstJob(
         {
           role: "system",
           content:
-            "You are a brutally honest but constructive career advisor. " +
-            "Tell the job seeker exactly how well their CV matches the role. " +
-            "Reference SPECIFIC skills, tools, and experience from the CV — never speak in generalities. " +
-            "For each gap state its severity: [BLOCKING], [IMPORTANT], or [MINOR]. " +
-            "Be honest about weak matches — false hope hurts the user.",
+            "You are a senior career advisor and technical recruiter. " +
+            "Evaluate how well a candidate's CV matches a job role with honesty and precision.\n" +
+            "\n" +
+            "SKILLS ASSESSMENT RULES (for semantic_skills_score):\n" +
+            "  • Treat synonyms as matches: ML = machine learning, JS = JavaScript, " +
+            "    NLP = natural language processing, CV = computer vision\n" +
+            "  • Treat implied skills as matches: if the candidate uses PyTorch they know Python; " +
+            "    if they built REST APIs they know HTTP/JSON; if they use dbt they know SQL\n" +
+            "  • Treat technology families: scikit-learn ⇒ knows ML; React ⇒ knows JavaScript\n" +
+            "  • IGNORE requirements that are not real CV skills: " +
+            "    hardware, obvious soft skills, generic literacy, physical requirements\n" +
+            "  • Only penalise for skills that are GENUINELY absent from the candidate's background\n" +
+            "\n" +
+            "Be brutally honest in the narrative. Reference SPECIFIC tools and experience. " +
+            "For gaps, state severity: [BLOCKING], [IMPORTANT], or [MINOR].",
         },
         {
           role: "user",
           content:
-            `${titleLine}=== ROLE REQUIREMENTS ===\n${reqJson}\n\n` +
-            `=== CANDIDATE CV ===\n${cvJson}\n\n` +
+            `${titleLine}` +
+            `=== ROLE REQUIREMENTS ===\n${reqJson}\n\n` +
+            `=== CANDIDATE CV (structured) ===\n${cvJson}\n\n` +
+            `=== CANDIDATE CV (raw text snippet for context) ===\n${rawSnippet}\n\n` +
             `CV quality score: ${cvScore}/100\n\n` +
-            "Return JSON with exactly these keys and types:\n" +
-            "  overall_verdict: string\n" +
-            "  hire_probability: string (e.g. \"Low — 15%\", \"Moderate — 45%\", \"High — 80%\")\n" +
-            "  overall_reason: string\n" +
-            "  strengths: array of plain strings (NOT objects)\n" +
-            "  gaps: array of plain strings (NOT objects)\n" +
-            "  actionable_advice: array of plain strings (NOT objects)\n" +
+            "Return JSON with EXACTLY these keys:\n" +
+            "  semantic_skills_score: integer 0-100 " +
+            "(how well the candidate's skills match the REAL requirements, using synonym/implication reasoning)\n" +
+            "  overall_verdict: string (one sentence)\n" +
+            "  hire_probability: string (e.g. \"Low — 12%\", \"Moderate — 50%\", \"High — 82%\")\n" +
+            "  overall_reason: string (2-3 sentences, specific)\n" +
+            "  strengths: array of plain strings (specific tools/skills that match)\n" +
+            "  gaps: array of plain strings (each starting with [BLOCKING], [IMPORTANT], or [MINOR])\n" +
+            "  actionable_advice: array of plain strings (concrete next steps)\n" +
             "  application_ready: boolean\n" +
-            "IMPORTANT: strengths, gaps and actionable_advice must contain plain strings only.",
+            "IMPORTANT: all array values must be plain strings, never nested objects.",
         },
       ],
       temperature: 0.3,
       response_format: { type: "json_object" },
-      max_tokens: 1500,
+      max_tokens: 1600,
     });
     return JSON.parse(resp.choices[0].message.content ?? "{}");
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return {
+      semantic_skills_score: null,
       overall_verdict: "Analysis unavailable — please try again.",
       hire_probability: "N/A",
       overall_reason: `The AI analysis could not be completed: ${msg}`,
@@ -334,14 +359,13 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (dbError || !cv) return NextResponse.json({ detail: "CV not found" }, { status: 404 });
-
     if (!process.env.GROQ_API_KEY) {
       return NextResponse.json({ detail: "Groq API key is not configured" }, { status: 500 });
     }
 
-    const rawText: string   = (cv.extracted_cv as Record<string, unknown>)?.raw_text as string || "";
-    const structuredData    = (cv.structured_data as Record<string, unknown>) || {};
-    const cvScore: number   = (cv.score as number) || 0;
+    const rawText: string = (cv.extracted_cv as Record<string, unknown>)?.raw_text as string || "";
+    const structuredData  = (cv.structured_data  as Record<string, unknown>) || {};
+    const cvScore: number = (cv.score as number) || 0;
 
     const jobCategory        = body.job_category        || "";
     const jobTitle           = body.job_title           || "";
@@ -349,21 +373,33 @@ export async function POST(req: NextRequest) {
     const experienceRequired = body.experience_required || "";
     const skillsRequired     = body.skills_required     || "";
 
-    // Deterministic scoring
+    // Deterministic: domain + experience
     const candidateYears = parseCandidateYears(rawText);
-    const expScore  = experienceScore(candidateYears, experienceRequired);
-    const domScore  = domainScore(jobCategory, rawText);
+    const expScore = experienceScore(candidateYears, experienceRequired);
+    const domScore = domainScore(jobCategory, rawText);
 
+    // Step 1: Extract clean job requirements (noise filtered by prompt)
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const jobReqs = await extractJobRequirements(groq, jobDescription, jobCategory, jobTitle, skillsRequired);
 
+    // Step 2: Semantic narrative + semantic_skills_score in one AI call
+    const aiResult = await analyzeCvAgainstJob(
+      groq, jobReqs, structuredData, rawText, cvScore, jobTitle
+    );
+
+    // Skills score: prefer AI semantic score, fall back to string match
+    const aiSkillsScore = typeof aiResult.semantic_skills_score === "number"
+      ? Math.max(0, Math.min(100, Math.floor(aiResult.semantic_skills_score)))
+      : null;
+
     const requiredSkills = normalizeStringArray(jobReqs.required_skills);
     const fallbackSkills = skillsRequired.split(",").map((s) => s.trim()).filter(Boolean);
-    const skScore = skillsScore(requiredSkills.length ? requiredSkills : fallbackSkills, structuredData.skills);
+    const skScore = aiSkillsScore ?? fallbackSkillsScore(
+      requiredSkills.length ? requiredSkills : fallbackSkills,
+      structuredData.skills
+    );
 
     const totalScore = combineScores(domScore, expScore, skScore, cvScore);
-
-    const aiResult = await analyzeCvAgainstJob(groq, jobReqs, structuredData, cvScore, jobTitle);
 
     return NextResponse.json({
       cv_id:              cv.id,
