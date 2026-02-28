@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(
     req: NextRequest,
@@ -31,7 +32,7 @@ export async function GET(
 
         return NextResponse.json(cv, { status: 200 });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("GET CV handler failed:", error);
         return NextResponse.json({ detail: "Internal Server Error" }, { status: 500 });
     }
@@ -42,6 +43,7 @@ export async function DELETE(
     { params }: { params: { id: string } }
 ) {
     try {
+        // 1. Verify the caller is authenticated (anon + cookie session)
         const supabase = createClient();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -54,7 +56,7 @@ export async function DELETE(
             return NextResponse.json({ detail: "Invalid CV ID" }, { status: 400 });
         }
 
-        // Fetch to get the file path first so we can delete from storage
+        // 2. Verify ownership using the user's own session (RLS SELECT is fine)
         const { data: cv, error: dbError } = await supabase
             .from("cvs")
             .select("file_path")
@@ -63,30 +65,43 @@ export async function DELETE(
             .single();
 
         if (dbError || !cv) {
+            console.error("[delete-cv] ownership check failed:", dbError?.message);
             return NextResponse.json({ detail: "CV not found" }, { status: 404 });
         }
 
-        // Delete from DB first
-        const { error: deleteError } = await supabase
+        // 3. Perform the actual delete using the service-role admin client
+        //    so that RLS policies on the cvs table cannot block it.
+        //    Ownership has already been verified above.
+        const admin = createAdminClient();
+
+        const { error: deleteError } = await admin
             .from("cvs")
             .delete()
-            .eq("id", id)
-            .eq("user_id", user.id);
+            .eq("id", id);
 
         if (deleteError) {
-            console.error("DB Error deleting CV:", deleteError);
-            return NextResponse.json({ detail: "Failed to delete from database" }, { status: 500 });
+            console.error("[delete-cv] DB delete failed:", deleteError.message, deleteError.details);
+            return NextResponse.json(
+                { detail: "Failed to delete CV: " + deleteError.message },
+                { status: 500 }
+            );
         }
 
-        // Delete from Storage
+        // 4. Remove file from storage (best-effort — don't fail the request if this errors)
         if (cv.file_path) {
-            await supabase.storage.from("cvs").remove([cv.file_path]);
+            const { error: storageError } = await admin.storage
+                .from("cvs")
+                .remove([cv.file_path]);
+            if (storageError) {
+                console.warn("[delete-cv] storage remove failed (non-fatal):", storageError.message);
+            }
         }
 
-        return new NextResponse(null, { status: 204 }); // 204 No Content
+        return new NextResponse(null, { status: 204 });
 
-    } catch (error: any) {
-        console.error("DELETE CV handler failed:", error);
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error("[delete-cv] unhandled error:", msg);
         return NextResponse.json({ detail: "Internal Server Error" }, { status: 500 });
     }
 }
