@@ -4,6 +4,51 @@ import Groq from "groq-sdk";
 
 export const maxDuration = 60;
 
+// ─── Utility: coerce any Groq array item to a plain string ───────────────────────────
+// Groq sometimes returns [{skill, description}, ...] or [{text}, ...]
+// instead of ["...", "..."]. This normaliser handles all observed shapes.
+function normalizeStringArray(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item): string => {
+      if (typeof item === "string") return item.trim();
+      if (item === null || item === undefined) return "";
+      if (typeof item === "object") {
+        const o = item as Record<string, unknown>;
+        // Most common patterns Groq emits for these arrays:
+        const parts: string[] = [];
+        const label =
+          (typeof o.skill       === "string" && o.skill)       ||
+          (typeof o.category    === "string" && o.category)    ||
+          (typeof o.type        === "string" && o.type)        || "";
+        const body =
+          (typeof o.description === "string" && o.description) ||
+          (typeof o.text        === "string" && o.text)        ||
+          (typeof o.advice      === "string" && o.advice)      ||
+          (typeof o.tip         === "string" && o.tip)         ||
+          (typeof o.point       === "string" && o.point)       ||
+          (typeof o.item        === "string" && o.item)        ||
+          (typeof o.content     === "string" && o.content)     ||
+          (typeof o.value       === "string" && o.value)       || "";
+
+        if (label && body) parts.push(`${label} — ${body}`);
+        else if (body)     parts.push(body);
+        else if (label)    parts.push(label);
+        else {
+          // Last resort: join all string values
+          const fallback = Object.values(o)
+            .filter((v): v is string => typeof v === "string")
+            .join(" — ");
+          if (fallback) parts.push(fallback);
+          else parts.push(JSON.stringify(item));
+        }
+        return parts.join(" ").trim();
+      }
+      return String(item).trim();
+    })
+    .filter(Boolean);
+}
+
 // ─── Deterministic scoring helpers ────────────────────────────────────────────────────────────
 
 function parseCandidateYears(text: string): number {
@@ -117,9 +162,10 @@ async function extractJobRequirements(
           role: "user",
           content:
             `${prefix ? prefix + "\n\n" : ""}=== JOB DESCRIPTION ===\n${snippet}\n\n` +
-            "Return JSON with exactly: required_skills (array), nice_to_have (array), " +
-            "seniority_level (string), key_responsibilities (array, max 5), " +
-            "experience_years (string), domain (string).",
+            "Return JSON with exactly: required_skills (array of plain strings), nice_to_have (array of plain strings), " +
+            "seniority_level (string), key_responsibilities (array of plain strings, max 5), " +
+            "experience_years (string), domain (string). " +
+            "All array values MUST be plain strings, never objects.",
         },
       ],
       temperature: 0.1,
@@ -174,9 +220,15 @@ async function analyzeCvAgainstJob(
             `${titleLine}=== ROLE REQUIREMENTS ===\n${reqJson}\n\n` +
             `=== CANDIDATE CV ===\n${cvJson}\n\n` +
             `CV quality score: ${cvScore}/100\n\n` +
-            "Return JSON with exactly: overall_verdict (string), hire_probability (string), " +
-            "overall_reason (string), strengths (array), gaps (array), " +
-            "actionable_advice (array), application_ready (boolean).",
+            "Return JSON with exactly these keys and types:\n" +
+            "  overall_verdict: string\n" +
+            "  hire_probability: string\n" +
+            "  overall_reason: string\n" +
+            "  strengths: array of plain strings (NOT objects)\n" +
+            "  gaps: array of plain strings (NOT objects)\n" +
+            "  actionable_advice: array of plain strings (NOT objects)\n" +
+            "  application_ready: boolean\n" +
+            "IMPORTANT: strengths, gaps and actionable_advice must contain plain strings only, never nested objects.",
         },
       ],
       temperature: 0.3,
@@ -248,6 +300,7 @@ export async function POST(req: NextRequest) {
     const rawText: string = (cv.extracted_cv as Record<string, unknown>)?.raw_text as string || "";
     const structuredData = (cv.structured_data as Record<string, unknown>) || {};
     const analysisResult = (cv.analysis_result as Record<string, unknown>) || {};
+    void analysisResult; // used for future enrichment
     const cvScore: number = (cv.score as number) || 0;
 
     const jobCategory = body.job_category || "";
@@ -266,7 +319,7 @@ export async function POST(req: NextRequest) {
     const jobReqs = await extractJobRequirements(groq, jobDescription, jobCategory, jobTitle, skillsRequired);
 
     // 7. Skills score
-    const requiredSkills = (jobReqs.required_skills as string[]) || [];
+    const requiredSkills = normalizeStringArray(jobReqs.required_skills);
     const fallbackSkills = skillsRequired.split(",").map((s) => s.trim()).filter(Boolean);
     const skScore = skillsScore(requiredSkills.length ? requiredSkills : fallbackSkills, structuredData.skills);
 
@@ -275,7 +328,8 @@ export async function POST(req: NextRequest) {
     // 8. Step 2 — AI narrative via Groq
     const aiResult = await analyzeCvAgainstJob(groq, jobReqs, structuredData, cvScore, jobTitle);
 
-    // 9. Respond
+    // 9. Normalise all Groq arrays to plain strings before returning
+    //    (Groq may emit objects like {skill, description} despite instructions)
     return NextResponse.json({
       cv_id: cv.id,
       file_name: cv.original_filename,
@@ -283,12 +337,12 @@ export async function POST(req: NextRequest) {
       skills_match_score: skScore,
       experience_score: expScore,
       cv_quality_score: cvScore,
-      overall_verdict: (aiResult.overall_verdict as string) || "",
-      hire_probability: (aiResult.hire_probability as string) || "N/A",
-      overall_reason: (aiResult.overall_reason as string) || "",
-      strengths: (aiResult.strengths as string[]) || [],
-      gaps: (aiResult.gaps as string[]) || [],
-      actionable_advice: (aiResult.actionable_advice as string[]) || [],
+      overall_verdict: typeof aiResult.overall_verdict === "string" ? aiResult.overall_verdict : "",
+      hire_probability: typeof aiResult.hire_probability === "string" ? aiResult.hire_probability : "N/A",
+      overall_reason:   typeof aiResult.overall_reason   === "string" ? aiResult.overall_reason   : "",
+      strengths:        normalizeStringArray(aiResult.strengths),
+      gaps:             normalizeStringArray(aiResult.gaps),
+      actionable_advice: normalizeStringArray(aiResult.actionable_advice),
       application_ready: Boolean(aiResult.application_ready),
       job_requirements: jobReqs,
     }, { status: 200 });
