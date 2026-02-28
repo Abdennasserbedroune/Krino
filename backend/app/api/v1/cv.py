@@ -47,12 +47,10 @@ class JobMatchRequest(BaseModel):
 class JobMatchResponse(BaseModel):
     cv_id: int
     file_name: str
-    # Deterministic scores (same scoring engine as recruiter)
     match_score: int
     skills_match_score: int
     experience_score: int
     cv_quality_score: int
-    # AI narrative (2-step pipeline)
     overall_verdict: str
     hire_probability: str
     overall_reason: str
@@ -60,11 +58,10 @@ class JobMatchResponse(BaseModel):
     gaps: List[str]
     actionable_advice: List[str]
     application_ready: bool
-    # Raw requirements extracted in Step 1 (useful for the frontend to display)
     job_requirements: Dict[str, Any]
 
 
-# ─── Scoring helpers (mirrors recruiter.py logic) ──────────────────────────────────
+# ─── Scoring helpers ──────────────────────────────────────────────────────────────
 
 import re
 
@@ -140,7 +137,6 @@ def _domain_score(domain: str, raw_text: str) -> int:
 
 
 def _skills_score(required_skills: List[str], cv_skills: Any) -> int:
-    """Compare extracted job required_skills list against the CV skills structure."""
     if not required_skills:
         return 60
     job_tokens = {s.lower().strip() for s in required_skills if s.strip()}
@@ -200,7 +196,6 @@ async def upload_cv(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_supabase_user),
 ) -> CVRead:
-    """Upload a CV file and run the local processing pipeline."""
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file uploaded")
 
@@ -275,15 +270,26 @@ async def match_cv_to_job(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_supabase_user),
 ) -> JobMatchResponse:
-    """Two-step AI pipeline for the seeker 'Desired Job' flow.
+    """Two-step AI pipeline: extract job requirements then analyse CV against them."""
+    # Outer guard: any unhandled exception surfaces as a readable 500 with detail.
+    try:
+        return await _do_match_cv_to_job(payload, db, current_user)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Match analysis failed: {exc}",
+        ) from exc
 
-    Step 1: extract_job_requirements  — reads ONLY the job description (~300 tokens).
-    Step 2: analyze_cv_against_job    — reads step-1 output + clean CV JSON (~600 tokens).
 
-    Total token cost per match: ~900 (vs ~4 000 for the naive single-call approach).
-    Deterministic scores (domain / experience / skills / quality) are computed
-    server-side so the result is always reproducible.
-    """
+async def _do_match_cv_to_job(
+    payload: JobMatchRequest,
+    db: Session,
+    current_user: User,
+) -> JobMatchResponse:
+    import json as _json
+
     # 1. Load CV (must belong to current user)
     cv = db.query(CV).filter(
         CV.id == payload.cv_id,
@@ -292,9 +298,7 @@ async def match_cv_to_job(
     if not cv:
         raise HTTPException(status_code=404, detail="CV not found.")
 
-    # 2. Ensure the CV has been processed
-    import json as _json
-
+    # 2. Resolve raw text
     extracted = cv.extracted_cv or {}
     if isinstance(extracted, str):
         try:
@@ -307,13 +311,13 @@ async def match_cv_to_job(
         raw_text = str(extracted.get("raw_text", ""))
 
     if not raw_text:
-        # Try re-extracting from file
         try:
             from app.services.cv.text_extraction import extract_text_from_file
             raw_text = extract_text_from_file(cv.file_path, cv.file_type)
         except Exception:
             raw_text = ""
 
+    # 3. Ensure analysis_result — wrapped in try so empty raw_text can't crash
     analysis: Dict[str, Any] = cv.analysis_result or {}
     if isinstance(analysis, str):
         try:
@@ -321,10 +325,14 @@ async def match_cv_to_job(
         except Exception:
             analysis = {}
     if not analysis or "score" not in analysis:
-        analysis = analyze_cv_local(raw_text)
+        try:
+            analysis = analyze_cv_local(raw_text) if raw_text else {"score": 0}
+        except Exception:
+            analysis = {"score": 0}
         cv.analysis_result = analysis
         cv.score = int(analysis.get("score", 0) or 0)
 
+    # 4. Ensure structured_data — same guard
     structured: Dict[str, Any] = cv.structured_data or {}
     if isinstance(structured, str):
         try:
@@ -332,19 +340,22 @@ async def match_cv_to_job(
         except Exception:
             structured = {}
     if not structured:
-        structured = extract_structured_data(raw_text)
+        try:
+            structured = extract_structured_data(raw_text) if raw_text else {}
+        except Exception:
+            structured = {}
         cv.structured_data = structured
 
     db.add(cv)
     db.commit()
     db.refresh(cv)
 
-    # 3. Deterministic scoring
+    # 5. Deterministic scoring
     candidate_years = _parse_candidate_years(raw_text)
     exp_score = _experience_score(candidate_years, payload.experience_required)
     dom_score = _domain_score(payload.job_category, raw_text)
 
-    # 4. Step 1 — extract structured requirements from job description
+    # 6. Step 1 — extract structured requirements from job description
     job_reqs = extract_job_requirements(
         job_description=payload.job_description,
         job_category=payload.job_category,
@@ -352,19 +363,17 @@ async def match_cv_to_job(
         skills_hint=payload.skills_required,
     )
 
-    # Use extracted required_skills for a more precise skills score
     extracted_skills = job_reqs.get("required_skills") or []
     if extracted_skills:
         sk_score = _skills_score(extracted_skills, structured.get("skills") or [])
     else:
-        # Fallback: use the comma-separated skills the user typed in the form
         fallback_skills = [s.strip() for s in (payload.skills_required or "").split(",") if s.strip()]
         sk_score = _skills_score(fallback_skills, structured.get("skills") or [])
 
     cv_quality = int(analysis.get("score", cv.score or 0) or 0)
     total_score = _combine_scores(dom_score, exp_score, sk_score, cv_quality)
 
-    # 5. Step 2 — deep narrative analysis
+    # 7. Step 2 — deep narrative analysis
     ai_result = analyze_cv_against_job(
         job_requirements=job_reqs,
         cv_structured=structured,
@@ -390,13 +399,24 @@ async def match_cv_to_job(
     )
 
 
+# ─── /mine MUST come before /{cv_id} so FastAPI matches it first ─────────────────
+
+@router.get("/mine", response_model=list[CVRead])
+async def list_my_cvs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_supabase_user),
+) -> list[CVRead]:
+    """List CVs uploaded by the current user."""
+    cvs = db.query(CV).filter(CV.user_id == current_user.id).all()
+    return cvs
+
+
 @router.delete("/{cv_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_cv(
     cv_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_supabase_user),
 ) -> None:
-    """Delete a CV from database and filesystem."""
     cv = db.query(CV).filter(CV.id == cv_id, CV.user_id == current_user.id).first()
     if not cv:
         raise HTTPException(status_code=404, detail="CV not found")
@@ -415,7 +435,6 @@ async def get_action_plan(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_supabase_user),
 ) -> Dict[str, Any]:
-    """Return a deterministic Career Action Plan for a CV."""
     cv = db.query(CV).filter(CV.id == cv_id, CV.user_id == current_user.id).first()
     if not cv:
         raise HTTPException(status_code=404, detail="CV not found")
@@ -437,7 +456,6 @@ async def download_cv_pdf(
     current_user: User = Depends(get_current_supabase_user),
     template: str = "classic",
 ) -> Response:
-    """Generate and download a branded CV PDF."""
     cv = db.query(CV).filter(CV.id == cv_id, CV.user_id == current_user.id).first()
     if not cv:
         raise HTTPException(status_code=404, detail="CV not found")
@@ -456,23 +474,12 @@ async def download_cv_pdf(
     return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
 
 
-@router.get("/mine", response_model=list[CVRead])
-async def list_my_cvs(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_supabase_user),
-) -> list[CVRead]:
-    """List CVs uploaded by the current user."""
-    cvs = db.query(CV).filter(CV.user_id == current_user.id).all()
-    return cvs
-
-
 @router.get("/{cv_id}", response_model=CVRead)
 async def get_cv(
     cv_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_supabase_user),
 ) -> CVRead:
-    """Fetch a single CV belonging to the current user."""
     cv = db.query(CV).filter(CV.id == cv_id, CV.user_id == current_user.id).first()
     if not cv:
         raise HTTPException(status_code=404, detail="CV not found")
@@ -485,7 +492,6 @@ async def analyze_cv(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_supabase_user),
 ) -> CVRead:
-    """Trigger Groq AI review (Stage 5)."""
     cv = db.query(CV).filter(CV.id == cv_id, CV.user_id == current_user.id).first()
     if not cv:
         raise HTTPException(status_code=404, detail="CV not found")
@@ -533,7 +539,6 @@ async def rewrite_cv(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_supabase_user),
 ) -> Dict[str, str]:
-    """Generate an improved version of the CV (Stage 7)."""
     cv = db.query(CV).filter(CV.id == cv_id, CV.user_id == current_user.id).first()
     if not cv:
         raise HTTPException(status_code=404, detail="CV not found")

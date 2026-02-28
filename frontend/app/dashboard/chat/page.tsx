@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/client";
 import { Send, Bot, User, FileText, Sparkles } from "lucide-react";
 
@@ -25,16 +24,16 @@ export default function ChatPage() {
     const [sending, setSending] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
     const [loading, setLoading] = useState(false);
-    const router = useRouter();
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const backendBaseUrl = "";
 
     useEffect(() => {
-        if (!accessToken) {
-            router.push("/auth/sign-in");
-            return;
-        }
+        // Do NOT redirect here — the Protected wrapper handles auth.
+        // With the hidden-mount tab approach every tab mounts at once;
+        // redirecting from here would push the whole page to sign-in
+        // before auth has resolved.
+        if (!accessToken) return;
         void fetchCvs();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [accessToken]);
@@ -53,7 +52,6 @@ export default function ChatPage() {
                     setMessages(parsed);
                 } catch (error) {
                     console.error("Failed to parse stored messages:", error);
-                    // Set default welcome message if parse fails
                     setMessages([
                         {
                             role: "assistant",
@@ -62,7 +60,6 @@ export default function ChatPage() {
                     ]);
                 }
             } else {
-                // No stored messages, set default welcome
                 setMessages([
                     {
                         role: "assistant",
@@ -94,7 +91,6 @@ export default function ChatPage() {
             setCvs(data);
             if (data.length > 0) {
                 setSelectedCvId(data[0].id);
-                // Messages will be loaded by useEffect when selectedCvId changes
             }
         } catch (err) {
             console.error(err);
@@ -113,7 +109,6 @@ export default function ChatPage() {
         setSending(true);
 
         try {
-            // Send only the last 10 messages to avoid token limits
             const recentMessages = updatedMessages.slice(-10);
 
             const res = await fetch(`${backendBaseUrl}/api/v1/chat`, {
@@ -134,21 +129,18 @@ export default function ChatPage() {
 
             const data = (await res.json()) as { reply: string };
 
-            // Start typing animation with a small delay
             setIsTyping(true);
-            await new Promise(resolve => setTimeout(resolve, 800)); // Initial thought delay
+            await new Promise(resolve => setTimeout(resolve, 800));
 
             const fullReply = data.reply;
             let currentText = "";
             const words = fullReply.split(" ");
 
-            // Add a placeholder assistant message that we will update
             setMessages([...updatedMessages, { role: "assistant", content: "" }]);
 
             for (let i = 0; i < words.length; i++) {
                 currentText += (i === 0 ? "" : " ") + words[i];
                 setMessages([...updatedMessages, { role: "assistant", content: currentText }]);
-                // Variable speed typing simulation
                 const delay = 30 + Math.random() * 40;
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
@@ -191,8 +183,11 @@ export default function ChatPage() {
                 <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center border-2 border-foreground bg-secondary">
                     <FileText className="h-8 w-8 text-foreground" />
                 </div>
+                <p className="font-serif text-xl font-bold uppercase tracking-tight mb-2">
+                    No CV uploaded yet
+                </p>
                 <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
-                    No CVs available. Upload a CV in the Upload tab to start chatting.
+                    Go to the <span className="font-bold text-foreground">Job Match</span> tab to upload your CV, then come back here to chat.
                 </p>
             </div>
         );
@@ -201,7 +196,7 @@ export default function ChatPage() {
     return (
         <div className="space-y-8">
             <div className="grid gap-8 lg:grid-cols-[300px_1fr]">
-                {/* CV Selection Sidebar - Brutalist */}
+                {/* CV Selection Sidebar */}
                 <div className="space-y-4">
                     <div className="flex items-center gap-2">
                         <div className="h-1.5 w-7 bg-primary"></div>
@@ -232,7 +227,7 @@ export default function ChatPage() {
                     </div>
                 </div>
 
-                {/* Chat Area - Brutalist */}
+                {/* Chat Area */}
                 <div className="flex h-[640px] flex-col border-2 border-foreground bg-card shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
                     {/* Chat Header */}
                     <div className="border-b-2 border-foreground bg-secondary p-5">
@@ -319,7 +314,7 @@ export default function ChatPage() {
                         <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Input - Brutalist */}
+                    {/* Input */}
                     <div className="border-t-2 border-foreground bg-secondary p-5">
                         <div className="flex items-center gap-3">
                             <input
