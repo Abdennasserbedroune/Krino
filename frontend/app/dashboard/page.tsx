@@ -1,32 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useAuth } from "@/lib/auth/client";
-import { Upload, BarChart3, MessageSquare, Briefcase } from "lucide-react";
+import { Target, Upload, MessageSquare, Briefcase } from "lucide-react";
 import { ProfileDropdown } from "@/components/ui/profile-dropdown";
 import Protected from "@/components/Protected";
 
-// Dynamically import page components
-const UploadPage = dynamic(() => import("./upload/page"), { ssr: false });
-const AnalysisPage = dynamic(() => import("./analysis/page"), { ssr: false });
-const ChatPage = dynamic(() => import("./chat/page"), { ssr: false });
-const JobsPage = dynamic(() => import("./jobs/page"), { ssr: false });
+const DesiredJobPage = dynamic(() => import("./desired-job/page"), { ssr: false });
+const UploadPage     = dynamic(() => import("./upload/page"),      { ssr: false });
+const ChatPage       = dynamic(() => import("./chat/page"),        { ssr: false });
+const JobsPage       = dynamic(() => import("./jobs/page"),        { ssr: false });
 
-type TabId = "upload" | "analysis" | "chat" | "jobs";
+type TabId = "desired-job" | "upload" | "chat" | "jobs";
 
 export default function DashboardIndexPage() {
-  const { user, email } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabId>("upload");
-  const router = useRouter();
+  const { email } = useAuth();
+  const [activeTab, setActiveTab] = useState<TabId>("desired-job");
 
   const tabs = [
-    { id: "upload" as TabId, label: "Upload CV", icon: Upload },
-    { id: "analysis" as TabId, label: "Score & CV Report", icon: BarChart3 },
-    { id: "chat" as TabId, label: "Chat with AI", icon: MessageSquare },
-    { id: "jobs" as TabId, label: "Jobs", icon: Briefcase },
+    { id: "desired-job" as TabId, label: "Desired Job",   icon: Target        },
+    { id: "upload"      as TabId, label: "Upload CV",     icon: Upload        },
+    { id: "chat"        as TabId, label: "Chat with AI",  icon: MessageSquare },
+    { id: "jobs"        as TabId, label: "Jobs",          icon: Briefcase     },
   ];
 
   return (
@@ -68,8 +65,8 @@ export default function DashboardIndexPage() {
               Your CV, but job-ready.
             </h1>
             <p className="text-xl text-muted-foreground max-w-3xl">
-              Upload your resume, see your score and report, then chat with an AI career coach
-              to get it ready for your next role.
+              Paste a job offer, see if your CV matches, chat with your AI coach to close the gaps,
+              and browse live remote openings — all in one place.
             </p>
           </div>
 
@@ -82,10 +79,11 @@ export default function DashboardIndexPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`inline-flex items-center gap-2 px-6 py-3 rounded-full text-base font-semibold transition-all ${isActive
-                    ? "bg-seeker text-white shadow-lg shadow-seeker/40"
-                    : "bg-white/90 text-slate-600 hover:bg-blue-50 hover:text-blue-900 border border-border/60"
-                    }`}
+                  className={`inline-flex items-center gap-2 px-6 py-3 rounded-full text-base font-semibold transition-all ${
+                    isActive
+                      ? "bg-seeker text-white shadow-lg shadow-seeker/40"
+                      : "bg-white/90 text-slate-600 hover:bg-blue-50 hover:text-blue-900 border border-border/60"
+                  }`}
                 >
                   <Icon className="h-5 w-5" />
                   {tab.label}
@@ -96,16 +94,17 @@ export default function DashboardIndexPage() {
 
           {/* Tab Content */}
           {activeTab === "jobs" ? (
-            // Jobs: use full-width layout without inner rounded card
             <div className="pt-2">
               <JobsPage />
             </div>
           ) : (
             <div className="bg-card/95 rounded-[2.5rem] shadow-craft border border-border/40 min-h-[560px]">
               <div className="p-8 md:p-12">
+                {activeTab === "desired-job" && (
+                  <DesiredJobPage onSwitchToChat={() => setActiveTab("chat")} />
+                )}
                 {activeTab === "upload" && <UploadPage />}
-                {activeTab === "analysis" && <AnalysisPage />}
-                {activeTab === "chat" && <ChatPage />}
+                {activeTab === "chat"   && <ChatPage />}
               </div>
             </div>
           )}
