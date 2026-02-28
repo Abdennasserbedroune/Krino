@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/client";
 import { Send, Bot, User, FileText, Sparkles } from "lucide-react";
 
@@ -23,20 +23,25 @@ export default function ChatPage() {
     const [input, setInput] = useState("");
     const [sending, setSending] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
-    const [loading, setLoading] = useState(false);
+    // Start as true so we never flash "No CV uploaded yet" before the first fetch
+    const [loading, setLoading] = useState(true);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    // Ref so the cv:deleted handler always sees the latest selectedCvId
+    const selectedCvIdRef = useRef<number | null>(null);
+    useEffect(() => { selectedCvIdRef.current = selectedCvId; }, [selectedCvId]);
 
-    const fetchCvs = useCallback(async (currentSelectedId?: number | null) => {
+    async function fetchCvs() {
         if (!accessToken) return;
         setLoading(true);
         try {
-            const res = await fetch(`/api/v1/cv/mine`, { credentials: "include" });
+            const res = await fetch("/api/v1/cv/mine", { credentials: "include" });
             if (!res.ok) throw new Error("Unable to load CVs");
             const data = (await res.json()) as CvItem[];
             setCvs(data);
-            // Only auto-select if current selection is gone or nothing was selected
-            const stillExists = data.some((c) => c.id === (currentSelectedId ?? -1));
-            if (!stillExists) {
+            // Keep current selection if it still exists, otherwise fall back to first CV
+            const currentId = selectedCvIdRef.current;
+            const stillValid = currentId !== null && data.some((c) => c.id === currentId);
+            if (!stillValid) {
                 setSelectedCvId(data.length > 0 ? data[0].id : null);
             }
         } catch (err) {
@@ -44,25 +49,22 @@ export default function ChatPage() {
         } finally {
             setLoading(false);
         }
-    }, [accessToken]);
+    }
 
     // Initial load
     useEffect(() => {
         if (!accessToken) return;
-        void fetchCvs(null);
-    }, [accessToken, fetchCvs]);
+        void fetchCvs();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [accessToken]);
 
-    // Listen for cv:deleted events fired by the Job Match tab
+    // Re-fetch when Job Match tab deletes a CV
     useEffect(() => {
-        const handler = () => {
-            setSelectedCvId((prev) => {
-                void fetchCvs(prev);
-                return prev;
-            });
-        };
+        const handler = () => void fetchCvs();
         window.addEventListener("cv:deleted", handler);
         return () => window.removeEventListener("cv:deleted", handler);
-    }, [fetchCvs]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [accessToken]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -71,14 +73,12 @@ export default function ChatPage() {
     // Load messages from localStorage when selectedCvId changes
     useEffect(() => {
         if (selectedCvId) {
-            const storedMessages = localStorage.getItem(`chat_messages_${selectedCvId}`);
-            if (storedMessages) {
+            const stored = localStorage.getItem(`chat_messages_${selectedCvId}`);
+            if (stored) {
                 try {
-                    const parsed = JSON.parse(storedMessages) as ChatMessage[];
-                    setMessages(parsed);
-                } catch (error) {
-                    console.error("Failed to parse stored messages:", error);
-                    setMessages([{ role: "assistant", content: "Hello! I'm your AI career assistant. How can I help you with your CV or job search today?" }]);
+                    setMessages(JSON.parse(stored) as ChatMessage[]);
+                } catch {
+                    setMessages([{ role: "assistant", content: "Hello! I'm your AI career assistant. How can I help you?" }]);
                 }
             } else {
                 setMessages([{ role: "assistant", content: "Hello! I'm your AI career assistant powered by Groq. I can help you prepare for interviews, improve your CV, or answer job-related questions. How can I assist you today?" }]);
@@ -86,7 +86,7 @@ export default function ChatPage() {
         }
     }, [selectedCvId]);
 
-    // Save messages to localStorage whenever they change
+    // Save messages to localStorage
     useEffect(() => {
         if (selectedCvId && messages.length > 0) {
             localStorage.setItem(`chat_messages_${selectedCvId}`, JSON.stringify(messages));
@@ -95,41 +95,30 @@ export default function ChatPage() {
 
     const handleSend = async () => {
         if (!input.trim() || !selectedCvId || !accessToken || sending) return;
-
         const userMessage: ChatMessage = { role: "user", content: input.trim() };
         const updatedMessages = [...messages, userMessage];
         setMessages(updatedMessages);
         setInput("");
         setSending(true);
-
         try {
-            const recentMessages = updatedMessages.slice(-10);
-            const res = await fetch(`/api/v1/chat`, {
+            const res = await fetch("/api/v1/chat", {
                 method: "POST",
                 credentials: "include",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ cv_id: selectedCvId, messages: recentMessages }),
+                body: JSON.stringify({ cv_id: selectedCvId, messages: updatedMessages.slice(-10) }),
             });
-
             if (!res.ok) throw new Error("Failed to send message");
-
             const data = (await res.json()) as { reply: string };
-
             setIsTyping(true);
-            await new Promise(resolve => setTimeout(resolve, 800));
-
-            const fullReply = data.reply;
+            await new Promise(r => setTimeout(r, 800));
+            const words = data.reply.split(" ");
             let currentText = "";
-            const words = fullReply.split(" ");
-
             setMessages([...updatedMessages, { role: "assistant", content: "" }]);
-
             for (let i = 0; i < words.length; i++) {
                 currentText += (i === 0 ? "" : " ") + words[i];
                 setMessages([...updatedMessages, { role: "assistant", content: currentText }]);
-                await new Promise(resolve => setTimeout(resolve, 30 + Math.random() * 40));
+                await new Promise(r => setTimeout(r, 30 + Math.random() * 40));
             }
-
             setIsTyping(false);
         } catch (err) {
             console.error(err);
@@ -141,16 +130,13 @@ export default function ChatPage() {
     };
 
     const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            void handleSend();
-        }
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleSend(); }
     };
 
     if (loading) {
         return (
             <div className="flex items-center gap-3 border-2 border-foreground bg-background p-6">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                 <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Loading chat...</p>
             </div>
         );
@@ -176,7 +162,7 @@ export default function ChatPage() {
                 {/* CV Selection Sidebar */}
                 <div className="space-y-4">
                     <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-7 bg-primary"></div>
+                        <div className="h-1.5 w-7 bg-primary" />
                         <h2 className="font-serif text-xl font-bold uppercase tracking-tight text-foreground">Select CV</h2>
                     </div>
                     <div className="space-y-3">
@@ -201,7 +187,6 @@ export default function ChatPage() {
 
                 {/* Chat Area */}
                 <div className="flex h-[640px] flex-col border-2 border-foreground bg-card shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
-                    {/* Chat Header */}
                     <div className="border-b-2 border-foreground bg-secondary p-5">
                         <div className="flex items-center gap-3">
                             <div className="flex h-10 w-10 items-center justify-center border-2 border-foreground bg-primary">
@@ -214,7 +199,6 @@ export default function ChatPage() {
                         </div>
                     </div>
 
-                    {/* Messages */}
                     <div className="flex-1 space-y-4 overflow-y-auto p-6">
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -245,9 +229,9 @@ export default function ChatPage() {
                                     </div>
                                     <div className="border-2 border-foreground bg-background px-4 py-3 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
                                         <div className="flex items-center gap-2">
-                                            <div className="h-2 w-2 animate-bounce rounded-full bg-primary"></div>
-                                            <div className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:0.2s]"></div>
-                                            <div className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:0.4s]"></div>
+                                            <div className="h-2 w-2 animate-bounce rounded-full bg-primary" />
+                                            <div className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:0.2s]" />
+                                            <div className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:0.4s]" />
                                         </div>
                                     </div>
                                 </div>
@@ -270,7 +254,6 @@ export default function ChatPage() {
                         <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Input */}
                     <div className="border-t-2 border-foreground bg-secondary p-5">
                         <div className="flex items-center gap-3">
                             <input
