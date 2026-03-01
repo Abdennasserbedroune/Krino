@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useAuth } from "@/lib/auth/client";
 import { Send, Bot, User, FileText, Sparkles } from "lucide-react";
 
 interface CvItem {
@@ -16,29 +15,27 @@ interface ChatMessage {
 }
 
 export default function ChatPage() {
-    const { accessToken } = useAuth();
     const [cvs, setCvs] = useState<CvItem[]>([]);
     const [selectedCvId, setSelectedCvId] = useState<number | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
     const [sending, setSending] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
-    // Start as true so we never flash "No CV uploaded yet" before the first fetch
     const [loading, setLoading] = useState(true);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    // Ref so the cv:deleted handler always sees the latest selectedCvId
     const selectedCvIdRef = useRef<number | null>(null);
     useEffect(() => { selectedCvIdRef.current = selectedCvId; }, [selectedCvId]);
 
+    // Auth is handled server-side via cookies — no need for accessToken client-side.
+    // Every fetch uses credentials:"include" so the Supabase server client reads the session automatically.
     async function fetchCvs() {
-        if (!accessToken) return;
         setLoading(true);
         try {
             const res = await fetch("/api/v1/cv/mine", { credentials: "include" });
+            if (res.status === 401) { setLoading(false); return; }
             if (!res.ok) throw new Error("Unable to load CVs");
             const data = (await res.json()) as CvItem[];
             setCvs(data);
-            // Keep current selection if it still exists, otherwise fall back to first CV
             const currentId = selectedCvIdRef.current;
             const stillValid = currentId !== null && data.some((c) => c.id === currentId);
             if (!stillValid) {
@@ -51,26 +48,20 @@ export default function ChatPage() {
         }
     }
 
-    // Initial load
-    useEffect(() => {
-        if (!accessToken) return;
-        void fetchCvs();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [accessToken]);
+    // Load CVs on mount — no dependency on accessToken, auth is cookie-based
+    useEffect(() => { void fetchCvs(); }, []);
 
     // Re-fetch when Job Match tab deletes a CV
     useEffect(() => {
         const handler = () => void fetchCvs();
         window.addEventListener("cv:deleted", handler);
         return () => window.removeEventListener("cv:deleted", handler);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [accessToken]);
+    }, []);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
-    // Load messages from localStorage when selectedCvId changes
     useEffect(() => {
         if (selectedCvId) {
             const stored = localStorage.getItem(`chat_messages_${selectedCvId}`);
@@ -86,15 +77,18 @@ export default function ChatPage() {
         }
     }, [selectedCvId]);
 
-    // Save messages to localStorage
     useEffect(() => {
         if (selectedCvId && messages.length > 0) {
             localStorage.setItem(`chat_messages_${selectedCvId}`, JSON.stringify(messages));
         }
     }, [messages, selectedCvId]);
 
+    const userMessageCount = messages.filter(m => m.role === "user").length;
+    const limitReached = userMessageCount >= 4;
+
     const handleSend = async () => {
-        if (!input.trim() || !selectedCvId || !accessToken || sending) return;
+        // No accessToken check — auth is cookie-based and validated server-side
+        if (!input.trim() || !selectedCvId || sending || limitReached) return;
         const userMessage: ChatMessage = { role: "user", content: input.trim() };
         const updatedMessages = [...messages, userMessage];
         setMessages(updatedMessages);
@@ -107,7 +101,10 @@ export default function ChatPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ cv_id: selectedCvId, messages: updatedMessages.slice(-10) }),
             });
-            if (!res.ok) throw new Error("Failed to send message");
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({})) as { detail?: string };
+                throw new Error(errData.detail ?? "Failed to send message");
+            }
             const data = (await res.json()) as { reply: string };
             setIsTyping(true);
             await new Promise(r => setTimeout(r, 800));
@@ -120,10 +117,11 @@ export default function ChatPage() {
                 await new Promise(r => setTimeout(r, 30 + Math.random() * 40));
             }
             setIsTyping(false);
-        } catch (err) {
+        } catch (err: unknown) {
             console.error(err);
             setIsTyping(false);
-            setMessages([...updatedMessages, { role: "assistant", content: "Sorry, I encountered an error. Please try again." }]);
+            const msg = err instanceof Error ? err.message : "Sorry, I encountered an error. Please try again.";
+            setMessages([...updatedMessages, { role: "assistant", content: msg }]);
         } finally {
             setSending(false);
         }
@@ -194,7 +192,7 @@ export default function ChatPage() {
                             </div>
                             <div>
                                 <h3 className="font-serif text-xl font-bold uppercase tracking-tight text-foreground">AI Career Assistant</h3>
-                                <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">Powered by Groq</p>
+                                <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">Powered by Groq · AI</p>
                             </div>
                         </div>
                     </div>
@@ -237,7 +235,7 @@ export default function ChatPage() {
                                 </div>
                             </div>
                         )}
-                        {messages.filter(m => m.role === "user").length >= 4 && (
+                        {limitReached && (
                             <div className="flex flex-col items-center gap-4 border-2 border-dashed border-red-500 bg-red-50 p-6 text-center animate-in fade-in duration-700">
                                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500 text-white shadow-lg">
                                     <Sparkles className="h-6 w-6" />
@@ -261,13 +259,13 @@ export default function ChatPage() {
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyPress={handleKeyPress}
-                                placeholder={messages.filter(m => m.role === "user").length >= 4 ? "Limit reached..." : "Type your message..."}
-                                disabled={sending || messages.filter(m => m.role === "user").length >= 4}
+                                placeholder={limitReached ? "Limit reached — upgrade to continue" : "Ask anything about your CV..."}
+                                disabled={sending || limitReached}
                                 className="flex-1 border-2 border-foreground bg-background px-4 py-3 text-base font-medium text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
                             />
                             <button
                                 onClick={handleSend}
-                                disabled={!input.trim() || sending || messages.filter(m => m.role === "user").length >= 4}
+                                disabled={!input.trim() || sending || limitReached}
                                 className="inline-flex items-center gap-2 border-2 border-foreground bg-primary px-7 py-3 text-base font-bold uppercase tracking-widest text-primary-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1 hover:translate-x-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-0 active:translate-y-0 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <Send className="h-4 w-4" />

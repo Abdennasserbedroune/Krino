@@ -23,7 +23,6 @@ interface RemotiveJob {
 
 type CvListItem = { id: number; original_filename: string };
 
-// Category-relevant quick-search pills — shown based on detected role
 const CATEGORY_PILLS: Record<string, string[]> = {
   "legal":               ["Lawyer", "Legal Counsel", "Compliance", "Paralegal", "Contract Manager"],
   "finance":             ["Financial Analyst", "Accountant", "FP&A", "Controller", "Auditor"],
@@ -87,7 +86,6 @@ export default function JobsPage() {
   }, []);
 
   const fetchJobs = useCallback(async (search: string, category: string) => {
-    if (!search.trim() && !category.trim()) return;
     setLoading(true); setError(""); setSearched(true);
     setUsedCategory(category);
     try {
@@ -98,11 +96,12 @@ export default function JobsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to fetch jobs");
       setJobs(data.jobs ?? []);
-    } catch (e: any) { setError(e.message ?? "Something went wrong."); setJobs([]); }
-    finally { setLoading(false); }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+      setJobs([]);
+    } finally { setLoading(false); }
   }, []);
 
-  // When CV selected: infer role from CV then auto-fetch matching jobs
   useEffect(() => {
     if (!selectedCvId) return;
     setDetectedRole(""); setCategorySlug(""); setInferring(true);
@@ -117,16 +116,27 @@ export default function JobsPage() {
         const sq   = (data?.suggested_query as string) || "";
         const role = (data?.detected_role  as string) || "";
         const slug = (data?.category_slug  as string) || "";
+
         if (sq || slug) {
+          // Role detected — fetch targeted jobs
           setDetectedRole(role);
           setCategorySlug(slug);
-          setActiveFilter(null);
           setInput(sq);
           setQuery(sq);
+          setActiveFilter(null);
           fetchJobs(sq, slug);
+        } else {
+          // Role not detected — fetch a broad batch so the page isn't empty
+          setDetectedRole("");
+          setCategorySlug("");
+          fetchJobs("", "software-dev"); // default fallback category
         }
-      } catch { /* ignore */ }
-      finally { setInferring(false); }
+      } catch {
+        // On error, still show something useful
+        fetchJobs("", "software-dev");
+      } finally {
+        setInferring(false);
+      }
     })();
   }, [selectedCvId, fetchJobs]);
 
@@ -135,8 +145,7 @@ export default function JobsPage() {
     if (!trimmed) return;
     setActiveFilter(null);
     setQuery(trimmed);
-    // When manually searching, drop the category filter so results are broader
-    fetchJobs(trimmed, "");
+    fetchJobs(trimmed, ""); // Manual search = drop category filter for broader results
   };
 
   const handlePillClick = (term: string) => {
@@ -144,7 +153,6 @@ export default function JobsPage() {
       setActiveFilter(null); setInput(""); setQuery(""); setJobs([]); setSearched(false);
     } else {
       setActiveFilter(term); setInput(term); setQuery(term);
-      // Pills use category context when available
       fetchJobs(term, categorySlug);
     }
   };
@@ -153,13 +161,8 @@ export default function JobsPage() {
     ? CATEGORY_PILLS[categorySlug]
     : DEFAULT_PILLS;
 
-  const jobCountLabel = jobs.length > 0
-    ? `${jobs.length} remote role${jobs.length !== 1 ? "s" : ""} found`
-    : null;
-
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -205,7 +208,6 @@ export default function JobsPage() {
             {cvs.map(cv => <option key={cv.id} value={cv.id}>{cv.original_filename}</option>)}
           </select>
 
-          {/* Detected role badge */}
           {inferring && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Reading your CV to detect your field…
@@ -216,11 +218,11 @@ export default function JobsPage() {
               <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3 py-1 text-xs font-semibold text-blue-700">
                 <Sparkles className="h-3 w-3" /> Detected role: {detectedRole}
               </span>
-              <span className="text-xs text-muted-foreground">Showing {categorySlug} jobs</span>
+              <span className="text-xs text-muted-foreground">· {categorySlug} jobs</span>
             </div>
           )}
-          {!inferring && selectedCvId && !detectedRole && (
-            <p className="text-xs text-muted-foreground">Could not auto-detect your role — use the search bar below.</p>
+          {!inferring && selectedCvId && !detectedRole && searched && (
+            <p className="text-xs text-muted-foreground">Role not detected — showing general remote jobs. Use the search bar to refine.</p>
           )}
         </div>
       )}
@@ -251,9 +253,7 @@ export default function JobsPage() {
                 return (
                   <button key={term} onClick={() => handlePillClick(term)}
                     className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
-                      isActive
-                        ? "border-blue-600 bg-blue-600 text-white"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-blue-400 hover:text-blue-700"
+                      isActive ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-blue-400 hover:text-blue-700"
                     }`}>
                     {term}{isActive && <X className="h-3 w-3" />}
                   </button>
@@ -268,11 +268,10 @@ export default function JobsPage() {
             </div>
           </div>
 
-          {/* States */}
           {loading && (
             <div className="flex flex-col items-center gap-3 py-16">
               <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-              <p className="text-sm font-medium text-muted-foreground">Fetching live jobs{query ? ` for “${query}”` : ``}…</p>
+              <p className="text-sm font-medium text-muted-foreground">Fetching live jobs{query ? ` for "${query}"` : ""}…</p>
             </div>
           )}
 
@@ -288,11 +287,11 @@ export default function JobsPage() {
 
           {!loading && !error && searched && (
             <>
-              {jobCountLabel && (
+              {jobs.length > 0 && (
                 <p className="text-xs text-muted-foreground font-medium">
-                  {jobCountLabel}{query ? ` for “${query}”` : ``}
-                  {usedCategory ? ` · category: ${usedCategory}` : ``}
-                  {" "}·{" "}
+                  {jobs.length} remote role{jobs.length !== 1 ? "s" : ""}{query ? ` for "${query}"` : ""}
+                  {usedCategory ? ` · ${usedCategory}` : ""}
+                  {" · "}
                   <a href="https://remotive.com" target="_blank" rel="noopener noreferrer"
                     className="underline underline-offset-2 hover:text-foreground">powered by Remotive</a>
                 </p>
@@ -302,7 +301,6 @@ export default function JobsPage() {
                 {jobs.map(job => (
                   <div key={job.id}
                     className="border-2 border-foreground bg-card p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all flex flex-col gap-4">
-
                     <div className="flex items-start gap-3">
                       {job.company_logo_url ? (
                         <img src={job.company_logo_url} alt={job.company_name}
@@ -314,12 +312,8 @@ export default function JobsPage() {
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-serif text-lg font-bold uppercase tracking-tight leading-tight line-clamp-2">
-                          {job.title}
-                        </h3>
-                        <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground mt-0.5">
-                          {job.company_name}
-                        </p>
+                        <h3 className="font-serif text-lg font-bold uppercase tracking-tight leading-tight line-clamp-2">{job.title}</h3>
+                        <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground mt-0.5">{job.company_name}</p>
                       </div>
                     </div>
 
@@ -358,7 +352,7 @@ export default function JobsPage() {
               {jobs.length === 0 && (
                 <div className="flex flex-col items-center gap-3 py-16 border-2 border-dashed border-slate-200">
                   <Briefcase className="h-10 w-10 text-slate-300" />
-                  <p className="text-sm font-medium text-muted-foreground">No remote jobs found{query ? ` for “${query}”` : ``}</p>
+                  <p className="text-sm font-medium text-muted-foreground">No remote jobs found{query ? ` for "${query}"` : ""}</p>
                   <p className="text-xs text-muted-foreground">Try a broader keyword or a different search term.</p>
                 </div>
               )}
