@@ -5,6 +5,7 @@ import { ArrowRight, Check, Upload, FileText, Search, Shield, Clock, Users, Brie
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { InfiniteMovingCards } from "@/components/ui/infinite-moving-cards";
+import { useAuth } from "@/lib/auth/client";
 
 const clipAnimation = {
   initial: { clipPath: "inset(0 0 100% 0)", opacity: 0 },
@@ -71,19 +72,49 @@ const recruiterTestimonials = [
 
 export default function LandingPage() {
   const [activeRole, setActiveRole] = useState<"seeker" | "recruiter">("seeker");
+  const { user } = useAuth();
+
+  // Determine where CTAs should lead.
+  // Logged-in users go straight to their dashboard.
+  // Guests go to sign-in (which will redirect them after login).
+  const getDashboardPath = () => {
+    if (typeof window !== "undefined") {
+      const role = localStorage.getItem("user_role");
+      return role === "recruiter" ? "/dashboard/recruiter" : "/dashboard";
+    }
+    return "/dashboard";
+  };
+  const ctaHref = user ? getDashboardPath() : "/auth/sign-in";
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-accent selection:text-white overflow-x-hidden relative">
 
-      {/* Header - Fixed overlapping bug with z-[100] */}
-      <header className="fixed top-0 left-0 right-0 z-[100] bg-background/60 backdrop-blur-xl border-b border-white/10">
+      {/* ── Header ─────────────────────────────────────────────────────────────
+          z-[100]      : must beat every in-page stacking context
+          bg-background/95 : near-opaque so gradient hero text never bleeds through
+      */}
+      <header className="fixed top-0 left-0 right-0 z-[100] bg-background/95 backdrop-blur-xl border-b border-white/10">
         <div className="container mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="font-serif text-3xl font-bold tracking-tight text-primary">Pathwise</div>
+          <div className="font-serif text-3xl font-bold tracking-tight text-primary select-none cursor-default">Pathwise</div>
           <div className="flex items-center gap-6">
-            <Link href="/auth/signin" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              Sign in
-            </Link>
-            <Link href="/dashboard" className={`relative group px-6 py-2.5 rounded-full overflow-hidden font-medium shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 text-white ${activeRole === 'seeker' ? 'bg-seeker' : 'bg-recruiter'}`}>
+            {user ? (
+              /* Already signed in → show dashboard shortcut, hide "Sign in" */
+              <Link
+                href={getDashboardPath()}
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Dashboard
+              </Link>
+            ) : (
+              /* Guest → correct hyphenated route (was /auth/signin → 404) */
+              <Link href="/auth/sign-in" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                Sign in
+              </Link>
+            )}
+            <Link
+              href={ctaHref}
+              className={`relative group px-6 py-2.5 rounded-full overflow-hidden font-medium shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 text-white ${activeRole === 'seeker' ? 'bg-seeker' : 'bg-recruiter'}`}
+            >
               <span className="relative z-10">Get Started</span>
               <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
             </Link>
@@ -91,9 +122,14 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <main className="pt-32 pb-20 relative z-10">
+      {/* ── Main ───────────────────────────────────────────────────────────────
+          No z-index on <main> so it does NOT create a stacking context.
+          This ensures the fixed header at z-[100] in the ROOT context always
+          renders above all page content — no bleed-through from child z-indexes.
+      */}
+      <main className="pt-32 pb-20 relative">
         {/* Hero Section */}
-        <section className="container mx-auto px-6 mb-20 relative z-20">
+        <section className="container mx-auto px-6 mb-20 relative">
           <div className="max-w-5xl mx-auto text-center">
 
             {/* Role Toggle */}
@@ -129,12 +165,18 @@ export default function LandingPage() {
                   {activeRole === "seeker" ? (
                     <>
                       Is your resume <br />
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-seeker to-blue-400 italic inline-block py-1">actually reading?</span>
+                      {/*
+                        bg-clip-text cuts the gradient to the element's padding-box.
+                        At text-8xl italic, the "?" character's slant makes it visually
+                        overflow the box → the tail gets cropped and turns invisible.
+                        Fix: py-2 px-1 gives the gradient enough room to cover the full glyph.
+                      */}
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-seeker to-blue-400 italic inline-block py-2 px-1">actually reading?</span>
                     </>
                   ) : (
                     <>
                       Filter the noise <br />
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-recruiter to-orange-400 italic inline-block py-1">find the signal.</span>
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-recruiter to-orange-400 italic inline-block py-2 px-1">find the signal.</span>
                     </>
                   )}
                 </h1>
@@ -147,7 +189,11 @@ export default function LandingPage() {
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
-                  <Link href="/dashboard" className={`px-8 py-4 rounded-full text-lg font-bold text-white shadow-glow hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ${activeRole === 'seeker' ? 'bg-seeker' : 'bg-recruiter'}`}>
+                  {/* Auth-aware CTA — guests → sign-in, logged-in → their dashboard */}
+                  <Link
+                    href={ctaHref}
+                    className={`px-8 py-4 rounded-full text-lg font-bold text-white shadow-glow hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ${activeRole === 'seeker' ? 'bg-seeker' : 'bg-recruiter'}`}
+                  >
                     {activeRole === "seeker" ? "Analyze My Resume" : "Start Screening Batch"}
                   </Link>
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -161,15 +207,15 @@ export default function LandingPage() {
         </section>
 
         {/* Job Seeker Testimonials Marquee */}
-        <section className="mb-32 overflow-hidden py-10 relative z-10">
+        <section className="mb-32 overflow-hidden py-10 relative">
           <div className="container mx-auto px-6 mb-8 text-center">
             <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Trusted by Job Seekers</p>
           </div>
           <InfiniteMovingCards items={jobSeekerTestimonials} direction="right" speed="slow" />
         </section>
 
-        {/* Bento Grid Features - Redesigned */}
-        <section className="container mx-auto px-6 mb-32 relative z-10">
+        {/* Bento Grid Features */}
+        <section className="container mx-auto px-6 mb-32 relative">
           <div className="text-center mb-16">
             <motion.h2
               {...clipAnimation}
@@ -303,7 +349,7 @@ export default function LandingPage() {
               <p className="text-lg text-white/70 leading-relaxed mb-12 relative z-10">
                 {activeRole === "seeker" ? (
                   <>
-                    Your resume is analyzed by AI, then deleted. We don't store your PDF,
+                    Your resume is analyzed by AI, then deleted. We don&apos;t store your PDF,
                     sell your data, or train models on your personal information.
                   </>
                 ) : (
@@ -354,7 +400,7 @@ export default function LandingPage() {
                 <p className="text-muted-foreground mb-6">
                   {activeRole === "seeker" ? (
                     <>
-                      Pathwise AI tells you exactly what's missing: "Add TypeScript to your skills section."
+                      Pathwise AI tells you exactly what&apos;s missing: &ldquo;Add TypeScript to your skills section.&rdquo;
                     </>
                   ) : (
                     <>
@@ -363,7 +409,6 @@ export default function LandingPage() {
                   )}
                 </p>
 
-                {/* Nested Mini-List */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-3 p-2 rounded-lg bg-white/50 border border-white/50 hover:bg-white transition-colors">
                     <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-bold">1</div>
@@ -414,7 +459,6 @@ export default function LandingPage() {
                     </>
                   )}
                 </p>
-                {/* Nested Stat */}
                 <div className="flex items-end gap-2">
                   <span className="text-4xl font-serif font-bold text-primary">
                     {activeRole === "seeker" ? "10s" : "10x"}
@@ -431,7 +475,7 @@ export default function LandingPage() {
         </section>
 
         {/* Workflow Section */}
-        <section className="py-32 bg-white/50 backdrop-blur-sm border-y border-border/50 relative z-10">
+        <section className="py-32 bg-white/50 backdrop-blur-sm border-y border-border/50 relative">
           <div className="container mx-auto px-6">
             <div className="text-center mb-20">
               <h2 className="font-serif text-5xl mb-6 text-primary">How it works</h2>
@@ -498,7 +542,7 @@ export default function LandingPage() {
         </section>
 
         {/* Recruiter Testimonials Marquee */}
-        <section className="mb-32 overflow-hidden py-10 relative z-10">
+        <section className="mb-32 overflow-hidden py-10 relative">
           <div className="container mx-auto px-6 mb-8 text-center">
             <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Trusted by Hiring Teams</p>
           </div>
@@ -506,10 +550,9 @@ export default function LandingPage() {
         </section>
 
         {/* Pricing */}
-        <section className="container mx-auto px-6 pb-32 relative z-10">
+        <section className="container mx-auto px-6 pb-32 relative">
           <div className="max-w-4xl mx-auto">
             <div className="bg-primary rounded-[3rem] p-12 md:p-20 text-center text-primary-foreground relative overflow-hidden">
-              {/* Decorative circles */}
               <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
                 <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-white/5 rounded-full blur-3xl"></div>
                 <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-accent/20 rounded-full blur-3xl"></div>
@@ -534,7 +577,8 @@ export default function LandingPage() {
                       <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><Check size={12} /></div> Basic Score</li>
                       <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><Check size={12} /></div> 1 Recruiter Session</li>
                     </ul>
-                    <Link href="/dashboard" className="block w-full py-4 rounded-2xl bg-secondary text-primary font-bold hover:bg-secondary/80 transition-colors">
+                    {/* Auth-aware: guests go to sign-in, logged-in go to their dashboard */}
+                    <Link href={ctaHref} className="block w-full py-4 rounded-2xl bg-secondary text-primary font-bold hover:bg-secondary/80 transition-colors">
                       Get Started
                     </Link>
                   </motion.div>
@@ -565,7 +609,7 @@ export default function LandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-border/50 py-16 relative z-10">
+      <footer className="bg-white border-t border-border/50 py-16 relative">
         <div className="container mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="text-center md:text-left">
