@@ -13,18 +13,26 @@ export default function SignInPage() {
   const { user, loading } = useAuth();
   const [selectedRole, setSelectedRole] = useState<"seeker" | "recruiter" | null>(null);
 
+  // If the user is already authenticated, skip this page entirely.
+  // Use replace so they can't press Back and end up here again.
+  useEffect(() => {
+    if (!loading && user) {
+      const cached = localStorage.getItem("user_role");
+      router.replace(cached === "recruiter" ? "/dashboard/recruiter" : "/dashboard");
+    }
+  }, [user, loading, router]);
 
   const handleSuccess = (role: "seeker" | "recruiter") => {
-    // Redirect based on role
+    localStorage.setItem("user_role", role);
     if (role === "recruiter") {
-      router.push("/dashboard/recruiter");
+      router.replace("/dashboard/recruiter");
     } else {
-      router.push("/dashboard");
+      router.replace("/dashboard");
     }
   };
 
-  // Show loading while auth is initializing
-  if (loading) {
+  // Show a loading state while auth hydrates OR while we're about to redirect
+  if (loading || user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">
@@ -117,7 +125,7 @@ export default function SignInPage() {
 
           {/* Sign Up Link */}
           <p className="text-center text-sm text-muted-foreground">
-            Don't have an account yet?{" "}
+            Don&apos;t have an account yet?{" "}
             <Link href="/auth/sign-up" className="text-primary font-medium hover:underline transition-colors">
               Create one
             </Link>

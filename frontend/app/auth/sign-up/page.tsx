@@ -12,19 +12,38 @@ import { BackgroundBeams } from "@/components/ui/background-beams";
 
 export default function SignUpPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [selectedRole, setSelectedRole] = useState<"seeker" | "recruiter" | null>(null);
 
+  // If the user is already authenticated, send them straight to their dashboard.
+  // Use replace so Back never returns to sign-up.
+  useEffect(() => {
+    if (!loading && user) {
+      const cached = localStorage.getItem("user_role");
+      router.replace(cached === "recruiter" ? "/dashboard/recruiter" : "/dashboard");
+    }
+  }, [user, loading, router]);
+
   const handleSuccess = (role: "seeker" | "recruiter") => {
-    console.log("Registration successful, redirecting based on role");
-    // Store role and redirect based on role
     localStorage.setItem("user_role", role);
     if (role === "recruiter") {
-      router.push("/dashboard/recruiter");
+      router.replace("/dashboard/recruiter");
     } else {
-      router.push("/dashboard");
+      router.replace("/dashboard");
     }
   };
+
+  // Show spinner while auth hydrates OR while redirect is pending
+  if (loading || user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+          <p className="text-sm font-medium text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center px-6 py-12 bg-background font-sans overflow-hidden">
@@ -52,7 +71,6 @@ export default function SignUpPage() {
 
           <AnimatePresence mode="wait">
             {!selectedRole ? (
-              /* Role Selection */
               <motion.div
                 key="role-selection"
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -100,7 +118,6 @@ export default function SignUpPage() {
                 </motion.button>
               </motion.div>
             ) : (
-              /* Sign Up Form */
               <motion.div
                 key="sign-up-form"
                 initial={{ opacity: 0, x: 20 }}

@@ -4,11 +4,9 @@ import { useState, useRef, useEffect } from "react";
 import { User, LogOut, Key, ChevronDown, Eye, EyeOff, CheckCircle, X } from "lucide-react";
 import { useAuth } from "@/lib/auth/client";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
 
 export function ProfileDropdown() {
     const { email, logout } = useAuth();
-    const router = useRouter();
     const [isOpen,       setIsOpen]       = useState(false);
     const [showChangePw, setShowChangePw] = useState(false);
     const [newPw,        setNewPw]        = useState("");
@@ -53,15 +51,19 @@ export function ProfileDropdown() {
     };
 
     const handleLogout = async () => {
-        // Clear cached role so next login shows the role picker cleanly
+        // Wipe ALL cached auth state from localStorage
         localStorage.removeItem("user_role");
         await logout();
-        router.push("/");
+        // window.location.replace performs a HARD navigation:
+        //   1. Replaces the current history entry so Back never returns to the dashboard
+        //   2. Forces a full page reload which clears React state and busts bfcache
+        // router.push() does NOT do this — it leaves the page in the browser bfcache.
+        window.location.replace("/");
     };
 
     return (
         <div className="relative" ref={dropdownRef}>
-            {/* Trigger button — styled for the blue gradient header */}
+            {/* Trigger button */}
             <button
                 onClick={() => { setIsOpen(!isOpen); if (isOpen) closeAll(); }}
                 className="flex items-center gap-1.5 rounded-full border border-white/30 bg-white/10 pl-1.5 pr-2.5 py-1.5 transition-all hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/40"
@@ -74,7 +76,7 @@ export function ProfileDropdown() {
 
             {isOpen && (
                 <div className="absolute right-0 top-full z-[70] mt-2 w-72 rounded-2xl border border-border/40 bg-background shadow-xl overflow-hidden">
-                    {/* Header: signed in as */}
+                    {/* Header */}
                     <div className="flex items-center justify-between border-b border-border/40 px-4 py-3 bg-secondary/30">
                         <div className="min-w-0">
                             <p className="text-xs font-medium text-muted-foreground">Signed in as</p>
@@ -86,7 +88,6 @@ export function ProfileDropdown() {
                     </div>
 
                     {!showChangePw ? (
-                        /* ── Main menu ── */
                         <div className="p-2 space-y-1">
                             <button
                                 onClick={() => setShowChangePw(true)}
@@ -104,7 +105,6 @@ export function ProfileDropdown() {
                             </button>
                         </div>
                     ) : (
-                        /* ── Change password panel ── */
                         <div className="p-4">
                             <button
                                 onClick={() => { setShowChangePw(false); setPwError(""); setPwSuccess(false); }}

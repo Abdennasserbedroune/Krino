@@ -8,11 +8,26 @@ export default function Protected({ children }: { children: ReactNode }) {
     const { session, loading } = useAuthContext();
     const router = useRouter();
 
+    // Use router.replace (not push) so the protected page is removed from history —
+    // pressing Back from sign-in will never return to a guarded route.
     useEffect(() => {
         if (!loading && !session) {
-            router.push("/auth/sign-in");
+            router.replace("/auth/sign-in");
         }
     }, [loading, session, router]);
+
+    // Kill back-forward-cache restorations for signed-out users.
+    // Browsers (Chrome/Safari) can restore a cached version of the page even after
+    // the session is gone — this event catches that and hard-redirects.
+    useEffect(() => {
+        const handlePageShow = (e: PageTransitionEvent) => {
+            if (e.persisted && !session) {
+                window.location.replace("/auth/sign-in");
+            }
+        };
+        window.addEventListener("pageshow", handlePageShow);
+        return () => window.removeEventListener("pageshow", handlePageShow);
+    }, [session]);
 
     if (loading) {
         return (
