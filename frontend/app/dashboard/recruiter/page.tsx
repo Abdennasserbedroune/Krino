@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useAuth } from "@/lib/auth/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -166,18 +165,30 @@ export default function RecruiterDashboardPage() {
                     <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-orange-500/10 rounded-full blur-[100px] animate-blob animation-delay-4000 mix-blend-multiply" />
                 </div>
 
-                <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/40">
-                    <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-                        <Link href="/" className="font-serif text-2xl font-medium tracking-tight">Pathwise</Link>
-                        <div className="flex items-center gap-4">
-                            <span className="text-sm text-muted-foreground">{email || "Guest"}</span>
-                            <span className="px-3 py-1 text-xs font-medium bg-recruiter/10 text-recruiter rounded-full">Recruiter</span>
+                {/* ── Fixed Header (Aligned with Job Seeker Header) ── */}
+                <header className="fixed top-0 left-0 right-0 z-[60] bg-gradient-to-r from-recruiter/95 via-orange-600/95 to-red-600/95 backdrop-blur-xl border-b border-white/10 shadow-lg">
+                    <div className="container mx-auto px-4 sm:px-6 h-16 md:h-20 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                            {/* Non-clickable logo */}
+                            <span className="font-serif text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white select-none cursor-default">
+                                Pathwise
+                            </span>
+                            <span className="hidden md:inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-orange-50 whitespace-nowrap">
+                                Recruiter
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+                            {email && (
+                                <span className="hidden sm:inline-block max-w-[140px] lg:max-w-[220px] truncate text-sm font-medium text-orange-50/90">
+                                    {email}
+                                </span>
+                            )}
                             <ProfileDropdown />
                         </div>
                     </div>
                 </header>
 
-                <div className="container mx-auto px-6 pt-32 pb-20">
+                <div className="container mx-auto px-6 pt-32 pb-20 relative z-10">
                     <div className="mb-12">
                         <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-recruiter/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-recruiter">
                             Recruiter Dashboard
@@ -253,9 +264,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
     const handleFilesChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFiles = Array.from(event.target.files || []) as File[];
 
-        // Always reset input value immediately so re-selecting same file works
         if (fileInputRef.current) fileInputRef.current.value = "";
-
         if (!selectedFiles.length || !accessToken) return;
 
         const remainingSlots = 5 - selectedCvs.length;
@@ -268,7 +277,6 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
         setUploading(true);
         setUploadingFileNames(filesToProcess.map((f) => f.name));
 
-        // Track which CVs were successfully uploaded THIS batch so we can roll back on partial failure
         const successfulThisBatch: SelectedCv[] = [];
 
         try {
@@ -288,13 +296,11 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                 }
 
                 if (res.status === 409) {
-                    // File already exists — resolve to existing record
                     const existingRes = await fetch(`${backendBaseUrl}/api/v1/cv/mine`, { credentials: "include" });
                     if (existingRes.ok) {
                         const list = (await existingRes.json()) as { id: number; original_filename: string }[];
                         const match = list.find((cv) => cv.original_filename === file.name);
                         if (match) {
-                            // Only add if not already in state or batch
                             const alreadyAdded =
                                 selectedCvs.some((c) => c.id === match.id) ||
                                 successfulThisBatch.some((c) => c.id === match.id);
@@ -318,13 +324,10 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                 if (!alreadyAdded) successfulThisBatch.push(created);
             }
 
-            // Commit all successful uploads atomically — no ghost entries
             if (successfulThisBatch.length > 0) {
                 setSelectedCvs((prev) => [...prev, ...successfulThisBatch].slice(0, 5));
             }
         } catch (err: any) {
-            // If some files in the batch uploaded successfully before the failure,
-            // still commit those — only drop the ones that failed
             if (successfulThisBatch.length > 0) {
                 setSelectedCvs((prev) => [...prev, ...successfulThisBatch].slice(0, 5));
             }
@@ -339,18 +342,15 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
         }
     };
 
-    // ─── REMOVE SINGLE FILE ───────────────────────────────────────────────────
     const handleRemoveFile = (index: number) => {
         setSelectedCvs((prev) => prev.filter((_, i) => i !== index));
     };
 
-    // ─── CLEAR ALL FILES ──────────────────────────────────────────────────────
     const handleClearAll = () => {
         setSelectedCvs([]);
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
-    // ─── RUN MATCHING ─────────────────────────────────────────────────────────
     const handleRunMatching = async () => {
         if (!selectedCvs.length || !accessToken) return;
         setIsRunning(true);
@@ -385,19 +385,16 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
             const msg = err?.message ?? "Could not run AI matching.";
             setMatchError(msg);
             toast({ variant: "destructive", title: "Matching failed", description: msg });
-            // Stay on step 2 — do NOT reset selectedCvs so user can retry
         } finally {
             setIsRunning(false);
         }
     };
 
-    // ─── RETRY (re-run with same CVs and job) ─────────────────────────────────
     const handleRetry = () => {
         setMatchError(null);
         handleRunMatching();
     };
 
-    // ─── REMOVE FILE FROM RESULTS STEP ───────────────────────────────────────
     const handleRemoveFromResults = (cvId: number) => {
         setResults((prev) => prev.filter((r) => r.cv_id !== cvId));
         setSelectedCvs((prev) => prev.filter((cv) => cv.id !== cvId));
@@ -417,11 +414,9 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
     const safeIndex = Math.min(focusedIndex, Math.max(results.length - 1, 0));
     const focusedResult = hasResults ? results[safeIndex] : null;
 
-    // ─── YOUR TOOLKIT TAB ────────────────────────────────────────────────────
     if (activeTab === "yourtoolkit") {
         return (
-            <div className="space-y-8">
-                {/* Header */}
+            <div className="space-y-8 relative z-10">
                 <div>
                     <p className="inline-flex items-center gap-2 rounded-full bg-recruiter/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-recruiter">
                         <Sparkles className="h-3.5 w-3.5" /> AI-Powered
@@ -432,7 +427,6 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                     </p>
                 </div>
 
-                {/* Empty state */}
                 {!hasResults && (
                     <div className="rounded-3xl border-2 border-dashed border-recruiter/30 bg-recruiter/5 p-14 text-center">
                         <Sparkles className="mx-auto h-12 w-12 text-recruiter/40 mb-4" />
@@ -445,7 +439,6 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
 
                 {hasResults && (
                     <>
-                        {/* CV selector pills */}
                         <div className="flex flex-wrap gap-2">
                             {results.map((r, idx) => {
                                 const isActive = idx === safeIndex;
@@ -703,10 +696,9 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
         );
     }
 
-    // ─── ANALYTICS TAB ────────────────────────────────────────────────────────
     if (activeTab === "analytics") {
         return (
-            <div className="space-y-8">
+            <div className="space-y-8 relative z-10">
                 <div>
                     <p className="inline-flex items-center gap-2 rounded-full bg-recruiter/10 px-3 py-1 text-xs md:text-sm font-medium uppercase tracking-wide text-recruiter">
                         Analytics Dashboard
@@ -794,10 +786,9 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
         );
     }
 
-    // ─── JOBS TAB ─────────────────────────────────────────────────────────────
     if (activeTab === "jobs") {
         return (
-            <div className="bg-card rounded-3xl shadow-craft border border-border/40 min-h-[500px]">
+            <div className="bg-card rounded-3xl shadow-craft border border-border/40 min-h-[500px] relative z-10">
                 <div className="p-6 md:p-10 text-center py-20">
                     <Briefcase className="w-16 h-16 text-recruiter mx-auto mb-4 opacity-50" />
                     <h2 className="text-2xl font-serif font-bold mb-2">Job Postings</h2>
@@ -807,9 +798,8 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
         );
     }
 
-    // ─── CANDIDATES TAB (default — 3-step flow) ───────────────────────────────
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 relative z-10">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                     <p className="inline-flex items-center gap-2 rounded-full bg-recruiter/10 px-3 py-1 text-xs md:text-sm font-medium uppercase tracking-wide text-recruiter">
@@ -829,7 +819,6 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                 </div>
             </div>
 
-            {/* Step tracker */}
             <div className="grid gap-4 md:grid-cols-3">
                 {steps.map((item) => {
                     const isActive = step === item.id;
@@ -849,7 +838,6 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                 })}
             </div>
 
-            {/* ── Step 1 ── */}
             {step === 1 && (
                 <div className="grid gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] items-start">
                     <div className="space-y-6 rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
@@ -942,7 +930,6 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                 </div>
             )}
 
-            {/* ── Step 2 ── */}
             {step === 2 && (
                 <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] items-start">
                     <div className="space-y-6 rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
@@ -952,7 +939,6 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                         </div>
                         <p className="text-sm text-muted-foreground">Supported formats: PDF, DOC, DOCX. Maximum five files per matching run.</p>
 
-                        {/* Drop zone */}
                         <label
                             htmlFor="cvFiles"
                             className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition ${
@@ -991,7 +977,6 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                             onChange={handleFilesChange}
                         />
 
-                        {/* File list */}
                         {selectedCvs.length > 0 && (
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -1025,7 +1010,6 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                             </div>
                         )}
 
-                        {/* Matching error + retry */}
                         {matchError && (
                             <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
                                 <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
@@ -1079,7 +1063,6 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                 </div>
             )}
 
-            {/* ── Step 3 ── */}
             {step === 3 && (
                 <div className="space-y-6">
                     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] items-start">
@@ -1117,7 +1100,6 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                         </div>
                     </div>
 
-                    {/* Other candidates — with per-card remove */}
                     {results.length > 1 && (
                         <div className="grid gap-4 md:grid-cols-2">
                             {results.slice(1).map((r) => (

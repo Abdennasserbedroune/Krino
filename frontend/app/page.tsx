@@ -75,8 +75,8 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-accent selection:text-white overflow-x-hidden relative">
 
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/60 backdrop-blur-xl border-b border-white/10">
+      {/* Header - Fixed overlapping bug with z-[100] */}
+      <header className="fixed top-0 left-0 right-0 z-[100] bg-background/60 backdrop-blur-xl border-b border-white/10">
         <div className="container mx-auto px-6 h-20 flex items-center justify-between">
           <div className="font-serif text-3xl font-bold tracking-tight text-primary">Pathwise</div>
           <div className="flex items-center gap-6">
@@ -93,7 +93,7 @@ export default function LandingPage() {
 
       <main className="pt-32 pb-20 relative z-10">
         {/* Hero Section */}
-        <section className="container mx-auto px-6 mb-20">
+        <section className="container mx-auto px-6 mb-20 relative z-20">
           <div className="max-w-5xl mx-auto text-center">
 
             {/* Role Toggle */}
@@ -129,12 +129,12 @@ export default function LandingPage() {
                   {activeRole === "seeker" ? (
                     <>
                       Is your resume <br />
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-seeker to-blue-400 italic">actually reading?</span>
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-seeker to-blue-400 italic inline-block py-1">actually reading?</span>
                     </>
                   ) : (
                     <>
                       Filter the noise <br />
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-recruiter to-orange-400 italic">find the signal.</span>
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-recruiter to-orange-400 italic inline-block py-1">find the signal.</span>
                     </>
                   )}
                 </h1>
@@ -161,7 +161,7 @@ export default function LandingPage() {
         </section>
 
         {/* Job Seeker Testimonials Marquee */}
-        <section className="mb-32 overflow-hidden py-10">
+        <section className="mb-32 overflow-hidden py-10 relative z-10">
           <div className="container mx-auto px-6 mb-8 text-center">
             <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Trusted by Job Seekers</p>
           </div>
@@ -169,7 +169,7 @@ export default function LandingPage() {
         </section>
 
         {/* Bento Grid Features - Redesigned */}
-        <section className="container mx-auto px-6 mb-32">
+        <section className="container mx-auto px-6 mb-32 relative z-10">
           <div className="text-center mb-16">
             <motion.h2
               {...clipAnimation}
@@ -431,7 +431,7 @@ export default function LandingPage() {
         </section>
 
         {/* Workflow Section */}
-        <section className="py-32 bg-white/50 backdrop-blur-sm border-y border-border/50 relative">
+        <section className="py-32 bg-white/50 backdrop-blur-sm border-y border-border/50 relative z-10">
           <div className="container mx-auto px-6">
             <div className="text-center mb-20">
               <h2 className="font-serif text-5xl mb-6 text-primary">How it works</h2>
@@ -498,7 +498,7 @@ export default function LandingPage() {
         </section>
 
         {/* Recruiter Testimonials Marquee */}
-        <section className="mb-32 overflow-hidden py-10">
+        <section className="mb-32 overflow-hidden py-10 relative z-10">
           <div className="container mx-auto px-6 mb-8 text-center">
             <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Trusted by Hiring Teams</p>
           </div>
@@ -506,7 +506,7 @@ export default function LandingPage() {
         </section>
 
         {/* Pricing */}
-        <section className="container mx-auto px-6 pb-32">
+        <section className="container mx-auto px-6 pb-32 relative z-10">
           <div className="max-w-4xl mx-auto">
             <div className="bg-primary rounded-[3rem] p-12 md:p-20 text-center text-primary-foreground relative overflow-hidden">
               {/* Decorative circles */}

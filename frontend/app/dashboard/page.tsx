@@ -36,7 +36,7 @@ export default function DashboardIndexPage() {
               <span className="font-serif text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white select-none cursor-default">
                 Pathwise
               </span>
-              <span className="hidden lg:inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-blue-50 whitespace-nowrap">
+              <span className="hidden md:inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-blue-50 whitespace-nowrap">
                 Job Seeker
               </span>
             </div>
