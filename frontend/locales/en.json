@@ -1,0 +1,137 @@
+{
+  "nav": {
+    "brand": "Pathwise",
+    "signIn": "Sign in",
+    "tryForFree": "Try for free"
+  },
+  "hero": {
+    "badge": "AI-Powered Studio",
+    "headline_1": "Path",
+    "headline_2": "wise",
+    "tagline": "Stop sending generic CVs. Pathwise uses AI to craft a narrative that demands attention. Bold, precise, and undeniable.",
+    "cta_start": "Start Building",
+    "cta_pricing": "Pricing",
+    "cta_gallery": "View Gallery",
+    "badge_top_rated": "TOP RATED",
+    "marquee": "Analysis • Optimization • Design • Strategy •"
+  },
+  "features": {
+    "section_title_1": "The",
+    "section_title_2": "Toolkit",
+    "section_subtitle": "Everything you need to turn a standard career history into a compelling narrative. No fluff, just power.",
+    "items": {
+      "universal_upload": {
+        "title": "Universal Upload",
+        "description": "Drag in any format. We parse the chaos."
+      },
+      "deep_analysis": {
+        "title": "Deep Analysis",
+        "description": "Strengths, gaps, and opportunities revealed instantly."
+      },
+      "ai_recruiter": {
+        "title": "AI Recruiter",
+        "description": "Chat with an AI that knows what hiring managers want."
+      },
+      "editorial_design": {
+        "title": "Editorial Design",
+        "description": "Export PDFs that look like they came from a design studio."
+      },
+      "instant_iteration": {
+        "title": "Instant Iteration",
+        "description": "Generate new versions in seconds."
+      },
+      "interview_prep": {
+        "title": "Interview Prep",
+        "description": "Get questions tailored to your new CV."
+      }
+    }
+  },
+  "auth": {
+    "signIn": {
+      "label_email": "Email address",
+      "placeholder_email": "you@example.com",
+      "label_password": "Password",
+      "placeholder_password": "••••••••",
+      "button_submit": "Sign in",
+      "button_loading": "Signing in...",
+      "error_required": "Please enter both email and password.",
+      "error_invalid": "Invalid email or password. Please try again.",
+      "aria_toggle_password": "Toggle password visibility"
+    },
+    "signUp": {
+      "label_email": "Email address",
+      "placeholder_email": "you@example.com",
+      "label_password": "Password",
+      "placeholder_password": "••••••••",
+      "label_confirm_password": "Confirm Password",
+      "button_submit": "Create account",
+      "button_loading": "Creating account...",
+      "error_required": "Please fill in all fields.",
+      "error_password_match": "Passwords do not match.",
+      "error_password_length": "Password must be at least 6 characters.",
+      "error_registration_failed": "Registration failed. Please try again.",
+      "aria_toggle_password": "Toggle password visibility",
+      "verification": {
+        "title": "Check your email",
+        "body": "We've sent a verification link to",
+        "instructions": "Click the link in the email to verify your account, then you can sign in.",
+        "go_to_sign_in": "Go to Sign In"
+      }
+    }
+  },
+  "onboarding": {
+    "roles": {
+      "student": {
+        "title": "I'm a student",
+        "description": "Access AI resume critiques, tailored learning tracks, and application guidance."
+      },
+      "recruiter": {
+        "title": "I recruit talent",
+        "description": "Collaborate on candidate reviews, share feedback, and streamline hiring workflows."
+      }
+    },
+    "error_no_role": "Please choose the experience that fits you best.",
+    "error_save_failed": "We couldn't save your choice. Please try again.",
+    "button_continue": "Continue"
+  },
+  "pricing": {
+    "title": "Simple pricing",
+    "subtitle": "Start for free, upgrade when you need more power. No hidden fees.",
+    "plans": {
+      "starter": {
+        "name": "Starter",
+        "price": "$0",
+        "period": "/ month",
+        "description": "For individuals and testing",
+        "features": [
+          "Up to 3 resume checks per day",
+          "1 recruiter session per day",
+          "Basic scoring and comments",
+          "Standard support"
+        ],
+        "cta": "Get Started"
+      },
+      "plus": {
+        "name": "Plus",
+        "price": "$12",
+        "period": "/ month",
+        "description": "For active job seekers & small teams",
+        "badge": "Most Popular",
+        "features": [
+          "Higher daily limits (20 checks/day)",
+          "Recruiter mode: 10 resumes/session",
+          "Priority processing",
+          "Detailed feedback reports",
+          "Priority email support"
+        ],
+        "cta": "Upgrade to Plus"
+      }
+    }
+  },
+  "common": {
+    "loading": "Loading...",
+    "error_generic": "Something went wrong. Please try again.",
+    "aria_show_password": "Show password",
+    "aria_hide_password": "Hide password"
+  }
+}
