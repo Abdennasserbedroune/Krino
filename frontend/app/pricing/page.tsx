@@ -7,10 +7,12 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSwitcher } from "@/components/navigation/LanguageSwitcher";
 
 export default function PricingPage() {
-  const { t } = useTranslation();
+  const { t, tArray } = useTranslation();
 
-  const starterFeatures: string[] = t("pricing.plans.starter.features") as unknown as string[];
-  const plusFeatures: string[] = t("pricing.plans.plus.features") as unknown as string[];
+  // tArray() returns the actual translated string[] from the JSON
+  // (t() would return the key path string for non-string values)
+  const starterFeatures = tArray("pricing.plans.starter.features");
+  const plusFeatures    = tArray("pricing.plans.plus.features");
 
   return (
     <div className="min-h-screen bg-background font-sans text-foreground">
