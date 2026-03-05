@@ -1,137 +1,61 @@
 {
   "nav": {
-    "brand": "Pathwise",
     "signIn": "Se connecter",
-    "tryForFree": "Essayer gratuitement"
+    "getStarted": "Commencer",
+    "dashboard": "Tableau de bord"
   },
   "hero": {
-    "badge": "Studio Propulsé par l'IA",
-    "headline_1": "Path",
-    "headline_2": "wise",
-    "tagline": "Arrêtez d'envoyer des CV génériques. Pathwise utilise l'IA pour construire un récit qui capte l'attention. Percutant, précis et incontournable.",
-    "cta_start": "Commencer",
-    "cta_pricing": "Tarifs",
-    "cta_gallery": "Voir la galerie",
-    "badge_top_rated": "TOP NOTÉ",
-    "marquee": "Analyse • Optimisation • Design • Stratégie •"
+    "seeker": {
+      "headline": "Votre CV est-il vraiment lu ?",
+      "subheadline": "Les ATS rejettent 75 % des CV avant qu'un humain les lise. Pathwise vous montre exactement pourquoi — et comment y remédier en quelques secondes.",
+      "cta": "Analyser mon CV",
+      "free": "3 analyses gratuites"
+    },
+    "recruiter": {
+      "headline": "Filtrez le bruit, trouvez le signal.",
+      "subheadline": "Arrêtez de vous noyer dans les PDF. Importez un lot de CV et laissez l'IA les classer par pertinence.",
+      "cta": "Démarrer l'analyse",
+      "free": "3 analyses gratuites"
+    },
+    "roleToggle": {
+      "seeker": "Candidat",
+      "recruiter": "Recruteur"
+    }
   },
   "features": {
-    "section_title_1": "La",
-    "section_title_2": "Boîte à outils",
-    "section_subtitle": "Tout ce dont vous avez besoin pour transformer un historique de carrière ordinaire en un récit percutant. Pas de fioriture, que de la puissance.",
-    "items": {
-      "universal_upload": {
-        "title": "Import universel",
-        "description": "Glissez n'importe quel format. Nous gérons le reste."
-      },
-      "deep_analysis": {
-        "title": "Analyse approfondie",
-        "description": "Forces, lacunes et opportunités révélées instantanément."
-      },
-      "ai_recruiter": {
-        "title": "Recruteur IA",
-        "description": "Discutez avec une IA qui sait ce que les recruteurs recherchent."
-      },
-      "editorial_design": {
-        "title": "Design éditorial",
-        "description": "Exportez des PDF qui semblent sortir d'un studio de design."
-      },
-      "instant_iteration": {
-        "title": "Itération instantanée",
-        "description": "Générez de nouvelles versions en quelques secondes."
-      },
-      "interview_prep": {
-        "title": "Préparation aux entretiens",
-        "description": "Obtenez des questions adaptées à votre nouveau CV."
-      }
-    }
+    "title": "Pourquoi Pathwise ?",
+    "subtitle": "Conçu pour la clarté dans un marché de l'emploi chaotique."
   },
-  "auth": {
-    "signIn": {
-      "label_email": "Adresse e-mail",
-      "placeholder_email": "vous@exemple.com",
-      "label_password": "Mot de passe",
-      "placeholder_password": "••••••••",
-      "button_submit": "Se connecter",
-      "button_loading": "Connexion en cours...",
-      "error_required": "Veuillez saisir votre adresse e-mail et votre mot de passe.",
-      "error_invalid": "Adresse e-mail ou mot de passe incorrect. Veuillez réessayer.",
-      "aria_toggle_password": "Afficher ou masquer le mot de passe"
-    },
-    "signUp": {
-      "label_email": "Adresse e-mail",
-      "placeholder_email": "vous@exemple.com",
-      "label_password": "Mot de passe",
-      "placeholder_password": "••••••••",
-      "label_confirm_password": "Confirmer le mot de passe",
-      "button_submit": "Créer un compte",
-      "button_loading": "Création du compte...",
-      "error_required": "Veuillez remplir tous les champs.",
-      "error_password_match": "Les mots de passe ne correspondent pas.",
-      "error_password_length": "Le mot de passe doit contenir au moins 6 caractères.",
-      "error_registration_failed": "L'inscription a échoué. Veuillez réessayer.",
-      "aria_toggle_password": "Afficher ou masquer le mot de passe",
-      "verification": {
-        "title": "Vérifiez votre boîte mail",
-        "body": "Nous avons envoyé un lien de vérification à",
-        "instructions": "Cliquez sur le lien dans l'e-mail pour vérifier votre compte, puis connectez-vous.",
-        "go_to_sign_in": "Aller à la connexion"
-      }
-    }
-  },
-  "onboarding": {
-    "roles": {
-      "student": {
-        "title": "Je suis étudiant(e)",
-        "description": "Accédez à des analyses de CV par IA, des parcours d'apprentissage adaptés et des conseils de candidature."
-      },
-      "recruiter": {
-        "title": "Je recrute des talents",
-        "description": "Collaborez sur les évaluations de candidats, partagez vos retours et optimisez vos processus de recrutement."
-      }
-    },
-    "error_no_role": "Veuillez choisir le profil qui vous correspond le mieux.",
-    "error_save_failed": "Impossible d'enregistrer votre choix. Veuillez réessayer.",
-    "button_continue": "Continuer"
+  "howItWorks": {
+    "title": "Comment ça marche"
   },
   "pricing": {
-    "title": "Une tarification simple",
-    "subtitle": "Commencez gratuitement, passez à la version supérieure quand vous en avez besoin. Sans frais cachés.",
-    "plans": {
-      "starter": {
-        "name": "Starter",
-        "price": "0 $",
-        "period": "/ mois",
-        "description": "Pour les particuliers et les tests",
-        "features": [
-          "Jusqu'à 3 vérifications de CV par jour",
-          "1 session recruteur par jour",
-          "Notation et commentaires de base",
-          "Assistance standard"
-        ],
-        "cta": "Commencer gratuitement"
-      },
-      "plus": {
-        "name": "Plus",
-        "price": "12 $",
-        "period": "/ mois",
-        "description": "Pour les candidats actifs et les petites équipes",
-        "badge": "Le plus populaire",
-        "features": [
-          "Limites quotidiennes étendues (20 vérifications/jour)",
-          "Mode recruteur : 10 CV par session",
-          "Traitement prioritaire",
-          "Rapports de retours détaillés",
-          "Assistance e-mail prioritaire"
-        ],
-        "cta": "Passer à Plus"
-      }
+    "title": "Une tarification simple et transparente.",
+    "subtitle": "Commencez gratuitement. Passez à la version supérieure quand vous décrochez l'entretien.",
+    "starter": {
+      "label": "Starter",
+      "cta": "Commencer",
+      "f1": "3 analyses / jour",
+      "f2": "Score de base",
+      "f3": "1 session recruteur"
+    },
+    "pro": {
+      "label": "Pro",
+      "badge": "POPULAIRE",
+      "cta": "Passer à Pro",
+      "f1": "Analyses illimitées",
+      "f2": "Retours détaillés",
+      "f3": "Support prioritaire"
     }
   },
-  "common": {
-    "loading": "Chargement...",
-    "error_generic": "Une erreur est survenue. Veuillez réessayer.",
-    "aria_show_password": "Afficher le mot de passe",
-    "aria_hide_password": "Masquer le mot de passe"
+  "footer": {
+    "tagline": "Vérifiez votre CV avant que le recruteur ne le fasse.",
+    "privacy": "Confidentialité",
+    "terms": "Conditions",
+    "twitter": "Twitter"
+  },
+  "testimonials": {
+    "seekers": "Approuvé par les candidats",
+    "recruiters": "Approuvé par les équipes RH"
   }
 }
