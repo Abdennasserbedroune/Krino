@@ -5,17 +5,12 @@ import { ArrowRight, Star } from "lucide-react";
 import { motion } from "framer-motion";
 
 import { useTranslation } from "@/hooks/useTranslation";
-import { LanguageSwitcher } from "@/components/navigation/LanguageSwitcher";
 
 export function Hero() {
   const { t } = useTranslation();
 
   return (
     <section className="relative min-h-[90vh] w-full overflow-hidden bg-background pt-20 md:pt-32">
-      {/* Language switcher — top-right corner of the hero */}
-      <div className="absolute right-6 top-6 z-30">
-        <LanguageSwitcher />
-      </div>
 
       <div className="container relative z-10 mx-auto grid min-h-[60vh] grid-cols-1 gap-12 px-4 md:grid-cols-12 md:gap-8">
         {/* Left: Massive Typography */}
