@@ -5,22 +5,17 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Check } from "lucide-react";
 
-const ROLE_OPTIONS = [
-  {
-    value: "STUDENT" as const,
-    title: "I’m a student",
-    description: "Access AI resume critiques, tailored learning tracks, and application guidance.",
-  },
-  {
-    value: "RECRUITER" as const,
-    title: "I recruit talent",
-    description: "Collaborate on candidate reviews, share feedback, and streamline hiring workflows.",
-  },
+import { useTranslation } from "@/hooks/useTranslation";
+
+const ROLE_KEYS = [
+  { value: "STUDENT" as const,   translationKey: "student" },
+  { value: "RECRUITER" as const, translationKey: "recruiter" },
 ];
 
-type RoleValue = (typeof ROLE_OPTIONS)[number]["value"];
+type RoleValue = (typeof ROLE_KEYS)[number]["value"];
 
 export function RoleSelector() {
+  const { t } = useTranslation();
   const [selectedRole, setSelectedRole] = useState<RoleValue | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -31,7 +26,7 @@ export function RoleSelector() {
     event.preventDefault();
 
     if (!selectedRole) {
-      setError("Please choose the experience that fits you best.");
+      setError(t("onboarding.error_no_role"));
       return;
     }
 
@@ -40,21 +35,17 @@ export function RoleSelector() {
     startTransition(async () => {
       const response = await fetch("/api/user/role", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role: selectedRole }),
       });
 
       if (!response.ok) {
         const body = await response.json().catch(() => null);
-        const message = body?.error ?? "We couldn't save your choice. Please try again.";
-        setError(message);
+        setError(body?.error ?? t("onboarding.error_save_failed"));
         return;
       }
 
       await update({ user: { role: selectedRole } });
-
       router.replace("/dashboard");
       router.refresh();
     });
@@ -63,41 +54,47 @@ export function RoleSelector() {
   return (
     <form onSubmit={handleSubmit} className="flex w-full flex-col gap-8">
       <div className="grid gap-4 md:grid-cols-2">
-        {ROLE_OPTIONS.map((option) => {
-          const isSelected = option.value === selectedRole;
-
+        {ROLE_KEYS.map(({ value, translationKey }) => {
+          const isSelected = value === selectedRole;
           return (
             <button
-              key={option.value}
+              key={value}
               type="button"
-              onClick={() => setSelectedRole(option.value)}
-              className={`relative rounded-2xl border p-6 text-left transition-all duration-200 ${isSelected
+              onClick={() => setSelectedRole(value)}
+              className={`relative rounded-2xl border p-6 text-left transition-all duration-200 ${
+                isSelected
                   ? "border-primary bg-secondary/30 shadow-sm"
                   : "border-border/40 bg-background hover:border-border hover:bg-secondary/10"
-                }`}
+              }`}
             >
               {isSelected && (
-                <div className="absolute top-4 right-4 h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+                <div className="absolute right-4 top-4 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
                   <Check size={12} />
                 </div>
               )}
               <div className="space-y-2">
-                <h2 className="font-serif text-xl font-medium text-foreground">{option.title}</h2>
-                <p className="text-sm text-muted-foreground leading-relaxed">{option.description}</p>
+                <h2 className="font-serif text-xl font-medium text-foreground">
+                  {t(`onboarding.roles.${translationKey}.title`)}
+                </h2>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {t(`onboarding.roles.${translationKey}.description`)}
+                </p>
               </div>
             </button>
           );
         })}
       </div>
 
-      {error && <p className="text-sm font-medium text-destructive text-center">{error}</p>}
+      {error && (
+        <p className="text-center text-sm font-medium text-destructive">{error}</p>
+      )}
 
       <button
         type="submit"
         disabled={isPending || !selectedRole}
-        className="w-full rounded-full bg-primary px-6 py-4 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity disabled:cursor-not-allowed disabled:opacity-70"
+        className="w-full rounded-full bg-primary px-6 py-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
       >
-        Continue
+        {t("onboarding.button_continue")}
       </button>
     </form>
   );
