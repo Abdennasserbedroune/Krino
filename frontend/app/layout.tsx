@@ -6,7 +6,9 @@ import type { ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/providers/AuthProvider";
-import { I18nProvider } from "@/lib/i18n/context";
+// Import from the SERVER wrapper — it reads the cookie on the server
+// and passes initialLocale to the client provider. Zero hydration flash.
+import { I18nProvider } from "@/lib/i18n/provider";
 
 const plusJakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-sans" });
 const fraunces = Fraunces({
@@ -33,7 +35,6 @@ export default function RootLayout({ children }: RootLayoutProps) {
       className={`${plusJakarta.variable} ${fraunces.variable}`}
     >
       <body className="bg-background font-sans text-foreground antialiased selection:bg-primary selection:text-primary-foreground">
-        {/* I18nProvider must wrap everything so every client component can call useTranslation() */}
         <I18nProvider>
           <AuthProvider>
             <div className="flex min-h-screen flex-col">
