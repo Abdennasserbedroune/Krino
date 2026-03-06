@@ -72,8 +72,8 @@ export default function ChatPage() {
             localStorage.setItem(`chat_messages_${selectedCvId}`, JSON.stringify(messages));
     }, [messages, selectedCvId]);
 
-    // Free tier: 20 user messages per CV
-    const FREE_LIMIT = 20;
+    // Free tier: 10 user messages per CV
+    const FREE_LIMIT = 10;
     const userMessageCount = messages.filter(m => m.role === "user").length;
     const limitReached = userMessageCount >= FREE_LIMIT;
 
@@ -185,7 +185,7 @@ export default function ChatPage() {
                             </div>
                             <div>
                                 <h3 className="font-serif text-lg sm:text-xl font-bold uppercase tracking-tight text-foreground">AI Career Assistant</h3>
-                                <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Powered by Groq · AI</p>
+                                <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Powered by Groq · AI · {FREE_LIMIT - userMessageCount} messages left</p>
                             </div>
                         </div>
                     </div>
