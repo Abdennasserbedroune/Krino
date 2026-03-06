@@ -26,8 +26,6 @@ export default function ChatPage() {
     const selectedCvIdRef = useRef<number | null>(null);
     useEffect(() => { selectedCvIdRef.current = selectedCvId; }, [selectedCvId]);
 
-    // Auth is cookie-based — no accessToken needed client-side.
-    // Every fetch uses credentials:"include" so the Supabase server client reads the session.
     async function fetchCvs() {
         setLoading(true);
         try {
@@ -74,8 +72,10 @@ export default function ChatPage() {
             localStorage.setItem(`chat_messages_${selectedCvId}`, JSON.stringify(messages));
     }, [messages, selectedCvId]);
 
+    // Free tier: 20 user messages per CV
+    const FREE_LIMIT = 20;
     const userMessageCount = messages.filter(m => m.role === "user").length;
-    const limitReached = userMessageCount >= 4;
+    const limitReached = userMessageCount >= FREE_LIMIT;
 
     const handleSend = async () => {
         if (!input.trim() || !selectedCvId || sending || limitReached) return;
@@ -154,7 +154,6 @@ export default function ChatPage() {
                         <div className="h-1.5 w-6 bg-primary" />
                         <h2 className="font-serif text-lg sm:text-xl font-bold uppercase tracking-tight text-foreground">Select CV</h2>
                     </div>
-                    {/* On mobile: horizontal scroll; on lg: vertical stack */}
                     <div className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-x-visible lg:pb-0">
                         {cvs.map(cv => (
                             <button

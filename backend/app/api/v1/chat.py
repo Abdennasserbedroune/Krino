@@ -1,4 +1,6 @@
 """Recruiter chatbot endpoints powered by Groq + Llama."""
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -15,77 +17,83 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 def _build_cv_context(cv: CV) -> str:
     """Build a comprehensive context string from CV data.
-    
-    Prioritizes extracted_cv (raw text) which contains all the actual CV content,
-    combined with analysis results for scoring and feedback.
+
+    Priority order:
+    1. extracted_cv.raw_text  — full CV text stored at upload time
+    2. Direct file re-extraction — fallback when raw_text is empty/missing
+    3. analysis_result        — scores and detected entities (appended)
+
+    Raises HTTPException(503) if no text can be obtained at all, so the
+    caller can return a meaningful error instead of sending a blank prompt
+    to Groq.
     """
-    import json
-    
-    context_parts = []
-    
-    # PRIORITY 1: Use extracted_cv raw text (this has all the actual CV content)
+    context_parts: list[str] = []
+
+    # ── Priority 1: stored raw text ──────────────────────────────────────────
+    raw_text = ""
     if cv.extracted_cv:
-        context_parts.append("=== CV CONTENT ===")
         try:
-            extracted = cv.extracted_cv if isinstance(cv.extracted_cv, dict) else json.loads(cv.extracted_cv)
-            
-            # Get the raw text which contains all CV information
-            if "raw_text" in extracted and extracted["raw_text"]:
-                raw_text = extracted["raw_text"]
-                context_parts.append(raw_text)
-            else:
-                # If raw_text key doesn't exist, dump the whole extracted_cv
-                context_parts.append(json.dumps(extracted, indent=2))
-        except Exception as e:
-            context_parts.append(f"Error parsing extracted_cv: {str(e)}")
-    
-    # PRIORITY 2: Add analysis results if available
-    if cv.analysis_result:
-        context_parts.append("\n=== CV ANALYSIS ===")
-        try:
-            analysis = cv.analysis_result if isinstance(cv.analysis_result, dict) else json.loads(cv.analysis_result)
-            
-            if cv.score is not None:
-                context_parts.append(f"Overall Score: {cv.score}/100")
-            
-            if "readability_score" in analysis:
-                context_parts.append(f"Readability Score: {analysis['readability_score']}")
-            
-            if "grade_level" in analysis:
-                context_parts.append(f"Grade Level: {analysis['grade_level']}")
-            
-            if "weak_sections" in analysis and analysis["weak_sections"]:
-                context_parts.append(f"Weak Sections: {', '.join(analysis['weak_sections'])}")
-            
-            # Include detected entities (names, companies, etc.) if available
-            if "detected_entities" in analysis:
-                entities = analysis["detected_entities"]
-                if "companies" in entities and entities["companies"]:
-                    # Filter out common false positives like "State"
-                    companies = [c for c in entities["companies"] if c not in ["State", "GPA", "City"]]
-                    if companies:
-                        context_parts.append(f"Detected Companies: {', '.join(companies[:5])}")  # Top 5
-        except Exception as e:
-            context_parts.append(f"Error parsing analysis_result: {str(e)}")
-    
-    # PRIORITY 3: Check structured_data (usually empty but check anyway)
-    if cv.structured_data and not cv.extracted_cv:
-        context_parts.append("\n=== STRUCTURED DATA ===")
-        try:
-            structured = cv.structured_data if isinstance(cv.structured_data, dict) else json.loads(cv.structured_data)
-            context_parts.append(json.dumps(structured, indent=2)[:2000])
-        except Exception as e:
-            context_parts.append(f"Error parsing structured_data: {str(e)}")
-    
-    # Fallback: try to extract raw text from file
-    if not context_parts:
-        context_parts.append("=== RAW CV TEXT ===")
-        try:
-            text = extract_text_from_file(cv.file_path, cv.file_type)
-            context_parts.append(text[:5000])  # truncate for safety
+            extracted = (
+                cv.extracted_cv
+                if isinstance(cv.extracted_cv, dict)
+                else json.loads(cv.extracted_cv)
+            )
+            raw_text = (extracted.get("raw_text", "") or "").strip()
         except Exception:
-            context_parts.append("No CV data available.")
-    
+            raw_text = ""
+
+    # ── Priority 2: re-extract from file if stored text is missing ───────────
+    if not raw_text:
+        try:
+            raw_text = (extract_text_from_file(cv.file_path, cv.file_type) or "").strip()
+        except Exception:
+            raw_text = ""
+
+    if raw_text:
+        context_parts.append("=== CV CONTENT ===")
+        context_parts.append(raw_text[:8000])  # cap to avoid token overflow
+
+    # ── Priority 3: append analysis metadata if available ───────────────────
+    if cv.analysis_result:
+        try:
+            analysis = (
+                cv.analysis_result
+                if isinstance(cv.analysis_result, dict)
+                else json.loads(cv.analysis_result)
+            )
+            meta_lines: list[str] = []
+            if cv.score is not None:
+                meta_lines.append(f"Overall Score: {cv.score}/100")
+            if analysis.get("readability_score"):
+                meta_lines.append(f"Readability: {analysis['readability_score']}")
+            if analysis.get("grade_level"):
+                meta_lines.append(f"Grade Level: {analysis['grade_level']}")
+            if analysis.get("weak_sections"):
+                meta_lines.append(f"Weak Sections: {', '.join(analysis['weak_sections'])}")
+            detected = analysis.get("detected_entities", {})
+            companies = [
+                c for c in (detected.get("companies") or [])
+                if c not in {"State", "GPA", "City"}
+            ][:5]
+            if companies:
+                meta_lines.append(f"Detected Companies: {', '.join(companies)}")
+            if meta_lines:
+                context_parts.append("\n=== CV ANALYSIS ===")
+                context_parts.extend(meta_lines)
+        except Exception:
+            pass
+
+    # ── Guard: no usable text at all ─────────────────────────────────────────
+    if not context_parts:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Your CV could not be read. "
+                "It may be a scanned image or the file is no longer available. "
+                "Please delete this CV and upload a text-based PDF or DOCX."
+            ),
+        )
+
     return "\n".join(context_parts)
 
 
@@ -100,15 +108,16 @@ async def recruiter_chat_endpoint(
     The CV must belong to the current user. The conversation is stateless
     on the backend: the frontend sends the full message history each time.
     """
-    cv = db.query(CV).filter(CV.id == payload.cv_id, CV.user_id == current_user.id).first()
+    cv = db.query(CV).filter(
+        CV.id == payload.cv_id,
+        CV.user_id == current_user.id,
+    ).first()
     if not cv:
         raise HTTPException(status_code=404, detail="CV not found")
 
-    cv_context = _build_cv_context(cv)
+    cv_context = _build_cv_context(cv)  # raises 503 if no text available
 
-    # Convert ChatMessage list to Groq-compatible dict list
     messages = [{"role": m.role, "content": m.content} for m in payload.messages]
-
     reply = recruiter_chat(cv_summary=cv_context, messages=messages)
 
     return ChatResponse(reply=reply)

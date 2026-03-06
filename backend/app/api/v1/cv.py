@@ -1,4 +1,5 @@
 """CV upload, listing, analysis, action-plan and job-match endpoints."""
+import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -29,7 +30,7 @@ from app.services.cv.action_plan import generate_action_plan
 router = APIRouter(prefix="/cv", tags=["cv"])
 
 
-# ─── Schemas for match-to-job ────────────────────────────────────────────────────
+# ─── Schemas ────────────────────────────────────────────────────────────────────
 
 class JobMatchRequest(BaseModel):
     cv_id: int
@@ -61,6 +62,10 @@ class JobMatchResponse(BaseModel):
     job_requirements: Dict[str, Any]
 
 
+class SuggestJobQueryRequest(BaseModel):
+    cv_id: int
+
+
 # ─── Scoring helpers ──────────────────────────────────────────────────────────────
 
 import re
@@ -77,6 +82,63 @@ _DOMAIN_KEYWORDS: Dict[str, List[str]] = {
     "marketing & growth": ["marketing", "campaign", "seo", "sem", "growth", "branding"],
     "finance & banking": ["finance", "financial", "bank", "investment", "valuation"],
     "design & ux": ["design", "designer", "ux", "ui", "figma", "wireframe", "prototype", "adobe"],
+}
+
+_ROLE_TO_CATEGORY: Dict[str, str] = {
+    "data analyst": "data",
+    "data scientist": "data",
+    "data engineer": "data",
+    "analytics": "data",
+    "machine learning": "data",
+    "software engineer": "software-dev",
+    "software developer": "software-dev",
+    "full stack": "software-dev",
+    "frontend": "software-dev",
+    "backend": "software-dev",
+    "react": "software-dev",
+    "node": "software-dev",
+    "python developer": "software-dev",
+    "devops": "devops-sysadmin",
+    "sre": "devops-sysadmin",
+    "site reliability": "devops-sysadmin",
+    "cloud engineer": "devops-sysadmin",
+    "kubernetes": "devops-sysadmin",
+    "product manager": "product",
+    "product owner": "product",
+    "ux designer": "design",
+    "ui designer": "design",
+    "graphic designer": "design",
+    "figma": "design",
+    "marketing": "marketing",
+    "seo": "marketing",
+    "growth": "marketing",
+    "financial analyst": "finance",
+    "accountant": "finance",
+    "finance": "finance",
+    "hr manager": "hr",
+    "recruiter": "hr",
+    "talent acquisition": "hr",
+    "content writer": "writing",
+    "copywriter": "writing",
+    "technical writer": "writing",
+    "qa engineer": "qa",
+    "test automation": "qa",
+    "quality assurance": "qa",
+    "customer success": "customer-support",
+    "support": "customer-support",
+    "project manager": "management-finance",
+    "scrum master": "management-finance",
+    "program manager": "management-finance",
+    "lawyer": "legal",
+    "legal": "legal",
+    "compliance": "legal",
+    "paralegal": "legal",
+    "teacher": "education",
+    "trainer": "education",
+    "e-learning": "education",
+    "sales": "business",
+    "account executive": "business",
+    "business development": "business",
 }
 
 
@@ -169,6 +231,26 @@ def _combine_scores(domain: int, experience: int, skills: int, quality: int) -> 
     return max(0, min(100, int(total)))
 
 
+def _resolve_raw_text(cv: CV) -> str:
+    """Return the best available raw text from a CV record, or empty string."""
+    extracted = cv.extracted_cv or {}
+    if isinstance(extracted, str):
+        try:
+            extracted = json.loads(extracted)
+        except Exception:
+            extracted = {}
+    raw_text = str(extracted.get("raw_text", "")).strip() if isinstance(extracted, dict) else ""
+
+    if not raw_text:
+        # Fallback: re-extract directly from the stored file
+        try:
+            from app.services.cv.text_extraction import extract_text_from_file
+            raw_text = (extract_text_from_file(cv.file_path, cv.file_type) or "").strip()
+        except Exception:
+            raw_text = ""
+    return raw_text
+
+
 # ─── Endpoints ───────────────────────────────────────────────────────────────────
 
 @router.get("/db-test")
@@ -201,61 +283,90 @@ async def upload_cv(
 
     ext = file.filename.split(".")[-1].lower()
     if ext not in settings.ALLOWED_FILE_TYPES:
-        raise HTTPException(status_code=400, detail=f"Unsupported file type. Allowed: {settings.ALLOWED_FILE_TYPES}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type. Allowed: {settings.ALLOWED_FILE_TYPES}",
+        )
 
     existing_cv = db.query(CV).filter(
         CV.user_id == current_user.id,
-        CV.original_filename == file.filename
+        CV.original_filename == file.filename,
     ).first()
     if existing_cv:
         raise HTTPException(
             status_code=409,
-            detail=f"A file with the name '{file.filename}' already exists. Please rename or delete the existing file."
+            detail=f"A file named '{file.filename}' already exists. Rename or delete it first.",
         )
 
     file_path, file_size, ext = await save_cv_file(current_user.id, file)
 
     if file_size > settings.MAX_UPLOAD_SIZE:
-        raise HTTPException(status_code=400, detail="File too large (max 5MB)")
+        from app.services.storage.file_storage import delete_cv_file
+        delete_cv_file(file_path)
+        raise HTTPException(status_code=400, detail="File too large (max 5 MB)")
 
+    # ── Step 1: extract text BEFORE touching the database ──────────────────────
+    # If extraction fails we delete the orphaned file and return a clear error.
+    # This prevents the silent-failure bug where the CV record was saved with
+    # NULL extracted_cv / analysis_result / structured_data.
+    try:
+        extracted_data = parse_cv_file(file_path, ext)
+    except Exception as exc:
+        from app.services.storage.file_storage import delete_cv_file
+        delete_cv_file(file_path)
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Could not extract text from the uploaded file. "
+                "Make sure it is not password-protected or a scanned image. "
+                f"Details: {exc}"
+            ),
+        ) from exc
+
+    if extracted_data.get("page_count", 0) > 5:
+        from app.services.storage.file_storage import delete_cv_file
+        delete_cv_file(file_path)
+        raise HTTPException(status_code=400, detail="File has too many pages (max 5)")
+
+    raw_text = (extracted_data.get("raw_text", "") or "").strip()
+    if not raw_text:
+        from app.services.storage.file_storage import delete_cv_file
+        delete_cv_file(file_path)
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "No readable text was found in the uploaded file. "
+                "It may be a scanned image PDF. "
+                "Please upload a text-based PDF or DOCX."
+            ),
+        )
+
+    # ── Step 2: run local analysis (fast, no external calls) ───────────────────
+    try:
+        analysis_result = analyze_cv_local(raw_text)
+    except Exception:
+        analysis_result = {"score": 0}
+
+    try:
+        structured_data = extract_structured_data(raw_text)
+    except Exception:
+        structured_data = {}
+
+    # ── Step 3: persist – only ONE commit, with all data present ───────────────
     cv = CV(
         user_id=current_user.id,
         original_filename=file.filename,
         file_path=file_path,
         file_type=ext,
         file_size=file_size,
+        extracted_cv=extracted_data,
+        analysis_result=analysis_result,
+        score=analysis_result.get("score", 0),
+        structured_data=structured_data,
     )
     db.add(cv)
     db.commit()
     db.refresh(cv)
-
-    try:
-        extracted_data = parse_cv_file(file_path, ext)
-        cv.extracted_cv = extracted_data
-
-        if extracted_data.get("page_count", 0) > 5:
-            db.delete(cv)
-            db.commit()
-            raise HTTPException(status_code=400, detail="File has too many pages (max 5)")
-
-        raw_text = extracted_data.get("raw_text", "")
-
-        analysis_result = analyze_cv_local(raw_text)
-        cv.analysis_result = analysis_result
-        cv.score = analysis_result.get("score", 0)
-
-        structured_data = extract_structured_data(raw_text)
-        cv.structured_data = structured_data
-
-        db.add(cv)
-        db.commit()
-        db.refresh(cv)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Pipeline processing failed: {e}")
-
     return cv
 
 
@@ -271,7 +382,6 @@ async def match_cv_to_job(
     current_user: User = Depends(get_current_supabase_user),
 ) -> JobMatchResponse:
     """Two-step AI pipeline: extract job requirements then analyse CV against them."""
-    # Outer guard: any unhandled exception surfaces as a readable 500 with detail.
     try:
         return await _do_match_cv_to_job(payload, db, current_user)
     except HTTPException:
@@ -288,9 +398,6 @@ async def _do_match_cv_to_job(
     db: Session,
     current_user: User,
 ) -> JobMatchResponse:
-    import json as _json
-
-    # 1. Load CV (must belong to current user)
     cv = db.query(CV).filter(
         CV.id == payload.cv_id,
         CV.user_id == current_user.id,
@@ -298,30 +405,12 @@ async def _do_match_cv_to_job(
     if not cv:
         raise HTTPException(status_code=404, detail="CV not found.")
 
-    # 2. Resolve raw text
-    extracted = cv.extracted_cv or {}
-    if isinstance(extracted, str):
-        try:
-            extracted = _json.loads(extracted)
-        except Exception:
-            extracted = {}
+    raw_text = _resolve_raw_text(cv)
 
-    raw_text = ""
-    if isinstance(extracted, dict):
-        raw_text = str(extracted.get("raw_text", ""))
-
-    if not raw_text:
-        try:
-            from app.services.cv.text_extraction import extract_text_from_file
-            raw_text = extract_text_from_file(cv.file_path, cv.file_type)
-        except Exception:
-            raw_text = ""
-
-    # 3. Ensure analysis_result — wrapped in try so empty raw_text can't crash
     analysis: Dict[str, Any] = cv.analysis_result or {}
     if isinstance(analysis, str):
         try:
-            analysis = _json.loads(analysis)
+            analysis = json.loads(analysis)
         except Exception:
             analysis = {}
     if not analysis or "score" not in analysis:
@@ -332,11 +421,10 @@ async def _do_match_cv_to_job(
         cv.analysis_result = analysis
         cv.score = int(analysis.get("score", 0) or 0)
 
-    # 4. Ensure structured_data — same guard
     structured: Dict[str, Any] = cv.structured_data or {}
     if isinstance(structured, str):
         try:
-            structured = _json.loads(structured)
+            structured = json.loads(structured)
         except Exception:
             structured = {}
     if not structured:
@@ -350,12 +438,10 @@ async def _do_match_cv_to_job(
     db.commit()
     db.refresh(cv)
 
-    # 5. Deterministic scoring
     candidate_years = _parse_candidate_years(raw_text)
     exp_score = _experience_score(candidate_years, payload.experience_required)
     dom_score = _domain_score(payload.job_category, raw_text)
 
-    # 6. Step 1 — extract structured requirements from job description
     job_reqs = extract_job_requirements(
         job_description=payload.job_description,
         job_category=payload.job_category,
@@ -373,7 +459,6 @@ async def _do_match_cv_to_job(
     cv_quality = int(analysis.get("score", cv.score or 0) or 0)
     total_score = _combine_scores(dom_score, exp_score, sk_score, cv_quality)
 
-    # 7. Step 2 — deep narrative analysis
     ai_result = analyze_cv_against_job(
         job_requirements=job_reqs,
         cv_structured=structured,
@@ -399,7 +484,7 @@ async def _do_match_cv_to_job(
     )
 
 
-# ─── /mine MUST come before /{cv_id} so FastAPI matches it first ─────────────────
+# ─── /mine and /suggest-job-query MUST come before /{cv_id} ─────────────────────
 
 @router.get("/mine", response_model=list[CVRead])
 async def list_my_cvs(
@@ -409,6 +494,98 @@ async def list_my_cvs(
     """List CVs uploaded by the current user."""
     cvs = db.query(CV).filter(CV.user_id == current_user.id).all()
     return cvs
+
+
+@router.post("/suggest-job-query")
+async def suggest_job_query(
+    payload: SuggestJobQueryRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_supabase_user),
+) -> Dict[str, Any]:
+    """Infer a job search query and Remotive category slug from the user's CV.
+
+    Returns:
+        detected_role: human-readable role string (e.g. "Data Analyst")
+        category_slug: Remotive category slug (e.g. "data")
+        suggested_query: search string to pre-fill the jobs search bar
+    """
+    cv = db.query(CV).filter(
+        CV.id == payload.cv_id,
+        CV.user_id == current_user.id,
+    ).first()
+    if not cv:
+        raise HTTPException(status_code=404, detail="CV not found.")
+
+    raw_text = _resolve_raw_text(cv)
+
+    structured: Dict[str, Any] = cv.structured_data or {}
+    if isinstance(structured, str):
+        try:
+            structured = json.loads(structured)
+        except Exception:
+            structured = {}
+
+    # 1. Try to pull a job title from structured data
+    detected_role = ""
+    if isinstance(structured, dict):
+        personal = structured.get("personal_info") or {}
+        detected_role = (
+            personal.get("title", "")
+            or personal.get("job_title", "")
+            or personal.get("headline", "")
+            or ""
+        ).strip()
+
+        if not detected_role:
+            experience = structured.get("experience") or []
+            if experience and isinstance(experience, list):
+                first = experience[0] if isinstance(experience[0], dict) else {}
+                detected_role = (
+                    first.get("title", "")
+                    or first.get("position", "")
+                    or first.get("role", "")
+                    or ""
+                ).strip()
+
+    # 2. Fallback: keyword scan of raw text
+    if not detected_role and raw_text:
+        text_lower = raw_text.lower()
+        keyword_roles = [
+            ("data scientist", ["data scientist", "machine learning engineer"]),
+            ("data analyst", ["data analyst", "business analyst", "analytics"]),
+            ("data engineer", ["data engineer", "etl", "data pipeline"]),
+            ("devops engineer", ["devops", "site reliability", "platform engineer", "kubernetes"]),
+            ("software engineer", ["software engineer", "software developer", "full stack", "frontend", "backend"]),
+            ("product manager", ["product manager", "product owner"]),
+            ("ux designer", ["ux designer", "ui designer", "product designer", "figma"]),
+            ("marketing manager", ["marketing manager", "digital marketing", "seo specialist"]),
+            ("financial analyst", ["financial analyst", "finance manager", "accountant", "cpa"]),
+            ("hr manager", ["hr manager", "recruiter", "talent acquisition", "human resources"]),
+            ("content writer", ["content writer", "copywriter", "technical writer"]),
+            ("qa engineer", ["qa engineer", "quality assurance", "test automation", "sdet"]),
+            ("project manager", ["project manager", "scrum master", "program manager", "agile coach"]),
+            ("lawyer", ["lawyer", "attorney", "legal counsel", "paralegal", "compliance officer"]),
+            ("sales manager", ["sales manager", "account executive", "business development"]),
+            ("customer success", ["customer success", "customer support", "help desk"]),
+        ]
+        for role, keywords in keyword_roles:
+            if any(kw in text_lower for kw in keywords):
+                detected_role = role.title()
+                break
+
+    # 3. Map role to Remotive category slug
+    category_slug = ""
+    role_lower = detected_role.lower()
+    for keyword, slug in _ROLE_TO_CATEGORY.items():
+        if keyword in role_lower:
+            category_slug = slug
+            break
+
+    return {
+        "detected_role": detected_role,
+        "category_slug": category_slug,
+        "suggested_query": detected_role,
+    }
 
 
 @router.delete("/{cv_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -521,7 +698,7 @@ async def analyze_cv(
     suggestions = review_cv_with_groq(
         cv.extracted_cv,
         cv.structured_data,
-        cv.analysis_result
+        cv.analysis_result,
     )
 
     cv.suggestions = suggestions
