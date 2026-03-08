@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { AlertCircle, Eye, EyeOff } from "lucide-react";
 
 import { useAuth } from "@/lib/auth/client";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 interface SignInFormProps {
   onSuccess?: (role: "seeker" | "recruiter") => void;
@@ -13,6 +14,7 @@ interface SignInFormProps {
 
 export function SignInForm({ onSuccess, role = "seeker" }: SignInFormProps) {
   const { login, loading, error } = useAuth();
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -23,19 +25,18 @@ export function SignInForm({ onSuccess, role = "seeker" }: SignInFormProps) {
     setLocalError(null);
 
     if (!email || !password) {
-      setLocalError("Please enter both email and password.");
+      setLocalError(t.auth.errors.loginFailed);
       return;
     }
 
     try {
       await login(email, password);
-      // Store the role in localStorage for later use
       localStorage.setItem("user_role", role);
       setTimeout(() => {
         onSuccess?.(role);
       }, 100);
     } catch (err) {
-      setLocalError(error || "Invalid email or password. Please try again.");
+      setLocalError(error || t.auth.errors.loginFailed);
     }
   };
 
@@ -50,7 +51,7 @@ export function SignInForm({ onSuccess, role = "seeker" }: SignInFormProps) {
         transition={{ delay: 0.1 }}
       >
         <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
-          Email address
+          {t.auth.email}
           <input
             type="email"
             value={email}
@@ -68,7 +69,7 @@ export function SignInForm({ onSuccess, role = "seeker" }: SignInFormProps) {
         transition={{ delay: 0.2 }}
       >
         <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
-          Password
+          {t.auth.password}
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
@@ -116,10 +117,10 @@ export function SignInForm({ onSuccess, role = "seeker" }: SignInFormProps) {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
-            Signing in...
+            {t.ui.loading}
           </span>
         ) : (
-          "Sign in"
+          t.auth.signInBtn
         )}
       </motion.button>
     </form>
