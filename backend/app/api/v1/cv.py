@@ -1,7 +1,7 @@
 """CV upload, listing, analysis, action-plan and job-match endpoints."""
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import Response
@@ -24,14 +24,14 @@ from app.services.ai.groq_client import (
     extract_job_requirements,
     analyze_cv_against_job,
 )
+from app.services.ai.language_utils import resolve_language
 from app.services.cv.pdf_generator import generate_cv_pdf_bytes
 from app.services.cv.action_plan import generate_action_plan
 
 router = APIRouter(prefix="/cv", tags=["cv"])
 
 
-# ─── Schemas ────────────────────────────────────────────────────────────────────
-
+# ─── Schemas ───────────────────────────────────────────────────────────────────────────────
 class JobMatchRequest(BaseModel):
     cv_id: int
     job_category: str = Field(default="", description="Domain category selected by user")
@@ -43,6 +43,10 @@ class JobMatchRequest(BaseModel):
     )
     experience_required: str = Field(default="", description="e.g. '3-5 years' or 'Senior'")
     skills_required: str = Field(default="", description="Comma-separated skills from the form")
+    language: Literal["en", "fr", "auto"] = Field(
+        default="en",
+        description="Language for AI-generated analysis responses",
+    )
 
 
 class JobMatchResponse(BaseModel):
@@ -66,8 +70,7 @@ class SuggestJobQueryRequest(BaseModel):
     cv_id: int
 
 
-# ─── Scoring helpers ──────────────────────────────────────────────────────────────
-
+# ─── Scoring helpers ───────────────────────────────────────────────────────────────────────
 import re
 
 _YEARS_RE = re.compile(r"(\d{1,2})\+?\s+years?", re.IGNORECASE)
@@ -242,7 +245,6 @@ def _resolve_raw_text(cv: CV) -> str:
     raw_text = str(extracted.get("raw_text", "")).strip() if isinstance(extracted, dict) else ""
 
     if not raw_text:
-        # Fallback: re-extract directly from the stored file
         try:
             from app.services.cv.text_extraction import extract_text_from_file
             raw_text = (extract_text_from_file(cv.file_path, cv.file_type) or "").strip()
@@ -251,8 +253,7 @@ def _resolve_raw_text(cv: CV) -> str:
     return raw_text
 
 
-# ─── Endpoints ───────────────────────────────────────────────────────────────────
-
+# ─── Endpoints ──────────────────────────────────────────────────────────────────────────────
 @router.get("/db-test")
 def test_db():
     from app.db.session import SessionLocal
@@ -305,10 +306,6 @@ async def upload_cv(
         delete_cv_file(file_path)
         raise HTTPException(status_code=400, detail="File too large (max 5 MB)")
 
-    # ── Step 1: extract text BEFORE touching the database ──────────────────────
-    # If extraction fails we delete the orphaned file and return a clear error.
-    # This prevents the silent-failure bug where the CV record was saved with
-    # NULL extracted_cv / analysis_result / structured_data.
     try:
         extracted_data = parse_cv_file(file_path, ext)
     except Exception as exc:
@@ -341,7 +338,6 @@ async def upload_cv(
             ),
         )
 
-    # ── Step 2: run local analysis (fast, no external calls) ───────────────────
     try:
         analysis_result = analyze_cv_local(raw_text)
     except Exception:
@@ -352,7 +348,6 @@ async def upload_cv(
     except Exception:
         structured_data = {}
 
-    # ── Step 3: persist – only ONE commit, with all data present ───────────────
     cv = CV(
         user_id=current_user.id,
         original_filename=file.filename,
@@ -442,11 +437,15 @@ async def _do_match_cv_to_job(
     exp_score = _experience_score(candidate_years, payload.experience_required)
     dom_score = _domain_score(payload.job_category, raw_text)
 
+    # Resolve language once — fallback to detecting from job description text
+    resolved_lang = resolve_language(payload.language, fallback_text=payload.job_description)
+
     job_reqs = extract_job_requirements(
         job_description=payload.job_description,
         job_category=payload.job_category,
         job_title=payload.job_title,
         skills_hint=payload.skills_required,
+        language=resolved_lang,
     )
 
     extracted_skills = job_reqs.get("required_skills") or []
@@ -464,6 +463,7 @@ async def _do_match_cv_to_job(
         cv_structured=structured,
         cv_analysis=analysis,
         job_title=payload.job_title,
+        language=resolved_lang,
     )
 
     return JobMatchResponse(
@@ -485,7 +485,6 @@ async def _do_match_cv_to_job(
 
 
 # ─── /mine and /suggest-job-query MUST come before /{cv_id} ─────────────────────
-
 @router.get("/mine", response_model=list[CVRead])
 async def list_my_cvs(
     db: Session = Depends(get_db),
@@ -502,13 +501,7 @@ async def suggest_job_query(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_supabase_user),
 ) -> Dict[str, Any]:
-    """Infer a job search query and Remotive category slug from the user's CV.
-
-    Returns:
-        detected_role: human-readable role string (e.g. "Data Analyst")
-        category_slug: Remotive category slug (e.g. "data")
-        suggested_query: search string to pre-fill the jobs search bar
-    """
+    """Infer a job search query and Remotive category slug from the user's CV."""
     cv = db.query(CV).filter(
         CV.id == payload.cv_id,
         CV.user_id == current_user.id,
@@ -525,7 +518,6 @@ async def suggest_job_query(
         except Exception:
             structured = {}
 
-    # 1. Try to pull a job title from structured data
     detected_role = ""
     if isinstance(structured, dict):
         personal = structured.get("personal_info") or {}
@@ -547,7 +539,6 @@ async def suggest_job_query(
                     or ""
                 ).strip()
 
-    # 2. Fallback: keyword scan of raw text
     if not detected_role and raw_text:
         text_lower = raw_text.lower()
         keyword_roles = [
@@ -573,7 +564,6 @@ async def suggest_job_query(
                 detected_role = role.title()
                 break
 
-    # 3. Map role to Remotive category slug
     category_slug = ""
     role_lower = detected_role.lower()
     for keyword, slug in _ROLE_TO_CATEGORY.items():
@@ -666,6 +656,7 @@ async def get_cv(
 @router.post("/{cv_id}/analyze", response_model=CVRead)
 async def analyze_cv(
     cv_id: int,
+    language: str = "en",
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_supabase_user),
 ) -> CVRead:
@@ -695,10 +686,12 @@ async def analyze_cv(
     if not cv.extracted_cv:
         raise HTTPException(status_code=500, detail="Failed to extract CV text.")
 
+    resolved_lang = resolve_language(language, fallback_text="")
     suggestions = review_cv_with_groq(
         cv.extracted_cv,
         cv.structured_data,
         cv.analysis_result,
+        language=resolved_lang,
     )
 
     cv.suggestions = suggestions
@@ -713,6 +706,7 @@ async def analyze_cv(
 @router.post("/{cv_id}/rewrite", response_model=Dict[str, str])
 async def rewrite_cv(
     cv_id: int,
+    language: str = "en",
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_supabase_user),
 ) -> Dict[str, str]:
@@ -723,5 +717,10 @@ async def rewrite_cv(
     if not cv.structured_data or not cv.suggestions:
         raise HTTPException(status_code=400, detail="CV must be analyzed before rewriting.")
 
-    rewritten_content = rewrite_cv_with_groq(cv.structured_data, cv.suggestions)
+    resolved_lang = resolve_language(language, fallback_text="")
+    rewritten_content = rewrite_cv_with_groq(
+        cv.structured_data,
+        cv.suggestions,
+        language=resolved_lang,
+    )
     return {"rewritten_cv": rewritten_content}
