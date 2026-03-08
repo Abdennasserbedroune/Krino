@@ -10,6 +10,7 @@ from app.db.models.user import User
 from app.db.session import get_db
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.ai.groq_client import recruiter_chat
+from app.services.ai.language_utils import resolve_language
 from app.services.cv.text_extraction import extract_text_from_file
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -29,7 +30,7 @@ def _build_cv_context(cv: CV) -> str:
     """
     context_parts: list[str] = []
 
-    # ── Priority 1: stored raw text ──────────────────────────────────────────
+    # ── Priority 1: stored raw text ───────────────────────────────────────
     raw_text = ""
     if cv.extracted_cv:
         try:
@@ -42,7 +43,7 @@ def _build_cv_context(cv: CV) -> str:
         except Exception:
             raw_text = ""
 
-    # ── Priority 2: re-extract from file if stored text is missing ───────────
+    # ── Priority 2: re-extract from file if stored text is missing ───────────────
     if not raw_text:
         try:
             raw_text = (extract_text_from_file(cv.file_path, cv.file_type) or "").strip()
@@ -83,7 +84,7 @@ def _build_cv_context(cv: CV) -> str:
         except Exception:
             pass
 
-    # ── Guard: no usable text at all ─────────────────────────────────────────
+    # ── Guard: no usable text at all ───────────────────────────────────────────
     if not context_parts:
         raise HTTPException(
             status_code=503,
@@ -118,6 +119,17 @@ async def recruiter_chat_endpoint(
     cv_context = _build_cv_context(cv)  # raises 503 if no text available
 
     messages = [{"role": m.role, "content": m.content} for m in payload.messages]
-    reply = recruiter_chat(cv_summary=cv_context, messages=messages)
+
+    # If language is "auto", sniff the latest user message for French indicators
+    latest_user_message = next(
+        (m.content for m in reversed(payload.messages) if m.role == "user"), ""
+    )
+    resolved_lang = resolve_language(payload.language, fallback_text=latest_user_message)
+
+    reply = recruiter_chat(
+        cv_summary=cv_context,
+        messages=messages,
+        language=resolved_lang,
+    )
 
     return ChatResponse(reply=reply)
