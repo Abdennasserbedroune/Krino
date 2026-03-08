@@ -7,6 +7,7 @@ import { useState } from "react";
 import { InfiniteMovingCards } from "@/components/ui/infinite-moving-cards";
 import { useAuth } from "@/lib/auth/client";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 const clipAnimation = {
   initial: { clipPath: "inset(0 0 100% 0)", opacity: 0 },
@@ -74,6 +75,7 @@ const recruiterTestimonials = [
 export default function LandingPage() {
   const [activeRole, setActiveRole] = useState<"seeker" | "recruiter">("seeker");
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   const getDashboardPath = () => {
     if (typeof window !== "undefined") {
@@ -87,31 +89,28 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-accent selection:text-white overflow-x-hidden relative">
 
-      {/* ── Header ───────────────────────────────────────────────────────────── */}
       <header className="fixed top-0 left-0 right-0 z-[100] bg-background/95 backdrop-blur-xl border-b border-white/10">
         <div className="container mx-auto px-6 h-20 flex items-center justify-between">
           <div className="font-serif text-3xl font-bold tracking-tight text-primary select-none cursor-default">Pathwise</div>
           <div className="flex items-center gap-4">
-            {/* ── Language toggle ── */}
             <LanguageSwitcher />
-
             {user ? (
               <Link
                 href={getDashboardPath()}
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
-                Dashboard
+                {t.nav.dashboard}
               </Link>
             ) : (
               <Link href="/auth/sign-in" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                Sign in
+                {t.nav.signIn}
               </Link>
             )}
             <Link
               href={ctaHref}
               className={`relative group px-6 py-2.5 rounded-full overflow-hidden font-medium shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 text-white ${activeRole === 'seeker' ? 'bg-seeker' : 'bg-recruiter'}`}
             >
-              <span className="relative z-10">Get Started</span>
+              <span className="relative z-10">{t.nav.getStarted}</span>
               <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
             </Link>
           </div>
@@ -133,13 +132,13 @@ export default function LandingPage() {
                 onClick={() => setActiveRole("seeker")}
                 className={`px-8 py-3 rounded-full text-sm font-bold transition-all duration-300 ${activeRole === 'seeker' ? 'bg-seeker text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}`}
               >
-                Job Seeker
+                {t.hero.roleSeeker}
               </button>
               <button
                 onClick={() => setActiveRole("recruiter")}
                 className={`px-8 py-3 rounded-full text-sm font-bold transition-all duration-300 ${activeRole === 'recruiter' ? 'bg-recruiter text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}`}
               >
-                Recruiter
+                {t.hero.roleRecruiter}
               </button>
             </motion.div>
 
@@ -155,22 +154,19 @@ export default function LandingPage() {
                 <h1 className="font-serif text-6xl md:text-8xl leading-[1] tracking-tight text-primary">
                   {activeRole === "seeker" ? (
                     <>
-                      Is your resume <br />
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-seeker to-blue-400 italic inline-block py-2 px-1">actually reading?</span>
+                      {t.hero.headlineSeeker.split(t.hero.gradientSeeker)[0]}<br />
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-seeker to-blue-400 italic inline-block py-2 px-1">{t.hero.gradientSeeker}</span>
                     </>
                   ) : (
                     <>
-                      Filter the noise <br />
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-recruiter to-orange-400 italic inline-block py-2 px-1">find the signal.</span>
+                      {t.hero.headlineRecruiterLine1} <br />
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-recruiter to-orange-400 italic inline-block py-2 px-1">{t.hero.gradientRecruiter}</span>
                     </>
                   )}
                 </h1>
 
                 <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto leading-relaxed font-medium">
-                  {activeRole === "seeker"
-                    ? "ATS systems reject 75% of resumes before a human sees them. Pathwise shows you exactly why—and how to fix it in seconds."
-                    : "Stop drowning in PDFs. Upload a batch of resumes and let AI rank them by relevance to your specific job description."
-                  }
+                  {activeRole === "seeker" ? t.hero.subSeeker : t.hero.subRecruiter}
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
@@ -178,11 +174,11 @@ export default function LandingPage() {
                     href={ctaHref}
                     className={`px-8 py-4 rounded-full text-lg font-bold text-white shadow-glow hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ${activeRole === 'seeker' ? 'bg-seeker' : 'bg-recruiter'}`}
                   >
-                    {activeRole === "seeker" ? "Analyze My Resume" : "Start Screening Batch"}
+                    {activeRole === "seeker" ? t.hero.ctaSeeker : t.hero.ctaRecruiter}
                   </Link>
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <Check className="w-4 h-4 text-green-500" />
-                    <span>Free for first 3 checks</span>
+                    <span>{t.hero.freeChecks}</span>
                   </div>
                 </div>
               </motion.div>
@@ -193,7 +189,7 @@ export default function LandingPage() {
         {/* Job Seeker Testimonials Marquee */}
         <section className="mb-32 overflow-hidden py-10 relative">
           <div className="container mx-auto px-6 mb-8 text-center">
-            <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Trusted by Job Seekers</p>
+            <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">{t.testimonials.trustedSeekers}</p>
           </div>
           <InfiniteMovingCards items={jobSeekerTestimonials} direction="right" speed="slow" />
         </section>
@@ -205,7 +201,7 @@ export default function LandingPage() {
               {...clipAnimation}
               className="font-serif text-4xl md:text-5xl mb-6 text-primary"
             >
-              Why Pathwise?
+              {t.features.whyTitle}
             </motion.h2>
             <motion.p
               initial={{ opacity: 0, y: 20 }}
@@ -214,7 +210,7 @@ export default function LandingPage() {
               transition={{ delay: 0.2 }}
               className="text-xl text-muted-foreground"
             >
-              Built for clarity in a chaotic hiring market.
+              {t.features.whySub}
             </motion.p>
           </div>
 
@@ -236,35 +232,19 @@ export default function LandingPage() {
                     <Search className="w-7 h-7" />
                   </div>
                   <h3 className="font-serif text-3xl text-primary">
-                    {activeRole === "seeker"
-                      ? "AI-Powered Match Analysis"
-                      : "AI Reads Every Resume for You"}
+                    {activeRole === "seeker" ? t.features.matchTitleSeeker : t.features.matchTitleRecruiter}
                   </h3>
                   <p className="text-lg text-muted-foreground leading-relaxed">
-                    {activeRole === "seeker" ? (
-                      <>
-                        Our AI reads both your resume and the job description, then scores how
-                        well they align. It understands context—not just keywords.
-                      </>
-                    ) : (
-                      <>
-                        Upload up to 10 PDFs. Our AI extracts, analyzes, and scores each
-                        candidate against your job description in parallel.
-                      </>
-                    )}
+                    {activeRole === "seeker" ? t.features.matchDescSeeker : t.features.matchDescRecruiter}
                   </p>
                   <ul className="space-y-3">
                     <li className="flex items-center gap-3 text-sm font-medium text-foreground/80">
                       <div className={`w-1.5 h-1.5 rounded-full ${activeRole === 'seeker' ? 'bg-blue-500' : 'bg-orange-500'}`}></div>
-                      {activeRole === "seeker"
-                        ? "AI understands skill relationships"
-                        : "AI processes 10 resumes simultaneously"}
+                      {activeRole === "seeker" ? t.features.matchBullet1Seeker : t.features.matchBullet1Recruiter}
                     </li>
                     <li className="flex items-center gap-3 text-sm font-medium text-foreground/80">
                       <div className={`w-1.5 h-1.5 rounded-full ${activeRole === 'seeker' ? 'bg-blue-500' : 'bg-orange-500'}`}></div>
-                      {activeRole === "seeker"
-                        ? "Get a 0-10 match score in seconds"
-                        : "Results sorted by relevance automatically"}
+                      {activeRole === "seeker" ? t.features.matchBullet2Seeker : t.features.matchBullet2Recruiter}
                     </li>
                   </ul>
                 </div>
@@ -277,7 +257,7 @@ export default function LandingPage() {
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center font-serif font-bold text-gray-500">JD</div>
                       <div>
-                        <div className="text-xs font-bold uppercase text-muted-foreground">Target Role</div>
+                        <div className="text-xs font-bold uppercase text-muted-foreground">{t.features.targetRole}</div>
                         <div className="text-sm font-bold text-primary">Senior Frontend Dev</div>
                       </div>
                     </div>
@@ -291,8 +271,8 @@ export default function LandingPage() {
                         <span className="text-red-600 text-xs font-bold">!</span>
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-red-800 mb-1">Missing Critical Skill</div>
-                        <div className="text-xs text-red-600">Job requires <span className="font-bold">TypeScript</span>.</div>
+                        <div className="text-xs font-bold text-red-800 mb-1">{t.features.missingSkill}</div>
+                        <div className="text-xs text-red-600">{t.features.missingSkillDesc}</div>
                       </div>
                     </div>
                     <div className="p-3 rounded-xl bg-green-50 border border-green-100 flex items-start gap-3">
@@ -300,8 +280,8 @@ export default function LandingPage() {
                         <Check className="w-3 h-3 text-green-600" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-green-800 mb-1">Strong Match</div>
-                        <div className="text-xs text-green-600">7+ years React experience.</div>
+                        <div className="text-xs font-bold text-green-800 mb-1">{t.features.strongMatch}</div>
+                        <div className="text-xs text-green-600">{t.features.strongMatchDesc}</div>
                       </div>
                     </div>
                   </div>
@@ -326,22 +306,10 @@ export default function LandingPage() {
               </div>
 
               <h3 className="font-serif text-3xl mb-4 relative z-10">
-                {activeRole === "seeker"
-                  ? "Privacy-First AI Processing"
-                  : "Candidate Data Protection"}
+                {activeRole === "seeker" ? t.features.privacyTitleSeeker : t.features.privacyTitleRecruiter}
               </h3>
               <p className="text-lg text-white/70 leading-relaxed mb-12 relative z-10">
-                {activeRole === "seeker" ? (
-                  <>
-                    Your resume is analyzed by AI, then deleted. We don&apos;t store your PDF,
-                    sell your data, or train models on your personal information.
-                  </>
-                ) : (
-                  <>
-                    Original resumes are processed by AI, then optionally deleted. Only text
-                    summaries and scores remain in your dashboard.
-                  </>
-                )}
+                {activeRole === "seeker" ? t.features.privacyDescSeeker : t.features.privacyDescRecruiter}
               </p>
 
               {/* Nested Card: Privacy Toggle */}
@@ -349,15 +317,13 @@ export default function LandingPage() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <Lock className="w-5 h-5 text-white/80" />
-                    <span className="font-medium">Auto-Delete</span>
+                    <span className="font-medium">{t.features.autoDelete}</span>
                   </div>
                   <div className="w-10 h-6 rounded-full bg-green-500 relative shadow-inner">
                     <div className="absolute right-1 top-1 w-4 h-4 rounded-full bg-white shadow-sm"></div>
                   </div>
                 </div>
-                <p className="text-xs text-white/50">
-                  Files permanently deleted after analysis.
-                </p>
+                <p className="text-xs text-white/50">{t.features.autoDeleteDesc}</p>
               </div>
             </motion.div>
 
@@ -377,37 +343,23 @@ export default function LandingPage() {
                   <Sparkles className="w-7 h-7 text-purple-600" />
                 </div>
                 <h3 className="font-serif text-2xl mb-3 text-primary">
-                  {activeRole === "seeker"
-                    ? "Specific, Actionable Fixes"
-                    : "Smart Scoring"}
+                  {activeRole === "seeker" ? t.features.feedbackTitleSeeker : t.features.feedbackTitleRecruiter}
                 </h3>
                 <p className="text-muted-foreground mb-6">
-                  {activeRole === "seeker" ? (
-                    <>
-                      Pathwise AI tells you exactly what&apos;s missing: &ldquo;Add TypeScript to your skills section.&rdquo;
-                    </>
-                  ) : (
-                    <>
-                      The AI understands experience level, related skills, and red flags like job-hopping.
-                    </>
-                  )}
+                  {activeRole === "seeker" ? t.features.feedbackDescSeeker : t.features.feedbackDescRecruiter}
                 </p>
 
                 <div className="space-y-2">
                   <div className="flex items-center gap-3 p-2 rounded-lg bg-white/50 border border-white/50 hover:bg-white transition-colors">
                     <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-bold">1</div>
                     <span className="text-sm font-medium">
-                      {activeRole === "seeker"
-                        ? "AI-generated to-do list"
-                        : "Context-aware AI scoring"}
+                      {activeRole === "seeker" ? t.features.feedbackItem1Seeker : t.features.feedbackItem1Recruiter}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 p-2 rounded-lg bg-white/50 border border-white/50 hover:bg-white transition-colors">
                     <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-bold">2</div>
                     <span className="text-sm font-medium">
-                      {activeRole === "seeker"
-                        ? "Tailored to the exact job"
-                        : "One-sentence AI verdict"}
+                      {activeRole === "seeker" ? t.features.feedbackItem2Seeker : t.features.feedbackItem2Recruiter}
                     </span>
                   </div>
                 </div>
@@ -430,27 +382,17 @@ export default function LandingPage() {
                   <Clock className="w-7 h-7 text-blue-600" />
                 </div>
                 <h3 className="font-serif text-2xl mb-3 text-primary">
-                  {activeRole === "seeker" ? "Instant Feedback Loop" : "10x Faster Screening"}
+                  {activeRole === "seeker" ? t.features.speedTitleSeeker : t.features.speedTitleRecruiter}
                 </h3>
                 <p className="text-muted-foreground mb-6">
-                  {activeRole === "seeker" ? (
-                    <>
-                      Make a change, re-upload, and see your score update in real time.
-                    </>
-                  ) : (
-                    <>
-                      What used to take an hour now takes 2 minutes. The AI does the first pass.
-                    </>
-                  )}
+                  {activeRole === "seeker" ? t.features.speedDescSeeker : t.features.speedDescRecruiter}
                 </p>
                 <div className="flex items-end gap-2">
                   <span className="text-4xl font-serif font-bold text-primary">
                     {activeRole === "seeker" ? "10s" : "10x"}
                   </span>
                   <span className="text-sm font-medium text-muted-foreground mb-1.5">
-                    {activeRole === "seeker"
-                      ? "Or less for each recheck"
-                      : "Faster than manual review"}
+                    {activeRole === "seeker" ? t.features.speedSuffixSeeker : t.features.speedSuffixRecruiter}
                   </span>
                 </div>
               </div>
@@ -462,47 +404,28 @@ export default function LandingPage() {
         <section className="py-32 bg-white/50 backdrop-blur-sm border-y border-border/50 relative">
           <div className="container mx-auto px-6">
             <div className="text-center mb-20">
-              <h2 className="font-serif text-5xl mb-6 text-primary">How it works</h2>
+              <h2 className="font-serif text-5xl mb-6 text-primary">{t.howItWorks.title}</h2>
             </div>
 
             <div className="max-w-5xl mx-auto">
               <div className="grid md:grid-cols-3 gap-12 relative">
-                {/* Connecting Line */}
                 <div className="hidden md:block absolute top-8 left-[15%] right-[15%] h-0.5 bg-border/50"></div>
 
                 {[
                   {
                     icon: Upload,
-                    title:
-                      activeRole === "seeker"
-                        ? "Upload Your Resume"
-                        : "Upload Job Description & Resumes",
-                    desc:
-                      activeRole === "seeker"
-                        ? "Upload your PDF resume. Our AI reads it immediately and extracts your skills, experience, and qualifications."
-                        : "Paste your job description, then upload up to 10 candidate resumes (PDFs) in one batch for the same role."
+                    title: activeRole === "seeker" ? t.howItWorks.step1TitleSeeker : t.howItWorks.step1TitleRecruiter,
+                    desc: activeRole === "seeker" ? t.howItWorks.step1DescSeeker : t.howItWorks.step1DescRecruiter
                   },
                   {
                     icon: activeRole === "seeker" ? Sparkles : Search,
-                    title:
-                      activeRole === "seeker"
-                        ? "Get Score & Improved Version"
-                        : "AI Analyzes & Ranks Candidates",
-                    desc:
-                      activeRole === "seeker"
-                        ? "AI scores your resume and generates an improved version with better formatting, stronger language, and optimized keywords. Download the enhanced CV instantly."
-                        : "Our AI reads every resume, compares it against your job requirements, and assigns match scores. The process completes in under 60 seconds."
+                    title: activeRole === "seeker" ? t.howItWorks.step2TitleSeeker : t.howItWorks.step2TitleRecruiter,
+                    desc: activeRole === "seeker" ? t.howItWorks.step2DescSeeker : t.howItWorks.step2DescRecruiter
                   },
                   {
                     icon: activeRole === "seeker" ? MessageCircle : ListChecks,
-                    title:
-                      activeRole === "seeker"
-                        ? "Chat with Your Career Coach"
-                        : "View Top Candidates",
-                    desc:
-                      activeRole === "seeker"
-                        ? "Ask the AI career bot anything: how to improve specific sections, interview prep tips, career pivot advice, or which skills to add for your target role."
-                        : "See a ranked table showing who fits best. Each candidate gets a score and a short AI verdict explaining strengths and gaps. Focus only on the top matches."
+                    title: activeRole === "seeker" ? t.howItWorks.step3TitleSeeker : t.howItWorks.step3TitleRecruiter,
+                    desc: activeRole === "seeker" ? t.howItWorks.step3DescSeeker : t.howItWorks.step3DescRecruiter
                   }
                 ].map((item, i) => (
                   <motion.div
@@ -528,7 +451,7 @@ export default function LandingPage() {
         {/* Recruiter Testimonials Marquee */}
         <section className="mb-32 overflow-hidden py-10 relative">
           <div className="container mx-auto px-6 mb-8 text-center">
-            <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Trusted by Hiring Teams</p>
+            <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">{t.testimonials.trustedHiring}</p>
           </div>
           <InfiniteMovingCards items={recruiterTestimonials} direction="left" speed="slow" />
         </section>
@@ -543,10 +466,8 @@ export default function LandingPage() {
               </div>
 
               <div className="relative z-10">
-                <h2 className="font-serif text-4xl md:text-5xl mb-6">Simple, transparent pricing.</h2>
-                <p className="text-xl text-white/80 mb-12 max-w-2xl mx-auto">
-                  Start for free. Upgrade when you land the interview (or hire the candidate).
-                </p>
+                <h2 className="font-serif text-4xl md:text-5xl mb-6">{t.pricing.title}</h2>
+                <p className="text-xl text-white/80 mb-12 max-w-2xl mx-auto">{t.pricing.sub}</p>
 
                 <div className="flex flex-col sm:flex-row justify-center gap-6">
                   {/* Free Plan */}
@@ -554,15 +475,15 @@ export default function LandingPage() {
                     whileHover={{ y: -10 }}
                     className="bg-white text-primary p-8 rounded-3xl flex-1 max-w-sm mx-auto shadow-xl transition-all duration-300 relative group"
                   >
-                    <div className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-2">Starter</div>
+                    <div className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-2">{t.pricing.starterLabel}</div>
                     <div className="text-5xl font-serif font-bold mb-4">$0</div>
                     <ul className="text-left space-y-4 mb-8">
-                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><Check size={12} /></div> 3 Checks / Day</li>
-                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><Check size={12} /></div> Basic Score</li>
-                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><Check size={12} /></div> 1 Recruiter Session</li>
+                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><Check size={12} /></div> {t.pricing.starterChecks}</li>
+                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><Check size={12} /></div> {t.pricing.starterScore}</li>
+                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><Check size={12} /></div> {t.pricing.starterSession}</li>
                     </ul>
                     <Link href={ctaHref} className="block w-full py-4 rounded-2xl bg-secondary text-primary font-bold hover:bg-secondary/80 transition-colors">
-                      Get Started
+                      {t.pricing.getStarted}
                     </Link>
                   </motion.div>
 
@@ -571,16 +492,16 @@ export default function LandingPage() {
                     whileHover={{ y: -10 }}
                     className="bg-gradient-to-br from-accent to-orange-600 text-white p-8 rounded-3xl flex-1 max-w-sm mx-auto shadow-xl transition-all duration-300 border border-white/20 relative overflow-hidden"
                   >
-                    <div className="absolute top-0 right-0 bg-white/20 px-4 py-1 rounded-bl-2xl text-xs font-bold backdrop-blur-sm">POPULAR</div>
-                    <div className="text-sm font-bold uppercase tracking-wider text-white/80 mb-2">Pro</div>
+                    <div className="absolute top-0 right-0 bg-white/20 px-4 py-1 rounded-bl-2xl text-xs font-bold backdrop-blur-sm">{t.pricing.popular}</div>
+                    <div className="text-sm font-bold uppercase tracking-wider text-white/80 mb-2">{t.pricing.proLabel}</div>
                     <div className="text-5xl font-serif font-bold mb-4">$12</div>
                     <ul className="text-left space-y-4 mb-8">
-                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center"><Check size={12} /></div> Unlimited Checks</li>
-                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center"><Check size={12} /></div> Detailed Feedback</li>
-                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center"><Check size={12} /></div> Priority Support</li>
+                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center"><Check size={12} /></div> {t.pricing.proChecks}</li>
+                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center"><Check size={12} /></div> {t.pricing.proFeedback}</li>
+                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center"><Check size={12} /></div> {t.pricing.proSupport}</li>
                     </ul>
                     <Link href="/pricing" className="block w-full py-4 rounded-2xl bg-white text-accent font-bold hover:bg-gray-50 transition-colors shadow-lg">
-                      Upgrade to Pro
+                      {t.pricing.upgradePro}
                     </Link>
                   </motion.div>
                 </div>
@@ -597,16 +518,16 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="text-center md:text-left">
               <div className="font-serif text-2xl font-bold text-primary mb-2">Pathwise</div>
-              <p className="text-muted-foreground">Check your resume before the recruiter does.</p>
+              <p className="text-muted-foreground">{t.footer.tagline}</p>
             </div>
             <div className="flex gap-8 text-sm font-medium text-muted-foreground">
-              <Link href="#" className="hover:text-primary transition-colors">Privacy</Link>
-              <Link href="#" className="hover:text-primary transition-colors">Terms</Link>
-              <Link href="#" className="hover:text-primary transition-colors">Twitter</Link>
+              <Link href="#" className="hover:text-primary transition-colors">{t.footer.privacy}</Link>
+              <Link href="#" className="hover:text-primary transition-colors">{t.footer.terms}</Link>
+              <Link href="#" className="hover:text-primary transition-colors">{t.footer.twitter}</Link>
             </div>
           </div>
           <div className="mt-12 text-center text-xs text-muted-foreground/50">
-            &copy; {new Date().getFullYear()} Pathwise AI. All rights reserved.
+            &copy; {new Date().getFullYear()} Pathwise AI. {t.footer.rights}
           </div>
         </div>
       </footer>
