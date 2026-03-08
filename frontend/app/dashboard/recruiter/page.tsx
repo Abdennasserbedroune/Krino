@@ -32,6 +32,8 @@ import {
 } from "lucide-react";
 import { ProfileDropdown } from "@/components/ui/profile-dropdown";
 import Protected from "@/components/Protected";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -148,13 +150,14 @@ function CopyButton({ text }: { text: string }) {
 
 export default function RecruiterDashboardPage() {
     const { email, accessToken } = useAuth();
+    const { t } = useLanguage();
     const [activeTab, setActiveTab] = useState<TabId>("candidates");
 
     const tabs = [
-        { id: "candidates" as TabId, label: "Candidates", icon: Users },
-        { id: "analytics" as TabId, label: "Analytics", icon: BarChart3 },
-        { id: "yourtoolkit" as TabId, label: "Your Toolkit", icon: Sparkles },
-        { id: "jobs" as TabId, label: "Job Postings", icon: Briefcase },
+        { id: "candidates" as TabId, label: t.ext.tabCandidates, icon: Users },
+        { id: "analytics" as TabId, label: t.ext.tabAnalytics, icon: BarChart3 },
+        { id: "yourtoolkit" as TabId, label: t.ext.tabToolkit, icon: Sparkles },
+        { id: "jobs" as TabId, label: t.ext.tabJobs, icon: Briefcase },
     ];
 
     return (
@@ -174,10 +177,11 @@ export default function RecruiterDashboardPage() {
                                 Pathwise
                             </span>
                             <span className="hidden md:inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-orange-50 whitespace-nowrap">
-                                Recruiter
+                                {t.hero.roleRecruiter}
                             </span>
                         </div>
                         <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+                            <LanguageSwitcher />
                             {email && (
                                 <span className="hidden sm:inline-block max-w-[140px] lg:max-w-[220px] truncate text-sm font-medium text-orange-50/90">
                                     {email}
@@ -191,11 +195,11 @@ export default function RecruiterDashboardPage() {
                 <div className="container mx-auto px-6 pt-32 pb-20 relative z-10">
                     <div className="mb-12">
                         <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-recruiter/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-recruiter">
-                            Recruiter Dashboard
+                            {t.nav.dashboard} &mdash; {t.hero.roleRecruiter}
                         </div>
-                        <h1 className="font-serif text-4xl md:text-5xl text-foreground mb-4">Talent Management</h1>
+                        <h1 className="font-serif text-4xl md:text-5xl text-foreground mb-4">{t.ext.talentMgmt}</h1>
                         <p className="text-lg text-muted-foreground max-w-2xl">
-                            Screen candidates, analyze resumes, and match multiple CVs to the role you need to fill.
+                            {t.ext.talentMgmtSub}
                         </p>
                     </div>
 
@@ -233,6 +237,7 @@ export default function RecruiterDashboardPage() {
 
 function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | null; activeTab: TabId }) {
     const { toast } = useToast();
+    const { t } = useLanguage();
     const [step, setStep] = useState<MatchStep>(1);
     const [jobDomain, setJobDomain] = useState("AI & Data");
     const [experienceRange, setExperienceRange] = useState("");
@@ -252,9 +257,9 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
     const backendBaseUrl = "";
 
     const steps: { id: MatchStep; label: string }[] = [
-        { id: 1, label: "Job details" },
-        { id: 2, label: "Upload CVs" },
-        { id: 3, label: "Results" },
+        { id: 1, label: t.ext.theJob },
+        { id: 2, label: t.ext.yourCv },
+        { id: 3, label: t.ext.yourResult },
     ];
 
     const canContinueFromStep1 = Boolean(jobDomain && experienceRange && salaryRange);
@@ -419,20 +424,20 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
             <div className="space-y-8 relative z-10">
                 <div>
                     <p className="inline-flex items-center gap-2 rounded-full bg-recruiter/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-recruiter">
-                        <Sparkles className="h-3.5 w-3.5" /> AI-Powered
+                        <Sparkles className="h-3.5 w-3.5" /> {t.ext.aiPowered}
                     </p>
-                    <h2 className="mt-4 font-serif text-3xl md:text-4xl text-foreground">Your Toolkit</h2>
+                    <h2 className="mt-4 font-serif text-3xl md:text-4xl text-foreground">{t.ext.tabToolkit}</h2>
                     <p className="mt-2 text-sm md:text-base text-muted-foreground max-w-2xl">
-                        Everything you need to make a confident hiring decision — hiring verdict, score breakdown, tailored interview questions, and red flags — all in one place.
+                        {t.ext.toolkitDesc}
                     </p>
                 </div>
 
                 {!hasResults && (
                     <div className="rounded-3xl border-2 border-dashed border-recruiter/30 bg-recruiter/5 p-14 text-center">
                         <Sparkles className="mx-auto h-12 w-12 text-recruiter/40 mb-4" />
-                        <p className="text-lg font-semibold text-foreground">No candidates yet</p>
+                        <p className="text-lg font-semibold text-foreground">{t.ext.noCandidatesYet}</p>
                         <p className="mt-2 text-sm text-muted-foreground max-w-xs mx-auto">
-                            Go to the <span className="font-semibold text-foreground">Candidates</span> tab, define the role, upload CVs and run the AI match. Your full toolkit will appear here instantly.
+                            {t.ext.goUploadDesc}
                         </p>
                     </div>
                 )}
@@ -472,7 +477,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                             <div className="flex-shrink-0 mt-0.5">{v.icon}</div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-3 flex-wrap">
-                                                    <p className="text-xs font-bold uppercase tracking-widest opacity-60">AI Hiring Verdict</p>
+                                                    <p className="text-xs font-bold uppercase tracking-widest opacity-60">{t.ext.aiHiringVerdict}</p>
                                                     <span className="rounded-full border px-3 py-0.5 text-sm font-bold border-current">{v.label}</span>
                                                 </div>
                                                 <p className="mt-1.5 text-sm md:text-base font-medium">{v.sublabel}</p>
@@ -490,20 +495,20 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                 <div className="rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
                                     <div className="mb-6 flex items-center gap-2">
                                         <BarChart2 className="h-5 w-5 text-recruiter" />
-                                        <h3 className="font-serif text-xl md:text-2xl text-foreground">Score Breakdown</h3>
+                                        <h3 className="font-serif text-xl md:text-2xl text-foreground">{t.ext.scoreBreakdown}</h3>
                                     </div>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-6 justify-items-center">
-                                        <ScoreRing value={focusedResult.match_score} label="Overall Match" color="var(--color-recruiter, #f97316)" />
-                                        <ScoreRing value={focusedResult.skills_match_score} label="Skills" color="#3b82f6" />
-                                        <ScoreRing value={focusedResult.experience_score} label="Experience" color="#8b5cf6" />
-                                        <ScoreRing value={focusedResult.cv_quality_score} label="CV Quality" color="#10b981" />
+                                        <ScoreRing value={focusedResult.match_score} label={t.ext.overallMatch} color="var(--color-recruiter, #f97316)" />
+                                        <ScoreRing value={focusedResult.skills_match_score} label={t.ext.skillsHeading} color="#3b82f6" />
+                                        <ScoreRing value={focusedResult.experience_score} label={t.ext.expHeading} color="#8b5cf6" />
+                                        <ScoreRing value={focusedResult.cv_quality_score} label={t.ext.quality} color="#10b981" />
                                     </div>
                                     <div className="mt-6 grid gap-3 md:grid-cols-2">
                                         {[
-                                            { label: "Overall Match", value: focusedResult.match_score, color: "bg-recruiter" },
-                                            { label: "Skills Match", value: focusedResult.skills_match_score, color: "bg-blue-500" },
-                                            { label: "Experience", value: focusedResult.experience_score, color: "bg-violet-500" },
-                                            { label: "CV Quality", value: focusedResult.cv_quality_score, color: "bg-emerald-500" },
+                                            { label: t.ext.overallMatch, value: focusedResult.match_score, color: "bg-recruiter" },
+                                            { label: t.ext.skillsHeading, value: focusedResult.skills_match_score, color: "bg-blue-500" },
+                                            { label: t.ext.expHeading, value: focusedResult.experience_score, color: "bg-violet-500" },
+                                            { label: t.ext.quality, value: focusedResult.cv_quality_score, color: "bg-emerald-500" },
                                         ].map((m) => (
                                             <div key={m.label} className="space-y-1">
                                                 <div className="flex justify-between text-xs font-semibold text-foreground">
@@ -521,10 +526,10 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                 <div className="rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
                                     <div className="mb-2 flex items-center gap-2">
                                         <MessageCircle className="h-5 w-5 text-recruiter" />
-                                        <h3 className="font-serif text-xl md:text-2xl text-foreground">AI Interview Questions</h3>
+                                        <h3 className="font-serif text-xl md:text-2xl text-foreground">{t.ext.interviewQuestions}</h3>
                                     </div>
                                     <p className="mb-6 text-xs md:text-sm text-muted-foreground">
-                                        Generated from this candidate&apos;s profile and the role. Click the copy icon to grab any question.
+                                        {t.ext.interviewQuestionsSub}
                                     </p>
 
                                     <div className="space-y-5">
@@ -532,7 +537,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                         <div>
                                             <div className="mb-3 flex items-center gap-2">
                                                 <Target className="h-4 w-4 text-foreground/60" />
-                                                <span className="text-xs font-bold uppercase tracking-widest text-foreground/60">General Fit</span>
+                                                <span className="text-xs font-bold uppercase tracking-widest text-foreground/60">{t.ext.generalFit}</span>
                                             </div>
                                             <div className="space-y-2">
                                                 {[
@@ -554,7 +559,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                             <div>
                                                 <div className="mb-3 flex items-center gap-2">
                                                     <Zap className="h-4 w-4 text-emerald-600" />
-                                                    <span className="text-xs font-bold uppercase tracking-widest text-emerald-700">Explore Strengths</span>
+                                                    <span className="text-xs font-bold uppercase tracking-widest text-emerald-700">{t.ext.exploreStrengths}</span>
                                                 </div>
                                                 <div className="space-y-2">
                                                     {focusedResult.reasons.strengths.map((s, i) => {
@@ -576,7 +581,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                             <div>
                                                 <div className="mb-3 flex items-center gap-2">
                                                     <AlertTriangle className="h-4 w-4 text-amber-600" />
-                                                    <span className="text-xs font-bold uppercase tracking-widest text-amber-700">Probe the Gaps</span>
+                                                    <span className="text-xs font-bold uppercase tracking-widest text-amber-700">{t.ext.probeGaps}</span>
                                                 </div>
                                                 <div className="space-y-2">
                                                     {focusedResult.reasons.risks.map((r, i) => {
@@ -600,10 +605,10 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                     <div className="rounded-3xl border border-red-200 bg-red-50/50 p-6 md:p-8">
                                         <div className="mb-2 flex items-center gap-2">
                                             <ShieldAlert className="h-5 w-5 text-red-600" />
-                                            <h3 className="font-serif text-xl md:text-2xl text-red-800">Red Flags to Verify</h3>
+                                            <h3 className="font-serif text-xl md:text-2xl text-red-800">{t.ext.redFlags}</h3>
                                         </div>
                                         <p className="mb-5 text-xs md:text-sm text-red-700/80">
-                                            These signals came up during the AI analysis. Dig into them before making your decision.
+                                            {t.ext.redFlagsSub}
                                         </p>
                                         <div className="space-y-3">
                                             {focusedResult.reasons.risks.map((flag, i) => (
@@ -637,17 +642,17 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                     <div className="rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
                                         <div className="mb-5 flex items-center gap-2">
                                             <BarChart3 className="h-5 w-5 text-recruiter" />
-                                            <h3 className="font-serif text-xl md:text-2xl text-foreground">All Candidates at a Glance</h3>
+                                            <h3 className="font-serif text-xl md:text-2xl text-foreground">{t.ext.allCandidatesGlance}</h3>
                                         </div>
                                         <div className="overflow-x-auto">
                                             <table className="w-full text-sm">
                                                 <thead>
                                                     <tr className="border-b border-border/60 text-left text-xs uppercase tracking-widest text-muted-foreground">
-                                                        <th className="pb-3 pr-3 font-semibold">Candidate</th>
-                                                        <th className="pb-3 pr-3 font-semibold">Overall</th>
-                                                        <th className="pb-3 pr-3 font-semibold">Skills</th>
-                                                        <th className="pb-3 pr-3 font-semibold">Exp.</th>
-                                                        <th className="pb-3 font-semibold">Verdict</th>
+                                                        <th className="pb-3 pr-3 font-semibold">{t.ext.candidateHeading}</th>
+                                                        <th className="pb-3 pr-3 font-semibold">{t.ext.overallHeading}</th>
+                                                        <th className="pb-3 pr-3 font-semibold">{t.ext.skillsHeading}</th>
+                                                        <th className="pb-3 pr-3 font-semibold">{t.ext.expHeading}</th>
+                                                        <th className="pb-3 font-semibold">{t.ext.verdictHeading}</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-border/40">
@@ -701,11 +706,11 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
             <div className="space-y-8 relative z-10">
                 <div>
                     <p className="inline-flex items-center gap-2 rounded-full bg-recruiter/10 px-3 py-1 text-xs md:text-sm font-medium uppercase tracking-wide text-recruiter">
-                        Analytics Dashboard
+                        {t.ext.tabAnalytics}
                     </p>
-                    <h2 className="mt-4 font-serif text-3xl md:text-4xl text-foreground">Compare candidates in depth</h2>
+                    <h2 className="mt-4 font-serif text-3xl md:text-4xl text-foreground">{t.ext.compareDepth}</h2>
                     <p className="mt-2 text-sm md:text-base text-muted-foreground max-w-2xl">
-                        Select a CV to see how skills, experience and overall profile align with this role.
+                        {t.ext.selectCvCompare}
                     </p>
                 </div>
 
@@ -732,8 +737,8 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                             <div className="space-y-5 rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
                                 <div className="flex items-center justify-between gap-3">
                                     <div>
-                                        <h3 className="font-serif text-xl md:text-2xl text-foreground">Match metrics</h3>
-                                        <p className="mt-1 text-xs md:text-sm text-muted-foreground">Detailed scores for this CV against the current role.</p>
+                                        <h3 className="font-serif text-xl md:text-2xl text-foreground">{t.ext.matchMetrics}</h3>
+                                        <p className="mt-1 text-xs md:text-sm text-muted-foreground">{t.ext.metricsSub}</p>
                                     </div>
                                     <div className="text-right">
                                         <div className="text-3xl md:text-4xl font-bold text-recruiter">{focusedResult.match_score}</div>
@@ -742,10 +747,10 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                 </div>
                                 <div className="space-y-3">
                                     {[
-                                        { label: "Domain fit", value: focusedResult.match_score, helper: "Overall score already includes domain fit weighting." },
-                                        { label: "Skills match", value: focusedResult.skills_match_score, helper: "Overlap between job skills and CV skills." },
-                                        { label: "Experience alignment", value: focusedResult.experience_score, helper: "Years of experience vs requested range." },
-                                        { label: "CV quality", value: focusedResult.cv_quality_score, helper: "Structure, readability and richness of the CV." },
+                                        { label: t.ext.domainFit, value: focusedResult.match_score, helper: t.ext.overallMatch },
+                                        { label: t.ext.skillsHeading, value: focusedResult.skills_match_score, helper: t.ext.skillsHeading },
+                                        { label: t.ext.expHeading, value: focusedResult.experience_score, helper: t.ext.expHeading },
+                                        { label: t.ext.quality, value: focusedResult.cv_quality_score, helper: t.ext.quality },
                                     ].map((m) => (
                                         <div key={m.label} className="space-y-1">
                                             <div className="flex items-center justify-between text-xs md:text-sm font-medium text-foreground">
@@ -760,11 +765,11 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                 </div>
                             </div>
                             <div className="space-y-4 rounded-3xl border border-border/60 bg-card/70 p-6 md:p-8">
-                                <h3 className="font-serif text-xl md:text-2xl text-foreground">Fit explanation</h3>
+                                <h3 className="font-serif text-xl md:text-2xl text-foreground">{t.ext.fitExplanation}</h3>
                                 <p className="text-sm md:text-base text-muted-foreground">{focusedResult.reasons.overall_reason}</p>
                                 {focusedResult.reasons.strengths?.length > 0 && (
                                     <div>
-                                        <h4 className="text-xs md:text-sm font-semibold uppercase tracking-wide text-emerald-700 mb-1">Strengths</h4>
+                                        <h4 className="text-xs md:text-sm font-semibold uppercase tracking-wide text-emerald-700 mb-1">{t.ext.exploreStrengths}</h4>
                                         <ul className="list-disc pl-5 text-xs md:text-sm text-emerald-700 space-y-1">
                                             {focusedResult.reasons.strengths.map((item, i) => <li key={i}>{item}</li>)}
                                         </ul>
@@ -772,7 +777,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                 )}
                                 {focusedResult.reasons.risks?.length > 0 && (
                                     <div>
-                                        <h4 className="text-xs md:text-sm font-semibold uppercase tracking-wide text-amber-700 mb-1">Risks & gaps</h4>
+                                        <h4 className="text-xs md:text-sm font-semibold uppercase tracking-wide text-amber-700 mb-1">{t.ext.probeGaps}</h4>
                                         <ul className="list-disc pl-5 text-xs md:text-sm text-amber-700 space-y-1">
                                             {focusedResult.reasons.risks.map((item, i) => <li key={i}>{item}</li>)}
                                         </ul>
@@ -788,11 +793,11 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
 
     if (activeTab === "jobs") {
         return (
-            <div className="bg-card rounded-3xl shadow-craft border border-border/40 min-h-[500px] relative z-10">
+                <div className="bg-card rounded-3xl shadow-craft border border-border/40 min-h-[500px] relative z-10">
                 <div className="p-6 md:p-10 text-center py-20">
                     <Briefcase className="w-16 h-16 text-recruiter mx-auto mb-4 opacity-50" />
-                    <h2 className="text-2xl font-serif font-bold mb-2">Job Postings</h2>
-                    <p className="text-muted-foreground">Manage your job listings — Coming Soon</p>
+                    <h2 className="text-2xl font-serif font-bold mb-2">{t.ext.tabJobs}</h2>
+                    <p className="text-muted-foreground">{t.ext.comingSoon}</p>
                 </div>
             </div>
         );

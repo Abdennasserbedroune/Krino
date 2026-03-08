@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Send, Bot, User, FileText, Sparkles } from "lucide-react";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 interface CvItem {
     id: number;
@@ -22,6 +23,7 @@ export default function ChatPage() {
     const [sending,      setSending]      = useState(false);
     const [isTyping,     setIsTyping]     = useState(false);
     const [loading,      setLoading]      = useState(true);
+    const { t } = useLanguage();
     const messagesEndRef  = useRef<HTMLDivElement>(null);
     const selectedCvIdRef = useRef<number | null>(null);
     useEffect(() => { selectedCvIdRef.current = selectedCvId; }, [selectedCvId]);
@@ -125,7 +127,7 @@ export default function ChatPage() {
         return (
             <div className="flex items-center gap-3 border-2 border-foreground bg-background p-6">
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Loading chat...</p>
+                <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">{t.ui.loading}</p>
             </div>
         );
     }
@@ -136,9 +138,9 @@ export default function ChatPage() {
                 <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center border-2 border-foreground bg-secondary">
                     <FileText className="h-8 w-8 text-foreground" />
                 </div>
-                <p className="font-serif text-xl font-bold uppercase tracking-tight mb-2">No CV uploaded yet</p>
+                <p className="font-serif text-xl font-bold uppercase tracking-tight mb-2">{t.ext.chatNoCv}</p>
                 <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
-                    Go to the <span className="font-bold text-foreground">Job Match</span> tab to upload your CV, then come back here.
+                    {t.ext.chatGoToMatch}
                 </p>
             </div>
         );
@@ -152,7 +154,7 @@ export default function ChatPage() {
                 <div className="space-y-3">
                     <div className="flex items-center gap-2">
                         <div className="h-1.5 w-6 bg-primary" />
-                        <h2 className="font-serif text-lg sm:text-xl font-bold uppercase tracking-tight text-foreground">Select CV</h2>
+                        <h2 className="font-serif text-lg sm:text-xl font-bold uppercase tracking-tight text-foreground">{t.ext.chatSelectCv}</h2>
                     </div>
                     <div className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-x-visible lg:pb-0">
                         {cvs.map(cv => (
@@ -167,7 +169,7 @@ export default function ChatPage() {
                             >
                                 <p className="truncate text-sm font-bold uppercase tracking-tight">{cv.original_filename}</p>
                                 <p className="text-xs font-medium uppercase tracking-widest opacity-80 mt-0.5">
-                                    {cv.analyzed_at ? "Analyzed" : "Not analyzed"}
+                                    {cv.analyzed_at ? t.ext.chatAnalyzed : t.ext.chatNotAnalyzed}
                                 </p>
                             </button>
                         ))}
@@ -184,8 +186,8 @@ export default function ChatPage() {
                                 <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
                             </div>
                             <div>
-                                <h3 className="font-serif text-lg sm:text-xl font-bold uppercase tracking-tight text-foreground">AI Career Assistant</h3>
-                                <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Powered by Groq · AI · {FREE_LIMIT - userMessageCount} messages left</p>
+                                <h3 className="font-serif text-lg sm:text-xl font-bold uppercase tracking-tight text-foreground">{t.ext.assistantPowered}</h3>
+                                <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{FREE_LIMIT - userMessageCount} {t.ext.msgsLeft}</p>
                             </div>
                         </div>
                     </div>
@@ -237,11 +239,11 @@ export default function ChatPage() {
                                     <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" />
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-sm font-bold text-red-600 uppercase tracking-tight">Free limit reached for this CV</p>
-                                    <p className="text-xs font-medium text-red-900/70">Upgrade to PRO for unlimited conversations.</p>
+                                    <p className="text-sm font-bold text-red-600 uppercase tracking-tight">{t.ext.freeLimitReached}</p>
+                                    <p className="text-xs font-medium text-red-900/70">{t.ext.upgradePro}</p>
                                 </div>
                                 <button className="bg-red-500 px-5 py-2 text-xs font-bold uppercase tracking-widest text-white shadow-[3px_3px_0px_0px_rgba(153,27,27,1)] hover:-translate-y-0.5 transition-all">
-                                    Upgrade to PRO
+                                    {t.ext.upgradePro}
                                 </button>
                             </div>
                         )}
@@ -256,7 +258,7 @@ export default function ChatPage() {
                                 value={input}
                                 onChange={e => setInput(e.target.value)}
                                 onKeyPress={handleKeyPress}
-                                placeholder={limitReached ? "Upgrade to continue…" : "Ask anything about your CV…"}
+                                placeholder={limitReached ? t.ext.upgradePro + "..." : t.ext.askAnything}
                                 disabled={sending || limitReached}
                                 className="flex-1 border-2 border-foreground bg-background px-3 sm:px-4 py-2.5 sm:py-3 text-sm font-medium text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
                             />
@@ -266,7 +268,7 @@ export default function ChatPage() {
                                 className="inline-flex items-center gap-1.5 sm:gap-2 border-2 border-foreground bg-primary px-4 sm:px-7 py-2.5 sm:py-3 text-sm font-bold uppercase tracking-widest text-primary-foreground shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] sm:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <Send className="h-4 w-4" />
-                                <span className="hidden sm:inline">Send</span>
+                                <span className="hidden sm:inline">{t.ext.send}</span>
                             </button>
                         </div>
                     </div>

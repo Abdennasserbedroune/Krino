@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/client";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -201,6 +202,7 @@ function RoadmapItem({ text, index, isLast }: { text: string; index: number; isL
 export default function DesiredJobPage({ onSwitchToChat }: Props) {
   const { user } = useAuth();
   const { toast: showToast } = useToast();
+  const { t } = useLanguage();
   const resultRef   = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -334,11 +336,11 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
         <div className="flex items-center gap-2 mb-1">
           <Target className="h-6 w-6 text-blue-600" />
           <h2 className="font-serif text-2xl md:text-3xl font-bold tracking-tight">
-            Check Your Fit Before Applying
+            {t.ext.checkFitTitle}
           </h2>
         </div>
         <p className="text-muted-foreground text-sm">
-          Paste the real job post, fill in the exact title and level, drop your CV — get a grounded AI verdict, evidence-backed gaps, and a concrete action roadmap.
+          {t.ext.checkFitSub}
         </p>
       </div>
 
@@ -346,11 +348,11 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
 
       {/* ── SECTION 1: Job Details ── */}
       <div className="space-y-6">
-        <SectionLabel number={1} title="The Job" subtitle="The more precise you are, the more accurate the analysis." />
+        <SectionLabel number={1} title={t.ext.theJob} subtitle={t.ext.theJobSub} />
 
         <div>
           <label className="block text-sm font-semibold mb-3">
-            Job Category <span className="text-red-500">*</span>
+            {t.careerMatch.jobCategory} <span className="text-red-500">*</span>
           </label>
           <div className="flex flex-wrap gap-2">
             {CATEGORIES.map(c => (
@@ -369,7 +371,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-semibold mb-1.5">
-              Exact Job Title <span className="text-red-500">*</span>
+              {t.careerMatch.jobTitle} <span className="text-red-500">*</span>
             </label>
             <input type="text" value={jobTitle} onChange={e => setJobTitle(e.target.value)}
               placeholder="e.g. Senior Data Analyst"
@@ -377,7 +379,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
           </div>
           <div>
             <label className="block text-sm font-semibold mb-1.5">
-              Experience Level <span className="text-red-500">*</span>
+              {t.careerMatch.experienceRequired} <span className="text-red-500">*</span>
             </label>
             <select value={expLevel} onChange={e => setExpLevel(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -389,7 +391,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
 
         <div>
           <label className="block text-sm font-semibold mb-1.5">
-            Key Skills <span className="text-slate-400 font-normal">(optional — improves accuracy)</span>
+            {t.careerMatch.skillsRequired} <span className="text-slate-400 font-normal">({t.ui.filter})</span>
           </label>
           <input type="text" value={skills} onChange={e => setSkills(e.target.value)}
             placeholder="e.g. Python, SQL, Power BI, Spark"
@@ -398,7 +400,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
 
         <div>
           <label className="block text-sm font-semibold mb-1.5">
-            Full Job Description <span className="text-red-500">*</span>
+            {t.careerMatch.jobDescription} <span className="text-red-500">*</span>
           </label>
           <textarea value={description} onChange={e => setDescription(e.target.value.slice(0, MAX_DESC))}
             placeholder="Paste the complete job posting — responsibilities, requirements, tech stack, nice-to-haves. The fuller this is, the more precise the analysis."
@@ -417,7 +419,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
 
       {/* ── SECTION 2: CV ── */}
       <div className="space-y-5">
-        <SectionLabel number={2} title="Your CV" subtitle="Upload a new CV or select one you already uploaded." />
+        <SectionLabel number={2} title={t.ext.yourCv} subtitle={t.ext.yourCvSub} />
 
         <div
           className="border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center gap-4 text-center hover:border-blue-300 transition-colors cursor-pointer bg-slate-50/50"
@@ -426,8 +428,8 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             <Upload className="h-6 w-6 text-blue-500" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-foreground">{uploading ? uploadStage : "Drop your CV here or click to browse"}</p>
-            <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, DOC or TXT · Max 5MB</p>
+            <p className="text-sm font-semibold text-foreground">{uploading ? uploadStage : t.ext.uploadPrompt}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t.ext.uploadLimit}</p>
           </div>
           {uploading && (
             <div className="w-full max-w-xs space-y-1">
@@ -443,11 +445,11 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
         {loadingCvs ? (
           <div className="flex items-center gap-2 py-4">
             <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-            <span className="text-sm text-muted-foreground">Loading your CVs…</span>
+            <span className="text-sm text-muted-foreground">{t.ext.loadingCvs}</span>
           </div>
         ) : cvs.length > 0 ? (
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Or select an existing CV</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t.ext.selectExisting}</p>
             <div className="grid gap-2">
               {cvs.map(cv => (
                 <div key={cv.id}
@@ -463,7 +465,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate">{cv.original_filename}</p>
                     <p className="text-xs text-muted-foreground">
-                      {cv.file_type.toUpperCase()} · {(cv.file_size / 1024).toFixed(1)} KB{cv.score !== null ? ` · Quality: ${cv.score}/100` : ""}
+                      {cv.file_type.toUpperCase()} · {(cv.file_size / 1024).toFixed(1)} KB{cv.score !== null ? ` · ${t.ext.quality}: ${cv.score}/100` : ""}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -481,10 +483,10 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
 
         {deleteId !== null && (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-3">
-            <p className="text-sm font-semibold text-red-800">Delete &ldquo;{cvs.find(c => c.id === deleteId)?.original_filename}&rdquo;?</p>
+            <p className="text-sm font-semibold text-red-800">{t.ext.deletePrompt} &ldquo;{cvs.find(c => c.id === deleteId)?.original_filename}&rdquo;</p>
             <div className="flex gap-2">
-              <button onClick={() => handleDelete(deleteId)} className="flex-1 rounded-xl bg-red-500 py-2 text-xs font-bold text-white hover:bg-red-600 transition-colors">Yes, delete</button>
-              <button onClick={() => setDeleteId(null)} className="flex-1 rounded-xl border border-slate-200 bg-white py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
+              <button onClick={() => handleDelete(deleteId)} className="flex-1 rounded-xl bg-red-500 py-2 text-xs font-bold text-white hover:bg-red-600 transition-colors">{t.ext.yesDelete}</button>
+              <button onClick={() => setDeleteId(null)} className="flex-1 rounded-xl border border-slate-200 bg-white py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors">{t.ext.cancel}</button>
             </div>
           </div>
         )}
@@ -499,11 +501,11 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
           <button disabled={!canAnalyse} onClick={handleAnalyse}
             className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-200 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
             {analysing
-              ? <><Loader2 className="h-4 w-4 animate-spin" /> Analysing… (15–25s)</>
-              : <><Target className="h-4 w-4" /> Analyse My Chances</>}
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> {t.ext.analysingWait}</>
+              : <><Target className="h-4 w-4" /> {t.ext.analyzeChances}</>}
           </button>
           {gateMessage && !analysing && (
-            <span className="text-xs text-muted-foreground">← {gateMessage} to continue</span>
+            <span className="text-xs text-muted-foreground">← {gateMessage} {t.ui.next.toLowerCase()}</span>
           )}
         </div>
       </div>
@@ -517,8 +519,8 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
           <div className="flex items-start justify-between gap-4">
             <SectionLabel
               number={3}
-              title="Your Match Result"
-              subtitle="Every gap and strength is grounded in your CV and the job posting — nothing is assumed."
+              title={t.ext.yourResult}
+              subtitle={t.ext.yourResultSub}
             />
             <span className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full bg-violet-50 border border-violet-200 px-3 py-1 text-xs font-semibold text-violet-700">
               <Sparkles className="h-3 w-3" /> Powered by AI
@@ -529,7 +531,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
           <div className={`rounded-2xl border-2 p-6 ${ result.application_ready ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50" }`}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">Overall Match Score</p>
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">{t.careerMatch.matchScore}</p>
                 <div className="flex items-end gap-2">
                   <span className={`font-serif text-6xl font-bold ${scoreColor(result.match_score).text}`}>{result.match_score}</span>
                   <span className="text-2xl text-muted-foreground mb-1">/100</span>
@@ -543,8 +545,8 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                     : "border-amber-300 bg-white text-amber-700"
                 }`}>
                   {result.application_ready
-                    ? <><CheckCircle2 className="h-4 w-4" /> Ready to apply</>
-                    : <><AlertTriangle className="h-4 w-4" /> Fix gaps first</>}
+                    ? <><CheckCircle2 className="h-4 w-4" /> {t.ext.readyToApply}</>
+                    : <><AlertTriangle className="h-4 w-4" /> {t.ext.fixGapsFirst}</>}
                 </span>
                 <p className="text-xs font-semibold text-muted-foreground">{result.hire_probability}</p>
               </div>
@@ -553,23 +555,23 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
 
           {/* Verdict */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">AI Verdict</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t.careerMatch.overallVerdict}</p>
             <p className="text-sm font-semibold leading-relaxed text-slate-800">{result.overall_verdict}</p>
             <p className="text-sm leading-relaxed text-slate-500">{result.overall_reason}</p>
           </div>
 
           {/* Sub-scores */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Score Breakdown</p>
-            <ScoreBar label="Skills Match"     value={result.skills_match_score} />
-            <ScoreBar label="Experience Match" value={result.experience_score}    />
-            <ScoreBar label="CV Quality"        value={result.cv_quality_score}   />
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t.ext.scoreBreakdown}</p>
+            <ScoreBar label={t.careerMatch.skillsMatch}     value={result.skills_match_score} />
+            <ScoreBar label={t.careerMatch.experienceMatch} value={result.experience_score}    />
+            <ScoreBar label={t.careerMatch.cvQuality}       value={result.cv_quality_score}   />
           </div>
 
           {/* Extracted requirements */}
           {result.job_requirements?.required_skills && result.job_requirements.required_skills.length > 0 && (
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">What This Role Actually Requires</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">{t.ext.whatRoleRequires}</p>
               <div className="flex flex-wrap gap-2">
                 {result.job_requirements.required_skills.map((s, i) => (
                   <span key={i} className="rounded-full bg-slate-100 border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700">{s}</span>
@@ -613,7 +615,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                 <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
                   <div className="flex items-center gap-2 mb-4">
                     <Shield className="h-4 w-4 text-red-600" />
-                    <p className="text-sm font-bold text-red-800">These gaps need to be addressed before you apply</p>
+                    <p className="text-sm font-bold text-red-800">{t.ext.blockingGapsTitle}</p>
                   </div>
                   <div className="space-y-3">
                     {result.gaps.filter(g => g.startsWith("[BLOCKING]")).map((g, i) => <GapCard key={i} raw={g} />)}
@@ -624,7 +626,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                 <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
                   <div className="flex items-center gap-2 mb-3">
                     <Lightbulb className="h-4 w-4 text-blue-600" />
-                    <p className="text-sm font-bold text-blue-800">Concrete steps to take before applying</p>
+                    <p className="text-sm font-bold text-blue-800">{t.ext.concreteStepsTitle}</p>
                   </div>
                   <ol className="space-y-3 list-decimal list-inside">
                     {result.actionable_advice.map((tip, i) => (
@@ -636,7 +638,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
               {result.gaps.filter(g => g.startsWith("[BLOCKING]")).length === 0 && result.actionable_advice.length === 0 && (
                 <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-center">
                   <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-emerald-800">No blocking issues found. Check the Gaps tab for minor improvements.</p>
+                  <p className="text-sm font-semibold text-emerald-800">{t.ext.noBlockingIssues}</p>
                 </div>
               )}
             </div>
@@ -648,7 +650,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
               {result.gaps.length === 0 ? (
                 <div className="py-10 text-center">
                   <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">No gaps identified for this role.</p>
+                  <p className="text-sm text-muted-foreground">{t.ext.noGaps}</p>
                 </div>
               ) : result.gaps.map((g, i) => <GapCard key={i} raw={g} />)}
             </div>
@@ -660,7 +662,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
               {result.strengths.length === 0 ? (
                 <div className="py-10 text-center">
                   <XCircle className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">No clear strengths matched this specific role.</p>
+                  <p className="text-sm text-muted-foreground">{t.ext.noStrengths}</p>
                 </div>
               ) : result.strengths.map((s, i) => <StrengthCard key={i} raw={s} />)}
             </div>
@@ -672,12 +674,12 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
               <div className="flex items-center gap-2 mb-6">
                 <TrendingUp className="h-5 w-5 text-blue-600" />
                 <div>
-                  <p className="text-sm font-bold text-slate-800">Your Personalised Action Roadmap</p>
-                  <p className="text-xs text-muted-foreground">Based on the gaps found in this specific role</p>
+                  <p className="text-sm font-bold text-slate-800">{t.ext.roadmapPersonalised}</p>
+                  <p className="text-xs text-muted-foreground">{t.ext.roadmapBased}</p>
                 </div>
               </div>
               {result.roadmap.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No roadmap generated — try rerunning with a fuller job description.</p>
+                <p className="text-sm text-muted-foreground">{t.ext.noRoadmap}</p>
               ) : (
                 <div>
                   {result.roadmap.map((step, i) => (
@@ -693,12 +695,12 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             {onSwitchToChat && (
               <button onClick={onSwitchToChat}
                 className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-blue-700 transition-all">
-                <MessageSquare className="h-4 w-4" /> Discuss with AI Coach
+                <MessageSquare className="h-4 w-4" /> {t.ext.discussCoach}
               </button>
             )}
             <button onClick={handleReset}
               className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all">
-              <RotateCcw className="h-4 w-4" /> Try Another Job
+              <RotateCcw className="h-4 w-4" /> {t.ext.tryAnotherJob}
             </button>
           </div>
         </div>
