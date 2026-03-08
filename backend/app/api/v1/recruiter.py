@@ -29,6 +29,7 @@ from app.schemas.recruiter import (
     ScorecardRow,
 )
 from app.services.ai.groq_client import match_cv_to_job_with_groq
+from app.services.ai.language_utils import resolve_language
 from app.services.cv.analysis import analyze_cv_local
 from app.services.cv.structure import extract_structured_data
 from app.services.cv.text_extraction import extract_text_from_file
@@ -71,15 +72,7 @@ async def match_cvs_to_job(
     current_user: User = Depends(get_current_supabase_user),
     db: Session = Depends(get_db),
 ) -> MatchSessionResponse:
-    """Compare a single job profile with multiple CVs and return match scores.
-
-    Logic:
-    - Load CVs that belong to the current user
-    - Ensure they have raw text, analysis_result and structured_data
-    - Compute deterministic scores for domain, experience and skills
-    - Use Groq to generate natural-language reasons for each CV
-    - Build a deterministic HR Toolkit (scorecard + verification questions) per CV
-    """
+    """Compare a single job profile with multiple CVs and return match scores."""
     if not payload.cv_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -112,6 +105,8 @@ async def match_cvs_to_job(
         )
 
     job = payload.job
+    # Resolve once for all CVs in this batch — fallback text is the job domain
+    resolved_lang = resolve_language(payload.language, fallback_text=job.domain)
     results: List[MatchResult] = []
 
     for cv in cvs:
@@ -134,17 +129,17 @@ async def match_cvs_to_job(
         job_summary = _build_job_summary(job)
         cv_summary = raw_text[:4000] if raw_text else json.dumps(structured, indent=2)[:4000]
 
-        reasons_dict = match_cv_to_job_with_groq(job_summary, cv_summary)
+        reasons_dict = match_cv_to_job_with_groq(
+            job_summary,
+            cv_summary,
+            language=resolved_lang,
+        )
         reasons = MatchReason(
-            overall_reason=reasons_dict.get(
-                "overall_reason",
-                "No explanation available.",
-            ),
+            overall_reason=reasons_dict.get("overall_reason", "No explanation available."),
             strengths=reasons_dict.get("strengths", []) or [],
             risks=reasons_dict.get("risks", []) or [],
         )
 
-        # Build the deterministic HR Toolkit — no extra API call
         match_result_dict = {
             "match_score": total_score,
             "experience_score": experience_score,
