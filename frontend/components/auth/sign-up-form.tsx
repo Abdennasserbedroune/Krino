@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { AlertCircle, Eye, EyeOff, Mail } from "lucide-react";
 
 import { useAuth } from "@/lib/auth/client";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 interface SignUpFormProps {
     onSuccess?: (role: "seeker" | "recruiter") => void;
@@ -13,6 +14,7 @@ interface SignUpFormProps {
 
 export function SignUpForm({ onSuccess, role = "seeker" }: SignUpFormProps) {
     const { register, loading, error } = useAuth();
+    const { t } = useLanguage();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -26,40 +28,36 @@ export function SignUpForm({ onSuccess, role = "seeker" }: SignUpFormProps) {
         setNeedsVerification(false);
 
         if (!email || !password || !confirmPassword) {
-            setLocalError("Please fill in all fields.");
+            setLocalError(t.auth.errors.generic);
             return;
         }
 
         if (password !== confirmPassword) {
-            setLocalError("Passwords do not match.");
+            setLocalError(t.auth.errors.passwordMismatch);
             return;
         }
 
         if (password.length < 6) {
-            setLocalError("Password must be at least 6 characters.");
+            setLocalError(t.auth.errors.passwordShort);
             return;
         }
 
         try {
             const result = await register(email, password);
 
-            // Check if email verification is needed
             if (result && !result.session) {
                 setNeedsVerification(true);
             } else if (result && result.session) {
-                // Store role and redirect
                 localStorage.setItem("user_role", role);
-                // User is logged in, redirect to dashboard
                 setTimeout(() => {
                     onSuccess?.(role);
                 }, 100);
             }
         } catch (err: any) {
-            // Check if it's a verification message
             if (err.message && err.message.includes("email")) {
                 setNeedsVerification(true);
             } else {
-                setLocalError(err.message || "Registration failed. Please try again.");
+                setLocalError(err.message || t.auth.errors.generic);
             }
         }
     };
@@ -78,19 +76,19 @@ export function SignUpForm({ onSuccess, role = "seeker" }: SignUpFormProps) {
                     <Mail className="w-8 h-8 text-white" />
                 </div>
                 <div className="text-center space-y-2">
-                    <h3 className="text-xl font-bold text-primary">Check your email</h3>
+                    <h3 className="text-xl font-bold text-primary">{t.auth.email}</h3>
                     <p className="text-sm text-muted-foreground">
-                        We've sent a verification link to <strong>{email}</strong>
+                        {email}
                     </p>
                     <p className="text-xs text-muted-foreground mt-4">
-                        Click the link in the email to verify your account, then you can sign in.
+                        {t.auth.errors.generic}
                     </p>
                 </div>
                 <button
                     onClick={() => window.location.href = '/auth/sign-in'}
                     className="text-sm text-primary hover:underline font-medium"
                 >
-                    Go to Sign In
+                    {t.auth.signInBtn}
                 </button>
             </motion.div>
         );
@@ -104,7 +102,7 @@ export function SignUpForm({ onSuccess, role = "seeker" }: SignUpFormProps) {
                 transition={{ delay: 0.1 }}
             >
                 <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
-                    Email address
+                    {t.auth.email}
                     <input
                         type="email"
                         value={email}
@@ -122,7 +120,7 @@ export function SignUpForm({ onSuccess, role = "seeker" }: SignUpFormProps) {
                 transition={{ delay: 0.2 }}
             >
                 <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
-                    Password
+                    {t.auth.password}
                     <div className="relative">
                         <input
                             type={showPassword ? "text" : "password"}
@@ -149,7 +147,7 @@ export function SignUpForm({ onSuccess, role = "seeker" }: SignUpFormProps) {
                 transition={{ delay: 0.3 }}
             >
                 <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
-                    Confirm Password
+                    {t.auth.confirmPassword}
                     <input
                         type={showPassword ? "text" : "password"}
                         value={confirmPassword}
@@ -188,10 +186,10 @@ export function SignUpForm({ onSuccess, role = "seeker" }: SignUpFormProps) {
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                         </svg>
-                        Creating account...
+                        {t.ui.loading}
                     </span>
                 ) : (
-                    "Create account"
+                    t.auth.signUpBtn
                 )}
             </motion.button>
         </form>
