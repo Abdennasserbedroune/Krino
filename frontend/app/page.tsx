@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { InfiniteMovingCards } from "@/components/ui/infinite-moving-cards";
 import { useAuth } from "@/lib/auth/client";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 const clipAnimation = {
   initial: { clipPath: "inset(0 0 100% 0)", opacity: 0 },
@@ -74,9 +75,6 @@ export default function LandingPage() {
   const [activeRole, setActiveRole] = useState<"seeker" | "recruiter">("seeker");
   const { user } = useAuth();
 
-  // Determine where CTAs should lead.
-  // Logged-in users go straight to their dashboard.
-  // Guests go to sign-in (which will redirect them after login).
   const getDashboardPath = () => {
     if (typeof window !== "undefined") {
       const role = localStorage.getItem("user_role");
@@ -89,16 +87,15 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-accent selection:text-white overflow-x-hidden relative">
 
-      {/* ── Header ─────────────────────────────────────────────────────────────
-          z-[100]      : must beat every in-page stacking context
-          bg-background/95 : near-opaque so gradient hero text never bleeds through
-      */}
+      {/* ── Header ───────────────────────────────────────────────────────────── */}
       <header className="fixed top-0 left-0 right-0 z-[100] bg-background/95 backdrop-blur-xl border-b border-white/10">
         <div className="container mx-auto px-6 h-20 flex items-center justify-between">
           <div className="font-serif text-3xl font-bold tracking-tight text-primary select-none cursor-default">Pathwise</div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
+            {/* ── Language toggle ── */}
+            <LanguageSwitcher />
+
             {user ? (
-              /* Already signed in → show dashboard shortcut, hide "Sign in" */
               <Link
                 href={getDashboardPath()}
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -106,7 +103,6 @@ export default function LandingPage() {
                 Dashboard
               </Link>
             ) : (
-              /* Guest → correct hyphenated route (was /auth/signin → 404) */
               <Link href="/auth/sign-in" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                 Sign in
               </Link>
@@ -122,11 +118,6 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* ── Main ───────────────────────────────────────────────────────────────
-          No z-index on <main> so it does NOT create a stacking context.
-          This ensures the fixed header at z-[100] in the ROOT context always
-          renders above all page content — no bleed-through from child z-indexes.
-      */}
       <main className="pt-32 pb-20 relative">
         {/* Hero Section */}
         <section className="container mx-auto px-6 mb-20 relative">
@@ -165,12 +156,6 @@ export default function LandingPage() {
                   {activeRole === "seeker" ? (
                     <>
                       Is your resume <br />
-                      {/*
-                        bg-clip-text cuts the gradient to the element's padding-box.
-                        At text-8xl italic, the "?" character's slant makes it visually
-                        overflow the box → the tail gets cropped and turns invisible.
-                        Fix: py-2 px-1 gives the gradient enough room to cover the full glyph.
-                      */}
                       <span className="text-transparent bg-clip-text bg-gradient-to-r from-seeker to-blue-400 italic inline-block py-2 px-1">actually reading?</span>
                     </>
                   ) : (
@@ -189,7 +174,6 @@ export default function LandingPage() {
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
-                  {/* Auth-aware CTA — guests → sign-in, logged-in → their dashboard */}
                   <Link
                     href={ctaHref}
                     className={`px-8 py-4 rounded-full text-lg font-bold text-white shadow-glow hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ${activeRole === 'seeker' ? 'bg-seeker' : 'bg-recruiter'}`}
@@ -577,7 +561,6 @@ export default function LandingPage() {
                       <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><Check size={12} /></div> Basic Score</li>
                       <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><Check size={12} /></div> 1 Recruiter Session</li>
                     </ul>
-                    {/* Auth-aware: guests go to sign-in, logged-in go to their dashboard */}
                     <Link href={ctaHref} className="block w-full py-4 rounded-2xl bg-secondary text-primary font-bold hover:bg-secondary/80 transition-colors">
                       Get Started
                     </Link>
