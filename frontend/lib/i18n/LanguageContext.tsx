@@ -44,7 +44,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.lang = next;
   }, []);
 
-  const t = useMemo(() => translations[locale], [locale]);
+  const t = useMemo(() => translations[locale] as unknown as TranslationKeys, [locale]);
 
   return (
     <LanguageContext.Provider value={{ locale, setLocale, t, apiLanguage: locale }}>
