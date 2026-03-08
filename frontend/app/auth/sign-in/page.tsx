@@ -7,14 +7,15 @@ import { Briefcase, UserCircle, ArrowRight } from "lucide-react";
 
 import { SignInForm } from "@/components/auth/sign-in-form";
 import { useAuth } from "@/lib/auth/client";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 export default function SignInPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const { t } = useLanguage();
   const [selectedRole, setSelectedRole] = useState<"seeker" | "recruiter" | null>(null);
 
-  // If the user is already authenticated, skip this page entirely.
-  // Use replace so they can't press Back and end up here again.
   useEffect(() => {
     if (!loading && user) {
       const cached = localStorage.getItem("user_role");
@@ -31,13 +32,12 @@ export default function SignInPage() {
     }
   };
 
-  // Show a loading state while auth hydrates OR while we're about to redirect
   if (loading || user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">
           <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-          <p className="text-sm font-medium text-muted-foreground">Loading...</p>
+          <p className="text-sm font-medium text-muted-foreground">{t.ui.loading}</p>
         </div>
       </div>
     );
@@ -45,19 +45,22 @@ export default function SignInPage() {
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center px-6 py-12 bg-background font-sans overflow-hidden">
+      {/* Language switcher in top-right corner */}
+      <div className="fixed top-6 right-6 z-50">
+        <LanguageSwitcher />
+      </div>
+
       <div className="relative z-10 w-full max-w-md">
         <div className="space-y-8 bg-card/80 backdrop-blur-xl p-10 rounded-[2rem] shadow-soft border border-border/40">
-          {/* Logo */}
           <div className="flex justify-center">
             <Link href="/" className="font-serif text-3xl font-bold tracking-tight text-primary hover:scale-105 transition-transform">
               Pathwise
             </Link>
           </div>
 
-          {/* Header */}
           <header className="space-y-3 text-center">
-            <h1 className="font-serif text-4xl text-primary">Welcome back</h1>
-            <p className="text-sm text-muted-foreground">Choose your role to continue</p>
+            <h1 className="font-serif text-4xl text-primary">{t.auth.signInTitle}</h1>
+            <p className="text-sm text-muted-foreground">{t.onboarding.chooseRole}</p>
           </header>
 
           {!selectedRole ? (
@@ -72,8 +75,8 @@ export default function SignInPage() {
                       <UserCircle className="w-7 h-7 text-seeker" />
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-serif text-xl font-bold text-primary mb-1">Job Seeker</h3>
-                      <p className="text-xs text-muted-foreground">Optimize your resume & get hired</p>
+                      <h3 className="font-serif text-xl font-bold text-primary mb-1">{t.hero.roleSeeker}</h3>
+                      <p className="text-xs text-muted-foreground">{t.onboarding.seekerDesc}</p>
                     </div>
                     <ArrowRight className="w-5 h-5 text-seeker group-hover:translate-x-1 transition-transform" />
                   </div>
@@ -89,8 +92,8 @@ export default function SignInPage() {
                       <Briefcase className="w-7 h-7 text-recruiter" />
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-serif text-xl font-bold text-primary mb-1">Recruiter</h3>
-                      <p className="text-xs text-muted-foreground">Screen candidates with AI precision</p>
+                      <h3 className="font-serif text-xl font-bold text-primary mb-1">{t.hero.roleRecruiter}</h3>
+                      <p className="text-xs text-muted-foreground">{t.onboarding.recruiterDesc}</p>
                     </div>
                     <ArrowRight className="w-5 h-5 text-recruiter group-hover:translate-x-1 transition-transform" />
                   </div>
@@ -102,7 +105,7 @@ export default function SignInPage() {
                   onClick={() => setSelectedRole(null)}
                   className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2"
                 >
-                  ← Back to role selection
+                  ← {t.ui.back}
                 </button>
 
                 <div className="flex items-center gap-3 p-4 rounded-xl bg-surface-tinted/50 border border-border/30">
@@ -114,7 +117,7 @@ export default function SignInPage() {
                     )}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-primary">Signing in as</p>
+                    <p className="text-sm font-medium text-primary">{selectedRole === "seeker" ? t.hero.roleSeeker : t.hero.roleRecruiter}</p>
                     <p className="text-xs text-muted-foreground capitalize">{selectedRole}</p>
                   </div>
                 </div>
@@ -123,13 +126,11 @@ export default function SignInPage() {
               </div>
             )}
 
-          {/* Sign Up Link */}
           <p className="text-center text-sm text-muted-foreground">
-            Don&apos;t have an account yet?{" "}
+            {t.auth.noAccount}{" "}
             <Link href="/auth/sign-up" className="text-primary font-medium hover:underline transition-colors">
-              Create one
+              {t.auth.signUpBtn}
             </Link>
-            .
           </p>
         </div>
       </div>
