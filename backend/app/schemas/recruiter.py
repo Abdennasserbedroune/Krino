@@ -1,7 +1,7 @@
 """Schemas for recruiter CV-to-job matching."""
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class JobProfile(BaseModel):
@@ -20,6 +20,10 @@ class MatchCvRequest(BaseModel):
 
     job: JobProfile
     cv_ids: List[int]
+    language: Literal["en", "fr", "auto"] = Field(
+        default="en",
+        description="Language for AI-generated reasons and match explanations",
+    )
 
 
 class MatchReason(BaseModel):
