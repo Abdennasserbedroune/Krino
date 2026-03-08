@@ -7,6 +7,11 @@ interface LanguageContextValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
   t: TranslationKeys;
+  /**
+   * Convenience alias — pass directly to backend `language` fields.
+   * Always equals `locale` so components don't need to re-read it separately.
+   */
+  apiLanguage: Locale;
 }
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
@@ -42,7 +47,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const t = useMemo(() => translations[locale], [locale]);
 
   return (
-    <LanguageContext.Provider value={{ locale, setLocale, t }}>
+    <LanguageContext.Provider value={{ locale, setLocale, t, apiLanguage: locale }}>
       {children}
     </LanguageContext.Provider>
   );
