@@ -80,22 +80,22 @@ export const translations = {
     // ── How it works
     howItWorks: {
       title: "Comment ça marche",
-      step1TitleSeeker: "Importez votre CV",
+      step1TitleSeeker: "Importez CV & Fiche de Poste",
       step1TitleRecruiter: "Importez la fiche de poste et les CV",
       step1DescSeeker:
-        "Importez votre CV en PDF. Notre IA le lit immédiatement et extrait vos compétences, votre expérience et vos qualifications.",
+        "Fournissez votre CV en PDF ainsi que la description du poste ciblé pour une analyse précise de votre correspondance.",
       step1DescRecruiter:
         "Collez votre fiche de poste, puis importez jusqu'à 10 CV candidats (PDF) en un seul lot.",
-      step2TitleSeeker: "Obtenez votre score et une version améliorée",
+      step2TitleSeeker: "Score IA & Coaching Privé",
       step2TitleRecruiter: "L'IA analyse et classe les candidats",
       step2DescSeeker:
-        "L'IA note votre CV et génère une version améliorée avec une meilleure mise en forme, un langage plus percutant et des mots-clés optimisés. Téléchargez le CV amélioré instantanément.",
+        "Obtenez un score de correspondance exact. L'IA identifie vos lacunes, suggère des améliorations et vous accompagne via un chat interactif.",
       step2DescRecruiter:
         "Notre IA lit chaque CV, le compare à vos exigences et attribue des scores de correspondance. Le processus se termine en moins de 60 secondes.",
-      step3TitleSeeker: "Discutez avec votre coach carrière",
+      step3TitleSeeker: "Découvrez des Offres & Postulez",
       step3TitleRecruiter: "Consultez les meilleurs candidats",
       step3DescSeeker:
-        "Posez toutes vos questions au bot carrière IA : améliorer des sections spécifiques, préparer un entretien, changer de secteur ou savoir quelles compétences ajouter.",
+        "Accédez à des annonces de télétravail réelles, sélectionnées automatiquement pour correspondre à vos compétences, et postulez directement.",
       step3DescRecruiter:
         "Consultez un tableau classé montrant qui correspond le mieux. Chaque candidat reçoit un score et un verdict IA résumant ses points forts et ses lacunes.",
     },
@@ -623,22 +623,22 @@ export const translations = {
     },
     howItWorks: {
       title: "How it works",
-      step1TitleSeeker: "Upload Your Resume",
+      step1TitleSeeker: "Upload CV & Job Description",
       step1TitleRecruiter: "Upload Job Description & Resumes",
       step1DescSeeker:
-        "Upload your PDF resume. Our AI reads it immediately and extracts your skills, experience, and qualifications.",
+        "Provide your PDF resume and a specific job description for a precise role alignment analysis.",
       step1DescRecruiter:
         "Paste your job description, then upload up to 10 candidate resumes (PDFs) in one batch for the same role.",
-      step2TitleSeeker: "Get Score & Improved Version",
+      step2TitleSeeker: "AI Match Score & Coaching",
       step2TitleRecruiter: "AI Analyzes & Ranks Candidates",
       step2DescSeeker:
-        "AI scores your resume and generates an improved version with better formatting, stronger language, and optimized keywords. Download the enhanced CV instantly.",
+        "Get an exact match score. Our AI highlights missing skills, suggests improvements, and provides interactive coaching to perfect your application.",
       step2DescRecruiter:
         "Our AI reads every resume, compares it against your job requirements, and assigns match scores. The process completes in under 60 seconds.",
-      step3TitleSeeker: "Chat with Your Career Coach",
+      step3TitleSeeker: "Discover & Apply to Real Jobs",
       step3TitleRecruiter: "View Top Candidates",
       step3DescSeeker:
-        "Ask the AI career bot anything: how to improve specific sections, interview prep tips, career pivot advice, or which skills to add for your target role.",
+        "Access a personalized feed of real remote job listings automatically matched to your unique profile, and apply directly.",
       step3DescRecruiter:
         "See a ranked table showing who fits best. Each candidate gets a score and a short AI verdict explaining strengths and gaps. Focus only on the top matches.",
     },

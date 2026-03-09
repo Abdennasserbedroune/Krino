@@ -14,7 +14,7 @@ const clipAnimation = {
   whileInView: { clipPath: "inset(0 0 0 0)", opacity: 1 },
   viewport: { once: true, margin: "-100px" },
   transition: { duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }
-};
+} as any;
 
 const jobSeekerTestimonials = [
   {
@@ -155,12 +155,12 @@ export default function LandingPage() {
                   {activeRole === "seeker" ? (
                     <>
                       {t.hero.headlineSeeker.split(t.hero.gradientSeeker)[0]}<br />
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-seeker to-blue-400 italic inline-block py-2 px-1">{t.hero.gradientSeeker}</span>
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-seeker to-blue-400 italic inline-block py-2 px-1 pr-4">{t.hero.gradientSeeker}</span>
                     </>
                   ) : (
                     <>
                       {t.hero.headlineRecruiterLine1} <br />
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-recruiter to-orange-400 italic inline-block py-2 px-1">{t.hero.gradientRecruiter}</span>
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-recruiter to-orange-400 italic inline-block py-2 px-1 pr-4">{t.hero.gradientRecruiter}</span>
                     </>
                   )}
                 </h1>
