@@ -134,12 +134,12 @@ export default function ChatPage() {
 
     if (cvs.length === 0) {
         return (
-            <div className="border-2 border-dashed border-foreground bg-background/50 p-8 sm:p-12 text-center">
-                <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center border-2 border-foreground bg-secondary">
-                    <FileText className="h-8 w-8 text-foreground" />
+            <div className="rounded-3xl border-2 border-dashed border-primary/30 bg-primary/5 p-8 sm:p-12 text-center">
+                <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-secondary/80">
+                    <FileText className="h-8 w-8 text-primary" />
                 </div>
-                <p className="font-serif text-xl font-bold uppercase tracking-tight mb-2">{t.ext.chatNoCv}</p>
-                <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
+                <p className="font-serif text-2xl text-foreground mb-2">{t.ext.chatNoCv}</p>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
                     {t.ext.chatGoToMatch}
                 </p>
             </div>
@@ -151,24 +151,24 @@ export default function ChatPage() {
             <div className="grid gap-4 sm:gap-6 lg:gap-8 lg:grid-cols-[280px_1fr]">
 
                 {/* ── CV Sidebar ── */}
-                <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-6 bg-primary" />
-                        <h2 className="font-serif text-lg sm:text-xl font-bold uppercase tracking-tight text-foreground">{t.ext.chatSelectCv}</h2>
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="h-2 w-2 rounded-full bg-primary" />
+                        <h2 className="font-serif text-lg sm:text-xl text-foreground">{t.ext.chatSelectCv}</h2>
                     </div>
                     <div className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-x-visible lg:pb-0">
                         {cvs.map(cv => (
                             <button
                                 key={cv.id}
                                 onClick={() => setSelectedCvId(cv.id)}
-                                className={`flex-shrink-0 w-[200px] lg:w-full border-2 border-foreground p-3 sm:p-4 text-left transition-all ${
+                                className={`flex-shrink-0 w-[200px] lg:w-full rounded-2xl border p-3 sm:p-4 text-left transition-all ${
                                     selectedCvId === cv.id
-                                        ? "bg-primary text-primary-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-                                        : "bg-background text-foreground shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
+                                        ? "border-primary bg-primary/5 shadow-sm"
+                                        : "border-border/60 bg-card/60 hover:border-primary/40 hover:bg-card/80 shadow-sm hover:shadow-md hover:-translate-y-0.5"
                                 }`}
                             >
-                                <p className="truncate text-sm font-bold uppercase tracking-tight">{cv.original_filename}</p>
-                                <p className="text-xs font-medium uppercase tracking-widest opacity-80 mt-0.5">
+                                <p className="truncate text-sm font-semibold text-foreground">{cv.original_filename}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
                                     {cv.analyzed_at ? t.ext.chatAnalyzed : t.ext.chatNotAnalyzed}
                                 </p>
                             </button>
@@ -177,39 +177,41 @@ export default function ChatPage() {
                 </div>
 
                 {/* ── Chat Area ── */}
-                <div className="flex h-[480px] sm:h-[560px] lg:h-[640px] flex-col border-2 border-foreground bg-card shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] sm:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+                <div className="flex h-[480px] sm:h-[560px] lg:h-[640px] flex-col rounded-3xl border border-border/60 bg-card/80 shadow-sm overflow-hidden relative">
 
                     {/* Chat header */}
-                    <div className="border-b-2 border-foreground bg-secondary px-4 sm:px-5 py-3 sm:py-4">
-                        <div className="flex items-center gap-2 sm:gap-3">
-                            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center border-2 border-foreground bg-primary">
-                                <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
+                    <div className="border-b border-border/60 bg-card/60 px-4 sm:px-6 py-4">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20">
+                                <Bot className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                             </div>
                             <div>
-                                <h3 className="font-serif text-lg sm:text-xl font-bold uppercase tracking-tight text-foreground">{t.ext.assistantPowered}</h3>
-                                <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{FREE_LIMIT - userMessageCount} {t.ext.msgsLeft}</p>
+                                <h3 className="font-serif text-lg sm:text-xl text-foreground">{t.ext.assistantPowered}</h3>
+                                <p className="text-xs text-muted-foreground mt-0.5">{FREE_LIMIT - userMessageCount} {t.ext.msgsLeft}</p>
                             </div>
                         </div>
                     </div>
 
                     {/* Messages */}
-                    <div className="flex-1 space-y-3 sm:space-y-4 overflow-y-auto p-4 sm:p-6">
+                    <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6 bg-gradient-to-b from-transparent to-background/30">
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                                <div className="flex max-w-[90%] sm:max-w-[85%] items-start gap-2 sm:gap-3">
+                                <div className="flex max-w-[85%] items-end gap-2">
                                     {msg.role === "assistant" && (
-                                        <div className="flex h-7 w-7 sm:h-8 sm:w-8 flex-shrink-0 items-center justify-center border-2 border-foreground bg-secondary">
-                                            <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-foreground" />
+                                        <div className="flex h-6 w-6 sm:h-8 sm:w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 mt-1">
+                                            <Bot className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                                         </div>
                                     )}
-                                    <div className={`border-2 border-foreground px-3 sm:px-4 py-2 sm:py-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] sm:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] ${
-                                        msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-background text-foreground"
+                                    <div className={`px-4 py-2.5 sm:py-3 shadow-sm ${
+                                        msg.role === "user" 
+                                            ? "rounded-2xl rounded-br-sm bg-primary text-primary-foreground" 
+                                            : "rounded-2xl rounded-bl-sm border border-border/60 bg-card/90 text-foreground"
                                     }`}>
-                                        <p className="text-sm sm:text-base font-medium leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                                        <p className="text-sm sm:text-base leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                                     </div>
                                     {msg.role === "user" && (
-                                        <div className="flex h-7 w-7 sm:h-8 sm:w-8 flex-shrink-0 items-center justify-center border-2 border-foreground bg-accent">
-                                            <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-accent-foreground" />
+                                        <div className="flex h-6 w-6 sm:h-8 sm:w-8 flex-shrink-0 items-center justify-center rounded-full bg-accent/20 mt-1">
+                                            <User className="h-3 w-3 sm:h-4 sm:w-4 text-foreground/70" />
                                         </div>
                                     )}
                                 </div>
@@ -218,15 +220,15 @@ export default function ChatPage() {
 
                         {sending && !isTyping && (
                             <div className="flex justify-start">
-                                <div className="flex items-start gap-2 sm:gap-3">
-                                    <div className="flex h-7 w-7 sm:h-8 sm:w-8 flex-shrink-0 items-center justify-center border-2 border-foreground bg-secondary">
-                                        <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-foreground" />
+                                <div className="flex items-end gap-2">
+                                    <div className="flex h-6 w-6 sm:h-8 sm:w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 mt-1">
+                                        <Bot className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                                     </div>
-                                    <div className="border-2 border-foreground bg-background px-3 sm:px-4 py-2 sm:py-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                                    <div className="rounded-2xl rounded-bl-sm border border-border/60 bg-card/90 px-4 py-3 sm:py-4 shadow-sm">
                                         <div className="flex items-center gap-1.5">
-                                            <div className="h-2 w-2 animate-bounce rounded-full bg-primary" />
-                                            <div className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:0.2s]" />
-                                            <div className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:0.4s]" />
+                                            <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/60" />
+                                            <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/60 [animation-delay:0.2s]" />
+                                            <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/60 [animation-delay:0.4s]" />
                                         </div>
                                     </div>
                                 </div>
@@ -234,15 +236,15 @@ export default function ChatPage() {
                         )}
 
                         {limitReached && (
-                            <div className="flex flex-col items-center gap-3 border-2 border-dashed border-red-400 bg-red-50 p-4 sm:p-6 text-center">
-                                <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-red-500 text-white shadow-lg">
+                            <div className="flex flex-col items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-6 text-center mt-4">
+                                <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-red-100 text-red-600 mb-1">
                                     <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" />
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-sm font-bold text-red-600 uppercase tracking-tight">{t.ext.freeLimitReached}</p>
-                                    <p className="text-xs font-medium text-red-900/70">{t.ext.upgradePro}</p>
+                                    <p className="text-sm font-semibold text-red-700">{t.ext.freeLimitReached}</p>
+                                    <p className="text-xs text-red-600/80">{t.ext.upgradePro}</p>
                                 </div>
-                                <button className="bg-red-500 px-5 py-2 text-xs font-bold uppercase tracking-widest text-white shadow-[3px_3px_0px_0px_rgba(153,27,27,1)] hover:-translate-y-0.5 transition-all">
+                                <button className="mt-2 rounded-full bg-red-600 px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-red-700 hover:-translate-y-0.5 transition-all">
                                     {t.ext.upgradePro}
                                 </button>
                             </div>
@@ -251,8 +253,8 @@ export default function ChatPage() {
                     </div>
 
                     {/* Input bar */}
-                    <div className="border-t-2 border-foreground bg-secondary px-3 sm:px-5 py-3 sm:py-4">
-                        <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="border-t border-border/60 bg-card/50 px-3 sm:px-5 py-3 sm:py-4">
+                        <div className="flex items-center gap-2 sm:gap-3 bg-background rounded-full border border-border/60 pl-2 pr-1.5 py-1.5 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/40 transition-shadow">
                             <input
                                 type="text"
                                 value={input}
@@ -260,14 +262,14 @@ export default function ChatPage() {
                                 onKeyPress={handleKeyPress}
                                 placeholder={limitReached ? t.ext.upgradePro + "..." : t.ext.askAnything}
                                 disabled={sending || limitReached}
-                                className="flex-1 border-2 border-foreground bg-background px-3 sm:px-4 py-2.5 sm:py-3 text-sm font-medium text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+                                className="flex-1 bg-transparent px-3 sm:px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
                             />
                             <button
                                 onClick={handleSend}
                                 disabled={!input.trim() || sending || limitReached}
-                                className="inline-flex items-center gap-1.5 sm:gap-2 border-2 border-foreground bg-primary px-4 sm:px-7 py-2.5 sm:py-3 text-sm font-bold uppercase tracking-widest text-primary-foreground shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] sm:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="inline-flex h-9 sm:h-10 items-center justify-center gap-2 rounded-full bg-primary px-4 sm:px-6 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <Send className="h-4 w-4" />
+                                <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                 <span className="hidden sm:inline">{t.ext.send}</span>
                             </button>
                         </div>

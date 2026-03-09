@@ -167,15 +167,15 @@ export default function JobsPage() {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <Briefcase className="h-6 w-6 text-blue-600" />
-            <h1 className="font-serif text-3xl md:text-4xl font-bold uppercase tracking-tight">Remote Jobs</h1>
+            <h1 className="font-serif text-3xl md:text-4xl text-foreground">Remote Jobs</h1>
           </div>
-          <p className="text-sm text-muted-foreground font-medium uppercase tracking-widest">
+          <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
             Matched to your CV automatically — refine with keywords or filters.
           </p>
         </div>
         {searched && (
           <button onClick={() => fetchJobs(query, usedCategory)} disabled={loading}
-            className="inline-flex items-center gap-2 border-2 border-foreground bg-secondary px-5 py-2.5 text-sm font-bold uppercase tracking-widest shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-40">
+            className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary/60 transition-all disabled:opacity-40">
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
           </button>
         )}
@@ -188,12 +188,12 @@ export default function JobsPage() {
           <p className="text-sm text-muted-foreground">Loading your CVs…</p>
         </div>
       ) : cvs.length === 0 ? (
-        <div className="border-2 border-dashed border-foreground bg-background/50 p-12 text-center">
-          <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center border-2 border-foreground bg-secondary">
-            <FileText className="h-8 w-8 text-foreground" />
+        <div className="rounded-3xl border-2 border-dashed border-primary/30 bg-primary/5 p-12 text-center">
+          <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-secondary/80">
+            <FileText className="h-8 w-8 text-primary" />
           </div>
-          <p className="font-serif text-xl font-bold uppercase tracking-tight mb-2">No CV uploaded yet</p>
-          <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
+          <p className="font-serif text-2xl text-foreground mb-2">No CV uploaded yet</p>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
             Upload a CV first — then come back here to get matched jobs.
           </p>
         </div>
@@ -203,7 +203,7 @@ export default function JobsPage() {
           <select
             value={selectedCvId ?? ""}
             onChange={e => setSelectedCvId(e.target.value ? Number(e.target.value) : null)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            className="w-full rounded-2xl border border-border/60 bg-card/60 px-4 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
             <option value="">Select a CV…</option>
             {cvs.map(cv => <option key={cv.id} value={cv.id}>{cv.original_filename}</option>)}
           </select>
@@ -215,7 +215,7 @@ export default function JobsPage() {
           )}
           {!inferring && detectedRole && (
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3 py-1 text-xs font-semibold text-blue-700">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50/50 border border-blue-200/60 px-3 py-1 text-xs font-semibold text-blue-700">
                 <Sparkles className="h-3 w-3" /> Detected role: {detectedRole}
               </span>
               <span className="text-xs text-muted-foreground">· {categorySlug} jobs</span>
@@ -239,10 +239,10 @@ export default function JobsPage() {
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleSearch()}
                   placeholder="Refine search… e.g. Senior Lawyer, Data Engineer, React"
-                  className="w-full border-2 border-foreground pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  className="w-full rounded-full border border-border/60 bg-card/50 pl-11 pr-4 py-3 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" />
               </div>
               <button onClick={handleSearch} disabled={loading || !input.trim()}
-                className="border-2 border-foreground bg-primary px-6 py-3 text-sm font-bold uppercase tracking-widest text-primary-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all disabled:opacity-40">
+                className="inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-40">
                 Search
               </button>
             </div>
@@ -252,8 +252,8 @@ export default function JobsPage() {
                 const isActive = activeFilter === term;
                 return (
                   <button key={term} onClick={() => handlePillClick(term)}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
-                      isActive ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-blue-400 hover:text-blue-700"
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
+                      isActive ? "border-primary bg-primary text-white shadow-sm" : "border-border/60 bg-card/60 text-muted-foreground hover:border-primary/50 hover:text-foreground"
                     }`}>
                     {term}{isActive && <X className="h-3 w-3" />}
                   </button>
@@ -300,7 +300,7 @@ export default function JobsPage() {
               <div className="grid gap-5 lg:grid-cols-2">
                 {jobs.map(job => (
                   <div key={job.id}
-                    className="border-2 border-foreground bg-card p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all flex flex-col gap-4">
+                    className="rounded-3xl border border-border/60 bg-card/80 p-6 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all flex flex-col gap-4">
                     <div className="flex items-start gap-3">
                       {job.company_logo_url ? (
                         <img src={job.company_logo_url} alt={job.company_name}
@@ -312,8 +312,8 @@ export default function JobsPage() {
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-serif text-lg font-bold uppercase tracking-tight leading-tight line-clamp-2">{job.title}</h3>
-                        <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground mt-0.5">{job.company_name}</p>
+                        <h3 className="font-serif text-lg text-foreground leading-tight line-clamp-2">{job.title}</h3>
+                        <p className="text-sm font-medium text-muted-foreground mt-0.5">{job.company_name}</p>
                       </div>
                     </div>
 
@@ -342,7 +342,7 @@ export default function JobsPage() {
                     </div>
 
                     <a href={job.url} target="_blank" rel="noopener noreferrer"
-                      className="mt-auto inline-flex items-center justify-center gap-2 border-2 border-foreground bg-primary px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-primary-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all">
+                      className="mt-auto inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary/10 px-5 py-2.5 text-sm font-semibold text-primary transition-all hover:bg-primary/20">
                       <ExternalLink className="h-4 w-4" /> View on Remotive
                     </a>
                   </div>
@@ -350,9 +350,9 @@ export default function JobsPage() {
               </div>
 
               {jobs.length === 0 && (
-                <div className="flex flex-col items-center gap-3 py-16 border-2 border-dashed border-slate-200">
-                  <Briefcase className="h-10 w-10 text-slate-300" />
-                  <p className="text-sm font-medium text-muted-foreground">No remote jobs found{query ? ` for "${query}"` : ""}</p>
+                <div className="flex flex-col items-center gap-3 py-16 rounded-3xl border-2 border-dashed border-border/60 bg-card/40">
+                  <Briefcase className="h-10 w-10 text-muted-foreground/30" />
+                  <p className="text-sm font-semibold text-foreground">No remote jobs found{query ? ` for "${query}"` : ""}</p>
                   <p className="text-xs text-muted-foreground">Try a broader keyword or a different search term.</p>
                 </div>
               )}
@@ -360,9 +360,9 @@ export default function JobsPage() {
           )}
 
           {!loading && !error && !searched && (
-            <div className="flex flex-col items-center gap-3 py-16 border-2 border-dashed border-slate-200">
-              <Briefcase className="h-10 w-10 text-slate-300" />
-              <p className="text-sm font-medium text-muted-foreground">Select a CV to get job suggestions</p>
+            <div className="flex flex-col items-center gap-3 py-16 rounded-3xl border-2 border-dashed border-border/60 bg-card/40">
+              <Briefcase className="h-10 w-10 text-muted-foreground/30" />
+              <p className="text-sm font-semibold text-foreground">Select a CV to get job suggestions</p>
               <p className="text-xs text-muted-foreground">Jobs will be matched to your field automatically.</p>
             </div>
           )}

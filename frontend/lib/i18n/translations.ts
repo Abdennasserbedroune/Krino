@@ -530,6 +530,11 @@ export const translations = {
       removeCandidate: "Retirer le candidat",
       backToCvs: "Retour aux CV",
       startNewMatch: "Lancer un nouveau matching",
+      recruiterWorkspace: "Espace Recruteur",
+      matchMultiple: "Faites correspondre plusieurs CV à un poste",
+      matchMultipleSub: "Décrivez le poste, puis uploadez jusqu'à cinq CV. L'IA mettra en évidence les meilleurs profils et pourquoi.",
+      quickMatchingTitle: "Flux de matching rapide",
+      quickMatchingSteps: "Étape 1 : Détails du poste · Étape 2 : Upload des CV · Étape 3 : Résumé du matching IA.",
     },
     // ── Global Errors
     errors: {
@@ -1057,6 +1062,11 @@ export const translations = {
       removeCandidate: "Remove candidate",
       backToCvs: "Back to CVs",
       startNewMatch: "Start a new match",
+      recruiterWorkspace: "Recruiter workspace",
+      matchMultiple: "Match multiple CVs to one role",
+      matchMultipleSub: "First describe the job, then upload up to five CVs. The AI will highlight which profiles fit best and why.",
+      quickMatchingTitle: "Quick matching flow",
+      quickMatchingSteps: "Step 1: Job details · Step 2: Upload CVs · Step 3: AI match summary.",
     },
     // ── Global Errors
     errors: {

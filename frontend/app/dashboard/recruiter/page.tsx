@@ -808,19 +808,19 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                     <p className="inline-flex items-center gap-2 rounded-full bg-recruiter/10 px-3 py-1 text-xs md:text-sm font-medium uppercase tracking-wide text-recruiter">
-                        Recruiter workspace
+                        {t.ext.recruiterWorkspace}
                     </p>
-                    <h2 className="mt-4 font-serif text-3xl md:text-4xl text-foreground">Match multiple CVs to one role</h2>
+                    <h2 className="mt-4 font-serif text-3xl md:text-4xl text-foreground">{t.ext.matchMultiple}</h2>
                     <p className="mt-2 text-sm md:text-base text-muted-foreground max-w-2xl">
-                        First describe the job, then upload up to five CVs. The AI will highlight which profiles fit best and why.
+                        {t.ext.matchMultipleSub}
                     </p>
                 </div>
                 <div className="rounded-2xl border border-border/50 bg-card/70 px-4 py-3 text-xs md:text-sm text-muted-foreground max-w-xs">
                     <div className="flex items-center gap-2 font-medium text-foreground">
                         <SlidersHorizontal className="h-4 w-4 text-recruiter" />
-                        Quick matching flow
+                        {t.ext.quickMatchingTitle}
                     </div>
-                    <p className="mt-1">Step 1: Job details · Step 2: Upload CVs · Step 3: AI match summary.</p>
+                    <p className="mt-1">{t.ext.quickMatchingSteps}</p>
                 </div>
             </div>
 
