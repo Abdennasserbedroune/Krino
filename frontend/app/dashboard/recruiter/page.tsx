@@ -848,11 +848,11 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                     <div className="space-y-6 rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
                         <div className="flex items-center gap-2">
                             <SlidersHorizontal className="h-5 w-5 text-recruiter" />
-                            <h3 className="font-serif text-2xl md:text-3xl text-foreground">Define the role</h3>
+                            <h3 className="font-serif text-2xl md:text-3xl text-foreground">{t.ext.defineRoleTitle}</h3>
                         </div>
                         <div className="space-y-4">
                             <div className="grid gap-2">
-                                <label className="text-sm font-medium text-muted-foreground">Job domain</label>
+                                <label className="text-sm font-medium text-muted-foreground">{t.ext.jobDomainLabel}</label>
                                 <select value={jobDomain} onChange={(e) => setJobDomain(e.target.value)}
                                     className="h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60">
                                     <option>AI & Data</option>
@@ -865,10 +865,10 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                             </div>
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div className="grid gap-2">
-                                    <label className="text-sm font-medium text-muted-foreground">Experience range</label>
+                                    <label className="text-sm font-medium text-muted-foreground">{t.ext.expRangeLabel}</label>
                                     <select value={experienceRange} onChange={(e) => setExperienceRange(e.target.value)}
                                         className="h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60">
-                                        <option value="">Select experience</option>
+                                        <option value="">{t.ext.selectExp}</option>
                                         <option>0-1 years</option>
                                         <option>2-4 years</option>
                                         <option>5-7 years</option>
@@ -876,10 +876,10 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                     </select>
                                 </div>
                                 <div className="grid gap-2">
-                                    <label className="text-sm font-medium text-muted-foreground">Salary range</label>
+                                    <label className="text-sm font-medium text-muted-foreground">{t.ext.salaryRangeLabel}</label>
                                     <select value={salaryRange} onChange={(e) => setSalaryRange(e.target.value)}
                                         className="h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60">
-                                        <option value="">Select salary</option>
+                                        <option value="">{t.ext.selectSalary}</option>
                                         <option>$40k - $60k</option>
                                         <option>$60k - $90k</option>
                                         <option>$90k - $120k</option>
@@ -889,16 +889,16 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                             </div>
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div className="grid gap-2">
-                                    <label className="text-sm font-medium text-muted-foreground">Location</label>
+                                    <label className="text-sm font-medium text-muted-foreground">{t.ext.locationLabel}</label>
                                     <input value={location} onChange={(e) => setLocation(e.target.value)}
-                                        placeholder="Remote, Paris, London..."
+                                        placeholder={t.ext.locationPlaceholder}
                                         className="h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60" />
                                 </div>
                                 <div className="grid gap-2">
-                                    <label className="text-sm font-medium text-muted-foreground">Contract type</label>
+                                    <label className="text-sm font-medium text-muted-foreground">{t.ext.contractTypeLabel}</label>
                                     <select value={employmentType} onChange={(e) => setEmploymentType(e.target.value)}
                                         className="h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60">
-                                        <option value="">Select type</option>
+                                        <option value="">{t.ext.selectType}</option>
                                         <option>Full-time</option>
                                         <option>Part-time</option>
                                         <option>Contract</option>
@@ -907,30 +907,30 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                 </div>
                             </div>
                             <div className="grid gap-2">
-                                <label className="text-sm font-medium text-muted-foreground">Key skills or notes</label>
+                                <label className="text-sm font-medium text-muted-foreground">{t.ext.keySkillsNotesLabel}</label>
                                 <textarea value={skills} onChange={(e) => setSkills(e.target.value)} rows={3}
-                                    placeholder="Python, SQL, MLOps, stakeholder management..."
+                                    placeholder={t.ext.keySkillsNotesPlaceholder}
                                     className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60" />
                             </div>
                         </div>
                         <div className="pt-2">
                             <button disabled={!canContinueFromStep1} onClick={() => setStep(2)}
                                 className="inline-flex items-center justify-center rounded-full bg-recruiter px-6 py-2.5 text-sm font-semibold text-white shadow-md transition disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-0.5 hover:shadow-lg">
-                                Continue to CVs
+                                {t.ext.continueToCvs}
                             </button>
                         </div>
                     </div>
                     <div className="space-y-4 rounded-3xl border border-dashed border-recruiter/40 bg-recruiter/5 p-6 md:p-8">
-                        <h3 className="font-serif text-xl md:text-2xl text-foreground">Role summary</h3>
-                        <p className="text-sm text-muted-foreground">This is what the AI will see when scoring the CVs.</p>
+                        <h3 className="font-serif text-xl md:text-2xl text-foreground">{t.ext.roleSummaryTitle}</h3>
+                        <p className="text-sm text-muted-foreground">{t.ext.roleSummarySub}</p>
                         <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                            <li><span className="font-semibold text-foreground">Domain:</span> {jobDomain}</li>
-                            <li><span className="font-semibold text-foreground">Experience:</span> {experienceRange || "Not set yet"}</li>
-                            <li><span className="font-semibold text-foreground">Salary:</span> {salaryRange || "Not set yet"}</li>
-                            <li><span className="font-semibold text-foreground">Location:</span> {location || "Not set yet"}</li>
-                            <li><span className="font-semibold text-foreground">Contract:</span> {employmentType || "Not set yet"}</li>
+                            <li><span className="font-semibold text-foreground">{t.ext.summaryDomain}</span> {jobDomain}</li>
+                            <li><span className="font-semibold text-foreground">{t.ext.summaryExp}</span> {experienceRange || t.ext.notSetYet}</li>
+                            <li><span className="font-semibold text-foreground">{t.ext.summarySalary}</span> {salaryRange || t.ext.notSetYet}</li>
+                            <li><span className="font-semibold text-foreground">{t.ext.summaryLocation}</span> {location || t.ext.notSetYet}</li>
+                            <li><span className="font-semibold text-foreground">{t.ext.summaryContract}</span> {employmentType || t.ext.notSetYet}</li>
                         </ul>
-                        {skills && <p className="mt-2 text-sm text-muted-foreground"><span className="font-semibold text-foreground">Key skills:</span> {skills}</p>}
+                        {skills && <p className="mt-2 text-sm text-muted-foreground"><span className="font-semibold text-foreground">{t.ext.summarySkills}</span> {skills}</p>}
                     </div>
                 </div>
             )}
@@ -940,9 +940,9 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                     <div className="space-y-6 rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
                         <div className="flex items-center gap-2">
                             <Upload className="h-5 w-5 text-recruiter" />
-                            <h3 className="font-serif text-2xl md:text-3xl text-foreground">Upload up to 5 CVs</h3>
+                            <h3 className="font-serif text-2xl md:text-3xl text-foreground">{t.ext.uploadTitleRecruiter}</h3>
                         </div>
-                        <p className="text-sm text-muted-foreground">Supported formats: PDF, DOC, DOCX. Maximum five files per matching run.</p>
+                        <p className="text-sm text-muted-foreground">{t.ext.uploadSubRecruiter}</p>
 
                         <label
                             htmlFor="cvFiles"
@@ -966,8 +966,8 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                             ) : (
                                 <>
                                     <Upload className="h-8 w-8 text-recruiter" />
-                                    <span className="text-sm font-semibold text-foreground">Click to browse or drop CV files here</span>
-                                    <span className="text-xs text-muted-foreground">You can attach up to five CVs at once.</span>
+                                    <span className="text-sm font-semibold text-foreground">{t.ext.uploadClickBrowse}</span>
+                                    <span className="text-xs text-muted-foreground">{t.ext.uploadMaxFive}</span>
                                 </>
                             )}
                         </label>
@@ -985,13 +985,13 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                         {selectedCvs.length > 0 && (
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                    <span>{selectedCvs.length} file{selectedCvs.length > 1 ? "s" : ""} selected</span>
+                                    <span>{selectedCvs.length} {t.ext.filesSelected}</span>
                                     <button
                                         onClick={handleClearAll}
                                         className="flex items-center gap-1.5 text-xs font-semibold text-red-500 hover:text-red-700 transition"
                                     >
                                         <Trash2 className="h-3.5 w-3.5" />
-                                        Clear all
+                                        {t.ext.clearAll}
                                     </button>
                                 </div>
                                 {selectedCvs.map((cv, i) => (
@@ -1035,7 +1035,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
 
                         <div className="pt-2 flex gap-3">
                             <button onClick={() => setStep(1)} className="inline-flex items-center justify-center rounded-full border border-border/70 bg-background px-5 py-2 text-sm font-semibold text-foreground hover:bg-secondary/60">
-                                Back
+                                {t.ui.back}
                             </button>
                             <button
                                 disabled={!canRunMatching}
@@ -1048,21 +1048,21 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                         </svg>
-                                        Matching…
+                                        {t.ext.analysingWait}
                                     </>
                                 ) : (
-                                    "Run AI matching"
+                                    t.ext.runAiMatching
                                 )}
                             </button>
                         </div>
                     </div>
                     <div className="space-y-4 rounded-3xl border border-dashed border-recruiter/40 bg-recruiter/5 p-6 md:p-8">
-                        <h3 className="font-serif text-xl md:text-2xl text-foreground">What happens next</h3>
-                        <p className="text-sm text-muted-foreground">The backend compares each CV to your role, then scores and explains every profile.</p>
+                        <h3 className="font-serif text-xl md:text-2xl text-foreground">{t.ext.whatHappensNext}</h3>
+                        <p className="text-sm text-muted-foreground">{t.ext.whatHappensSub}</p>
                         <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                            <li>We extract text and structure from each CV.</li>
-                            <li>We check skills, experience and domain fit.</li>
-                            <li>You get a score and explanation per CV — instantly.</li>
+                            <li>{t.ext.happensPoint1}</li>
+                            <li>{t.ext.happensPoint2}</li>
+                            <li>{t.ext.happensPoint3}</li>
                         </ul>
                     </div>
                 </div>
@@ -1074,7 +1074,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                         <div className="rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
                             <div className="mb-4 flex items-center gap-3">
                                 <CheckCircle2 className="h-6 w-6 text-emerald-500" />
-                                <h3 className="font-serif text-2xl md:text-3xl text-foreground">Best matched CV</h3>
+                                <h3 className="font-serif text-2xl md:text-3xl text-foreground">{t.ext.bestMatchedCv}</h3>
                             </div>
                             {results.length > 0 && (
                                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -1089,17 +1089,17 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                     </div>
                                     <div className="text-right flex-shrink-0">
                                         <div className="text-4xl font-bold text-recruiter">{results[0].match_score}</div>
-                                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Match / 100</div>
+                                        <div className="text-xs uppercase tracking-wide text-muted-foreground">{t.ext.matchPer100}</div>
                                     </div>
                                 </div>
                             )}
                         </div>
                         <div className="rounded-3xl border border-border/60 bg-card/70 p-6 md:p-8">
-                            <h3 className="font-serif text-xl md:text-2xl text-foreground mb-2">Job overview</h3>
-                            <p className="text-sm text-muted-foreground">{jobDomain} · {experienceRange || "Exp. not set"} · {salaryRange || "Salary not set"}</p>
+                            <h3 className="font-serif text-xl md:text-2xl text-foreground mb-2">{t.ext.jobOverview}</h3>
+                            <p className="text-sm text-muted-foreground">{jobDomain} · {experienceRange || t.ext.expNotSet} · {salaryRange || t.ext.salaryNotSet}</p>
                             {(location || employmentType || skills) && (
                                 <p className="mt-1 text-xs text-muted-foreground">
-                                    {[location, employmentType, skills && `Skills: ${skills}`].filter(Boolean).join(" · ")}
+                                    {[location, employmentType, skills && `${t.ext.skillsColon} ${skills}`].filter(Boolean).join(" · ")}
                                 </p>
                             )}
                         </div>
@@ -1120,7 +1120,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                     <button
                                         onClick={() => handleRemoveFromResults(r.cv_id)}
                                         className="flex-shrink-0 rounded-md p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 transition"
-                                        title="Remove candidate"
+                                        title={t.ext.removeCandidate}
                                     >
                                         <X className="h-3.5 w-3.5" />
                                     </button>
@@ -1131,10 +1131,10 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
 
                     <div className="flex gap-3 pt-2">
                         <button onClick={() => { setStep(2); setMatchError(null); }} className="inline-flex items-center justify-center rounded-full border border-border/70 bg-background px-5 py-2 text-sm font-semibold text-foreground hover:bg-secondary/60">
-                            Back to CVs
+                            {t.ext.backToCvs}
                         </button>
                         <button onClick={handleReset} className="inline-flex items-center justify-center rounded-full bg-recruiter px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:-translate-y-0.5 hover:shadow-lg">
-                            Start a new match
+                            {t.ext.startNewMatch}
                         </button>
                     </div>
                 </div>
