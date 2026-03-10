@@ -48,10 +48,15 @@ export default function ChatPage() {
 
     useEffect(() => { void fetchCvs(); }, []);
 
+    // Re-fetch CV list whenever a CV is uploaded or deleted from another tab/page
     useEffect(() => {
         const handler = () => void fetchCvs();
+        window.addEventListener("cv:uploaded", handler);
         window.addEventListener("cv:deleted", handler);
-        return () => window.removeEventListener("cv:deleted", handler);
+        return () => {
+            window.removeEventListener("cv:uploaded", handler);
+            window.removeEventListener("cv:deleted", handler);
+        };
     }, []);
 
     useEffect(() => {
