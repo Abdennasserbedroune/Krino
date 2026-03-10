@@ -84,13 +84,6 @@ function verdictLabel(s: number) {
   return              { label: "Tough Match",   color: "text-red-600"    };
 }
 
-/**
- * Gap/Strength strings come in the format:
- * "[BLOCKING] Skill Name | prose paragraph..."
- * or
- * "✅ Skill Name | prose paragraph..."
- * We split on the FIRST " | " only.
- */
 function parsePipeItem(raw: string): { prefix: string; prose: string } {
   const idx = raw.indexOf(" | ");
   if (idx === -1) return { prefix: raw, prose: "" };
@@ -136,57 +129,45 @@ function SectionLabel({ number, title, subtitle }: { number: number; title: stri
   );
 }
 
-// Gap card — parses the pipe-separated string into skill name + prose paragraph
 function GapCard({ raw }: { raw: string }) {
   const { prefix, prose } = parsePipeItem(raw);
   const { severity, skill } = parseGapSeverity(prefix);
   const style = severity ? SEVERITY_STYLE[severity] : SEVERITY_STYLE.MINOR;
-
   return (
     <div className={`rounded-xl border p-4 space-y-2.5 ${style.card}`}>
       <div className="flex items-center gap-2 flex-wrap">
         <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${style.badge}`}>{style.label}</span>
         <span className="text-sm font-bold text-foreground">{skill}</span>
       </div>
-      {prose && (
-        <p className="text-sm leading-relaxed text-slate-700">{prose}</p>
-      )}
+      {prose && <p className="text-sm leading-relaxed text-slate-700">{prose}</p>}
     </div>
   );
 }
 
-// Strength card — parses "✅ Skill | prose" format
 function StrengthCard({ raw }: { raw: string }) {
   const clean = raw.startsWith("✅ ") ? raw.slice(2) : raw;
   const { prefix: skill, prose } = parsePipeItem(clean);
-
   return (
     <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-2">
       <div className="flex items-center gap-2">
         <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
         <span className="text-sm font-bold text-emerald-900">{skill}</span>
       </div>
-      {prose && (
-        <p className="text-sm leading-relaxed text-emerald-800 pl-6">{prose}</p>
-      )}
+      {prose && <p className="text-sm leading-relaxed text-emerald-800 pl-6">{prose}</p>}
     </div>
   );
 }
 
-// Roadmap timeline item
 function RoadmapItem({ text, index, isLast }: { text: string; index: number; isLast: boolean }) {
   const colonIdx = text.indexOf(":");
   const label   = colonIdx > -1 ? text.slice(0, colonIdx).trim() : `Step ${index + 1}`;
   const content = colonIdx > -1 ? text.slice(colonIdx + 1).trim() : text;
   const colors  = ["bg-red-500", "bg-amber-500", "bg-blue-500", "bg-emerald-500"];
   const dot     = colors[index] ?? "bg-slate-400";
-
   return (
     <div className="flex gap-4">
       <div className="flex flex-col items-center">
-        <div className={`h-7 w-7 rounded-full ${dot} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
-          {index + 1}
-        </div>
+        <div className={`h-7 w-7 rounded-full ${dot} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>{index + 1}</div>
         {!isLast && <div className="w-0.5 flex-1 bg-slate-200 mt-1" />}
       </div>
       <div className="pb-6 flex-1 min-w-0">
@@ -203,7 +184,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
   const { user } = useAuth();
   const { toast: showToast } = useToast();
   const { t } = useLanguage();
-  const resultRef   = useRef<HTMLDivElement>(null);
+  const resultRef    = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [category,    setCategory]    = useState("");
@@ -267,7 +248,10 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
       setUploadPct(100); setUploadStage("Complete!");
       const created: CvItem = await res.json();
       setTimeout(() => {
-        setCvs(prev => [created, ...prev]); setSelectedCv(created.id);
+        setCvs(prev => [created, ...prev]);
+        setSelectedCv(created.id);
+        // Notify chat & jobs pages so they refresh their CV list without a page reload
+        window.dispatchEvent(new CustomEvent("cv:uploaded", { detail: created }));
         setUploading(false); setUploadPct(0); setUploadStage("");
         showToast({ title: "CV uploaded", description: "Uploaded and processed successfully." });
       }, 500);
@@ -339,9 +323,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             {t.ext.checkFitTitle}
           </h2>
         </div>
-        <p className="text-muted-foreground text-sm">
-          {t.ext.checkFitSub}
-        </p>
+        <p className="text-muted-foreground text-sm">{t.ext.checkFitSub}</p>
       </div>
 
       <div className="border-t border-border/40" />
@@ -407,8 +389,14 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             rows={10}
             className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed" />
           <div className="flex justify-between mt-1.5">
-            <p className="text-xs text-muted-foreground">Minimum 50 characters. More detail = more accurate gaps.</p>
-            <span className={`text-xs font-medium ${ description.length > MAX_DESC * 0.9 ? "text-amber-500" : "text-muted-foreground" }`}>
+            <p className="text-xs text-muted-foreground">
+              {description.trim().length < 50
+                ? `${50 - description.trim().length} more character${50 - description.trim().length === 1 ? "" : "s"} to unlock analysis`
+                : description.trim().length < 300
+                ? "Short description — results may be limited. Paste the full job posting for best accuracy."
+                : "Good detail level — the more you paste, the more precise the gaps."}
+            </p>
+            <span className={`text-xs font-medium flex-shrink-0 ml-4 ${ description.length > MAX_DESC * 0.9 ? "text-amber-500" : "text-muted-foreground" }`}>
               {description.length.toLocaleString()} / {MAX_DESC.toLocaleString()}
             </span>
           </div>
@@ -515,19 +503,13 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
         <div ref={resultRef} className="space-y-6 pt-2">
           <div className="border-t border-border/40" />
 
-          {/* Section header + powered-by badge */}
           <div className="flex items-start justify-between gap-4">
-            <SectionLabel
-              number={3}
-              title={t.ext.yourResult}
-              subtitle={t.ext.yourResultSub}
-            />
+            <SectionLabel number={3} title={t.ext.yourResult} subtitle={t.ext.yourResultSub} />
             <span className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full bg-violet-50 border border-violet-200 px-3 py-1 text-xs font-semibold text-violet-700">
               <Sparkles className="h-3 w-3" /> Powered by AI
             </span>
           </div>
 
-          {/* Score card */}
           <div className={`rounded-2xl border-2 p-6 ${ result.application_ready ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50" }`}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
@@ -553,14 +535,12 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             </div>
           </div>
 
-          {/* Verdict */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-2">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t.careerMatch.overallVerdict}</p>
             <p className="text-sm font-semibold leading-relaxed text-slate-800">{result.overall_verdict}</p>
             <p className="text-sm leading-relaxed text-slate-500">{result.overall_reason}</p>
           </div>
 
-          {/* Sub-scores */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t.ext.scoreBreakdown}</p>
             <ScoreBar label={t.careerMatch.skillsMatch}     value={result.skills_match_score} />
@@ -568,7 +548,6 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             <ScoreBar label={t.careerMatch.cvQuality}       value={result.cv_quality_score}   />
           </div>
 
-          {/* Extracted requirements */}
           {result.job_requirements?.required_skills && result.job_requirements.required_skills.length > 0 && (
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">{t.ext.whatRoleRequires}</p>
@@ -590,17 +569,14 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             </div>
           )}
 
-          {/* Tabs */}
           <div className="border-b border-slate-200">
             <div className="flex gap-1 overflow-x-auto">
               {(["overview", "gaps", "strengths", "roadmap"] as const).map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
                   className={`whitespace-nowrap px-4 py-2.5 text-sm font-semibold capitalize transition-colors border-b-2 -mb-px ${
-                    activeTab === tab
-                      ? "border-blue-600 text-blue-600"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
+                    activeTab === tab ? "border-blue-600 text-blue-600" : "border-transparent text-muted-foreground hover:text-foreground"
                   }`}>
-                  {tab === "gaps"      ? `Gaps (${result.gaps.length})`
+                  {tab === "gaps"       ? `Gaps (${result.gaps.length})`
                   : tab === "strengths" ? `Strengths (${result.strengths.length})`
                   : tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
@@ -608,7 +584,6 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             </div>
           </div>
 
-          {/* Tab: Overview */}
           {activeTab === "overview" && (
             <div className="space-y-4">
               {result.gaps.filter(g => g.startsWith("[BLOCKING]")).length > 0 && (
@@ -644,7 +619,6 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             </div>
           )}
 
-          {/* Tab: Gaps */}
           {activeTab === "gaps" && (
             <div className="space-y-3">
               {result.gaps.length === 0 ? (
@@ -656,7 +630,6 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             </div>
           )}
 
-          {/* Tab: Strengths */}
           {activeTab === "strengths" && (
             <div className="space-y-3">
               {result.strengths.length === 0 ? (
@@ -668,7 +641,6 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             </div>
           )}
 
-          {/* Tab: Roadmap */}
           {activeTab === "roadmap" && (
             <div className="rounded-2xl border border-slate-200 bg-white p-6">
               <div className="flex items-center gap-2 mb-6">
@@ -690,7 +662,6 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             </div>
           )}
 
-          {/* CTAs */}
           <div className="flex flex-wrap gap-3 pt-2">
             {onSwitchToChat && (
               <button onClick={onSwitchToChat}

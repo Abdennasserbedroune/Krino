@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   Briefcase, Search, MapPin, Clock, ExternalLink,
   Loader2, AlertCircle, RefreshCw, X, FileText, Sparkles,
@@ -57,6 +57,7 @@ export default function JobsPage() {
   const [cvs,          setCvs]          = useState<CvListItem[]>([]);
   const [loadingCvs,   setLoadingCvs]   = useState(true);
   const [selectedCvId, setSelectedCvId] = useState<number | null>(null);
+  const selectedCvIdRef                 = useRef<number | null>(null);
   const [detectedRole, setDetectedRole] = useState("");
   const [categorySlug, setCategorySlug] = useState("");
   const [inferring,    setInferring]    = useState(false);
@@ -70,29 +71,41 @@ export default function JobsPage() {
   const [error,        setError]        = useState("");
   const [searched,     setSearched]     = useState(false);
 
+  // Keep a ref in sync so event handlers can read the latest selectedCvId
+  useEffect(() => { selectedCvIdRef.current = selectedCvId; }, [selectedCvId]);
+
   const loadCvs = useCallback(async () => {
     setLoadingCvs(true);
     try {
       const res  = await fetch("/api/v1/cv/mine", { credentials: "include" });
       if (!res.ok) throw new Error();
       const data = (await res.json()) as any[];
-      const list = (data || []).map(c => ({ id: c.id, original_filename: c.original_filename }));
+      const list = (data || []).map((c: any) => ({ id: c.id, original_filename: c.original_filename }));
       setCvs(list);
-      if (list.length === 1) setSelectedCvId(list[0].id);
+      // Auto-select the first CV only if nothing is currently selected
+      if (selectedCvIdRef.current === null && list.length > 0) {
+        setSelectedCvId(list[0].id);
+      }
+      // If the currently selected CV was deleted, clear the selection
+      if (selectedCvIdRef.current !== null && !list.some((c: any) => c.id === selectedCvIdRef.current)) {
+        setSelectedCvId(null);
+      }
     } catch { setCvs([]); }
     finally { setLoadingCvs(false); }
   }, []);
 
   // Initial load
-  useEffect(() => {
-    void loadCvs();
-  }, [loadCvs]);
+  useEffect(() => { void loadCvs(); }, [loadCvs]);
 
-  // Re-fetch CV list whenever a CV is uploaded from another tab/page
+  // Re-sync CV list on upload or delete from any page
   useEffect(() => {
     const handler = () => void loadCvs();
     window.addEventListener("cv:uploaded", handler);
-    return () => window.removeEventListener("cv:uploaded", handler);
+    window.addEventListener("cv:deleted",  handler);
+    return () => {
+      window.removeEventListener("cv:uploaded", handler);
+      window.removeEventListener("cv:deleted",  handler);
+    };
   }, [loadCvs]);
 
   const fetchJobs = useCallback(async (search: string, category: string) => {
@@ -126,17 +139,12 @@ export default function JobsPage() {
         const sq   = (data?.suggested_query as string) || "";
         const role = (data?.detected_role  as string) || "";
         const slug = (data?.category_slug  as string) || "";
-
         if (sq || slug) {
-          setDetectedRole(role);
-          setCategorySlug(slug);
-          setInput(sq);
-          setQuery(sq);
-          setActiveFilter(null);
+          setDetectedRole(role); setCategorySlug(slug);
+          setInput(sq); setQuery(sq); setActiveFilter(null);
           fetchJobs(sq, slug);
         } else {
-          setDetectedRole("");
-          setCategorySlug("");
+          setDetectedRole(""); setCategorySlug("");
           fetchJobs("", "software-dev");
         }
       } catch {
@@ -150,8 +158,7 @@ export default function JobsPage() {
   const handleSearch = () => {
     const trimmed = input.trim();
     if (!trimmed) return;
-    setActiveFilter(null);
-    setQuery(trimmed);
+    setActiveFilter(null); setQuery(trimmed);
     fetchJobs(trimmed, "");
   };
 
@@ -164,9 +171,7 @@ export default function JobsPage() {
     }
   };
 
-  const pills = categorySlug && CATEGORY_PILLS[categorySlug]
-    ? CATEGORY_PILLS[categorySlug]
-    : DEFAULT_PILLS;
+  const pills = categorySlug && CATEGORY_PILLS[categorySlug] ? CATEGORY_PILLS[categorySlug] : DEFAULT_PILLS;
 
   return (
     <div className="space-y-8">
@@ -303,7 +308,6 @@ export default function JobsPage() {
                     className="underline underline-offset-2 hover:text-foreground">powered by Remotive</a>
                 </p>
               )}
-
               <div className="grid gap-5 lg:grid-cols-2">
                 {jobs.map(job => (
                   <div key={job.id}
@@ -323,7 +327,6 @@ export default function JobsPage() {
                         <p className="text-sm font-medium text-muted-foreground mt-0.5">{job.company_name}</p>
                       </div>
                     </div>
-
                     <div className="flex flex-wrap gap-x-4 gap-y-1.5">
                       <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                         <MapPin className="h-3.5 w-3.5" />{job.candidate_required_location || "Worldwide"}
@@ -338,7 +341,6 @@ export default function JobsPage() {
                         <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">{job.salary}</span>
                       )}
                     </div>
-
                     <div className="flex flex-wrap gap-1.5">
                       {job.category && (
                         <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">{job.category}</span>
@@ -347,7 +349,6 @@ export default function JobsPage() {
                         <span key={tag} className="rounded-full bg-white border border-slate-200 px-2.5 py-0.5 text-xs font-medium text-slate-500">{tag}</span>
                       ))}
                     </div>
-
                     <a href={job.url} target="_blank" rel="noopener noreferrer"
                       className="mt-auto inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary/10 px-5 py-2.5 text-sm font-semibold text-primary transition-all hover:bg-primary/20">
                       <ExternalLink className="h-4 w-4" /> View on Remotive
@@ -355,7 +356,6 @@ export default function JobsPage() {
                   </div>
                 ))}
               </div>
-
               {jobs.length === 0 && (
                 <div className="flex flex-col items-center gap-3 py-16 rounded-3xl border-2 border-dashed border-border/60 bg-card/40">
                   <Briefcase className="h-10 w-10 text-muted-foreground/30" />
