@@ -3,27 +3,11 @@ from typing import Any, Dict
 import json
 
 from app.services.ai.groq_client import get_groq_client
+from app.services.ai.language_utils import detect_text_language
 
 
 def extract_cv_data(cv_text: str) -> Dict[str, Any]:
-    """Extract structured CV information from raw text using Groq AI.
-    
-    This parses the CV and extracts:
-    - Personal information (name, email, phone, location, etc.)
-    - Professional summary
-    - Work experience
-    - Education
-    - Skills
-    - Certifications
-    - Languages
-    - Projects
-    
-    Args:
-        cv_text: Raw text extracted from CV file
-        
-    Returns:
-        Dictionary containing structured CV data
-    """
+    """Extract structured CV information from raw text using Groq AI."""
     if not cv_text or not cv_text.strip():
         return {
             "personal_info": {},
@@ -34,11 +18,15 @@ def extract_cv_data(cv_text: str) -> Dict[str, Any]:
             "certifications": [],
             "languages": [],
             "projects": [],
+            "cv_language": "en",
             "error": "No text content found in CV"
         }
-    
+
+    # Detect language ONCE here — stored in DB, reused everywhere
+    cv_language = detect_text_language(cv_text)
+
     client = get_groq_client()
-    
+
     prompt = f"""You are a CV parsing expert. Extract structured information from the following CV text.
 
 Return ONLY a valid JSON object with this exact structure (no markdown, no code blocks, just raw JSON):
@@ -129,13 +117,12 @@ CV Text:
                     "content": prompt
                 }
             ],
-            temperature=0.1,  # Low temperature for consistent extraction
+            temperature=0.1,
             max_tokens=4000,
         )
-        
+
         content = response.choices[0].message.content.strip()
-        
-        # Remove markdown code blocks if present
+
         if content.startswith("```json"):
             content = content[7:]
         elif content.startswith("```"):
@@ -143,21 +130,22 @@ CV Text:
         if content.endswith("```"):
             content = content[:-3]
         content = content.strip()
-        
-        # Parse JSON
+
         extracted_data = json.loads(content)
-        
-        # Validate structure
+
         required_keys = ["personal_info", "summary", "experience", "education", "skills"]
         for key in required_keys:
             if key not in extracted_data:
                 extracted_data[key] = {} if key in ["personal_info", "skills"] else [] if key in ["experience", "education"] else ""
-        
+
+        # Always stamp the detected language so every downstream service
+        # reads from the DB instead of re-detecting (or defaulting to 'en').
+        extracted_data["cv_language"] = cv_language
+
         return extracted_data
-        
+
     except json.JSONDecodeError as e:
         print(f"JSON parsing error: {e}")
-        print(f"Response content: {content}")
         return {
             "personal_info": {},
             "summary": "",
@@ -167,6 +155,7 @@ CV Text:
             "certifications": [],
             "languages": [],
             "projects": [],
+            "cv_language": cv_language,
             "error": f"Failed to parse AI response as JSON: {str(e)}"
         }
     except Exception as e:
@@ -180,31 +169,19 @@ CV Text:
             "certifications": [],
             "languages": [],
             "projects": [],
+            "cv_language": cv_language,
             "error": f"CV extraction failed: {str(e)}"
         }
 
 
 def extract_cv_from_file(file_path: str, file_type: str) -> Dict[str, Any]:
-    """Extract structured CV data from a file.
-    
-    Args:
-        file_path: Path to the CV file
-        file_type: Type of file (pdf, docx, doc, txt)
-        
-    Returns:
-        Dictionary containing structured CV data
-    """
+    """Extract structured CV data from a file."""
     from app.services.cv.text_extraction import extract_text_from_file
-    
+
     try:
-        # Extract text from file
         cv_text = extract_text_from_file(file_path, file_type)
-        
-        # Parse text into structured data
         extracted_data = extract_cv_data(cv_text)
-        
         return extracted_data
-        
     except Exception as e:
         print(f"Error extracting CV from file: {e}")
         return {
@@ -216,5 +193,6 @@ def extract_cv_from_file(file_path: str, file_type: str) -> Dict[str, Any]:
             "certifications": [],
             "languages": [],
             "projects": [],
+            "cv_language": "en",
             "error": f"File extraction failed: {str(e)}"
         }
