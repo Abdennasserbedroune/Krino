@@ -124,6 +124,8 @@ export default function UploadPage() {
             // Short delay to show 100%
             setTimeout(() => {
                 setCvs((prev) => [created, ...prev]);
+                // Notify chat & jobs pages so they refresh their CV list without a page reload
+                window.dispatchEvent(new CustomEvent("cv:uploaded", { detail: created }));
                 showToast({
                     title: "CV uploaded",
                     description: "Your CV was uploaded and processed successfully.",
