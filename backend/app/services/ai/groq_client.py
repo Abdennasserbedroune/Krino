@@ -1,7 +1,7 @@
 """Groq client utilities for CV analysis and rewriting.
 
 All public functions accept an optional `language` parameter ('en' | 'fr').
-When set to 'fr', every AI response \u2014 including JSON values \u2014 is produced
+When set to 'fr', every AI response — including JSON values — is produced
 entirely in French.
 """
 import json
@@ -140,10 +140,7 @@ def match_cv_to_job_with_groq(
     cv_summary: str,
     language: str = "en",
 ) -> Dict[str, Any]:
-    """Ask Groq to explain how well a CV matches a job profile (recruiter flow).
-
-    Returns a JSON-like dict with keys: overall_reason, strengths, risks.
-    """
+    """Ask Groq to explain how well a CV matches a job profile (recruiter flow)."""
     client = get_groq_client()
     lang_directive = get_language_directive(language)
 
@@ -185,11 +182,11 @@ def match_cv_to_job_with_groq(
         }
 
 
-# \u2500\u2500\u2500 SEEKER MATCH PIPELINE \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+# ─── SEEKER MATCH PIPELINE ────────────────────────────────────────────────
 #
 # Two-step approach for the "Desired Job" seeker flow:
-#   Step 1 \u2014 extract_job_requirements  : reads only the job description (~300 tokens)
-#   Step 2 \u2014 analyze_cv_against_job    : reads step-1 output + cv structured JSON (~600 tokens)
+#   Step 1 — extract_job_requirements  : reads only the job description (~300 tokens)
+#   Step 2 — analyze_cv_against_job    : reads step-1 output + cv structured JSON (~600 tokens)
 
 def extract_job_requirements(
     job_description: str,
@@ -198,7 +195,7 @@ def extract_job_requirements(
     skills_hint: str = "",
     language: str = "en",
 ) -> Dict[str, Any]:
-    """Step 1 \u2014 Parse a raw job description into a structured requirements dict."""
+    """Step 1 — Parse a raw job description into a structured requirements dict."""
     client = get_groq_client()
     lang_directive = get_language_directive(language)
 
@@ -210,7 +207,7 @@ def extract_job_requirements(
     system_prompt = (
         "You are a precise job requirements extractor.\n"
         "Read the job description below and return a structured JSON summary of what this role requires.\n"
-        "Be specific \u2014 pull exact tools, technologies, and experience levels from the text.\n"
+        "Be specific — pull exact tools, technologies, and experience levels from the text.\n"
         "Do NOT invent requirements that are not stated or strongly implied in the description."
         + lang_directive
     )
@@ -219,12 +216,12 @@ def extract_job_requirements(
         f"{category_hint}{title_hint}{skills_context}"
         f"=== JOB DESCRIPTION ===\n{description_snippet}\n\n"
         "Return a JSON object with exactly these keys:\n"
-        "- required_skills: array of strings \u2014 hard-required tools/technologies/competencies\n"
-        "- nice_to_have: array of strings \u2014 preferred but not blocking\n"
-        "- seniority_level: string \u2014 one of: Entry, Junior, Mid, Senior, Lead, Executive\n"
-        "- key_responsibilities: array of strings \u2014 what the person will actually do (max 5)\n"
-        "- experience_years: string \u2014 e.g. '3-5 years' or '5+' or '' if not stated\n"
-        "- domain: string \u2014 the primary professional domain\n"
+        "- required_skills: array of strings — hard-required tools/technologies/competencies\n"
+        "- nice_to_have: array of strings — preferred but not blocking\n"
+        "- seniority_level: string — one of: Entry, Junior, Mid, Senior, Lead, Executive\n"
+        "- key_responsibilities: array of strings — what the person will actually do (max 5)\n"
+        "- experience_years: string — e.g. '3-5 years' or '5+' or '' if not stated\n"
+        "- domain: string — the primary professional domain\n"
     )
 
     try:
@@ -260,7 +257,7 @@ def analyze_cv_against_job(
     job_title: str = "",
     language: str = "en",
 ) -> Dict[str, Any]:
-    """Step 2 \u2014 Deep analysis of a CV against already-extracted job requirements."""
+    """Step 2 — Deep analysis of a CV against already-extracted job requirements."""
     client = get_groq_client()
     lang_directive = get_language_directive(language)
 
@@ -276,31 +273,44 @@ def analyze_cv_against_job(
     cv_score = cv_analysis.get("score", "N/A")
     cv_readability = cv_analysis.get("readability_score", "N/A")
 
+    # Inject the pre-computed total_years_experience so the model cannot
+    # misread job-description sentences ("requires 5 years") as the
+    # candidate's own tenure.
+    total_years = (cv_structured or {}).get("total_years_experience", None)
+    years_line = (
+        f"Candidate total years of experience (pre-computed from CV dates): {total_years} years\n"
+        if total_years is not None
+        else ""
+    )
+
     system_prompt = (
         "You are a brutally honest but constructive career advisor.\n"
         "Your job is to tell a job seeker exactly how well their CV matches a specific role.\n"
         "Rules:\n"
-        "- Reference SPECIFIC skills, tools, and experience from the CV \u2014 never speak in generalities\n"
+        "- Reference SPECIFIC skills, tools, and experience from the CV — never speak in generalities\n"
         "- For each gap, state HOW critical it is: [BLOCKING], [IMPORTANT], or [MINOR]\n"
         "- Actionable advice must be concrete: name the exact skill to add, the cert to get, or the section to rewrite\n"
-        "- Be honest about weak matches \u2014 false hope hurts the user\n"
-        "- The hire_probability must be a realistic percentage range based on the actual gaps found"
+        "- Be honest about weak matches — false hope hurts the user\n"
+        "- The hire_probability must be a realistic percentage range based on the actual gaps found\n"
+        "- IMPORTANT: use the 'Candidate total years of experience' field provided below as the "
+        "authoritative value for experience — do NOT infer years from the job description text."
         + lang_directive
     )
 
     user_prompt = (
         f"{title_line}"
+        f"{years_line}"
         f"=== ROLE REQUIREMENTS (extracted from job description) ===\n{requirements_json}\n\n"
         f"=== CANDIDATE CV (structured) ===\n{cv_json}\n\n"
         f"CV quality score: {cv_score}/100 | Readability: {cv_readability}\n\n"
         "Analyse the match and return a JSON object with exactly these keys:\n"
-        "- overall_verdict: string \u2014 one honest sentence summarising fit\n"
-        "- hire_probability: string \u2014 realistic % range\n"
-        "- overall_reason: string \u2014 2-3 sentences explaining the score in plain language\n"
-        "- strengths: array of strings \u2014 each must reference a specific CV element\n"
-        "- gaps: array of strings \u2014 each must include severity label [BLOCKING/IMPORTANT/MINOR]\n"
-        "- actionable_advice: array of strings \u2014 concrete next steps\n"
-        "- application_ready: boolean \u2014 true if they should apply now\n"
+        "- overall_verdict: string — one honest sentence summarising fit\n"
+        "- hire_probability: string — realistic % range\n"
+        "- overall_reason: string — 2-3 sentences explaining the score in plain language\n"
+        "- strengths: array of strings — each must reference a specific CV element\n"
+        "- gaps: array of strings — each must include severity label [BLOCKING/IMPORTANT/MINOR]\n"
+        "- actionable_advice: array of strings — concrete next steps\n"
+        "- application_ready: boolean — true if they should apply now\n"
     )
 
     try:
@@ -319,12 +329,12 @@ def analyze_cv_against_job(
     except Exception as e:
         print(f"analyze_cv_against_job failed: {e}")
         return {
-            "overall_verdict": "Analysis unavailable \u2014 please try again.",
+            "overall_verdict": "Analysis unavailable — please try again.",
             "hire_probability": "N/A",
             "overall_reason": f"The AI analysis could not be completed: {str(e)}",
             "strengths": [],
             "gaps": [],
-            "actionable_advice": ["Try again in a few seconds \u2014 the AI service may be temporarily busy."],
+            "actionable_advice": ["Try again in a few seconds — the AI service may be temporarily busy."],
             "application_ready": False,
         }
 
