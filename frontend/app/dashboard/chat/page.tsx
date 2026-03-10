@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Send, Bot, User, FileText, Sparkles } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
@@ -28,7 +28,7 @@ export default function ChatPage() {
     const selectedCvIdRef = useRef<number | null>(null);
     useEffect(() => { selectedCvIdRef.current = selectedCvId; }, [selectedCvId]);
 
-    async function fetchCvs() {
+    const fetchCvs = useCallback(async () => {
         setLoading(true);
         try {
             const res = await fetch("/api/v1/cv/mine", { credentials: "include" });
@@ -36,28 +36,29 @@ export default function ChatPage() {
             if (!res.ok) throw new Error("Unable to load CVs");
             const data = (await res.json()) as CvItem[];
             setCvs(data);
-            const currentId   = selectedCvIdRef.current;
-            const stillValid  = currentId !== null && data.some(c => c.id === currentId);
+            const currentId  = selectedCvIdRef.current;
+            const stillValid = currentId !== null && data.some(c => c.id === currentId);
             if (!stillValid) setSelectedCvId(data.length > 0 ? data[0].id : null);
         } catch (err) {
             console.error(err);
         } finally {
             setLoading(false);
         }
-    }
+    }, []);
 
-    useEffect(() => { void fetchCvs(); }, []);
+    // Initial load
+    useEffect(() => { void fetchCvs(); }, [fetchCvs]);
 
     // Re-fetch CV list whenever a CV is uploaded or deleted from another tab/page
     useEffect(() => {
         const handler = () => void fetchCvs();
         window.addEventListener("cv:uploaded", handler);
-        window.addEventListener("cv:deleted", handler);
+        window.addEventListener("cv:deleted",  handler);
         return () => {
             window.removeEventListener("cv:uploaded", handler);
-            window.removeEventListener("cv:deleted", handler);
+            window.removeEventListener("cv:deleted",  handler);
         };
-    }, []);
+    }, [fetchCvs]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
