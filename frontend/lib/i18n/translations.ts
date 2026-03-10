@@ -2,14 +2,12 @@ export type Locale = "fr" | "en";
 
 export const translations = {
   fr: {
-    // ── Nav / Header
     nav: {
       signIn: "Se connecter",
       dashboard: "Tableau de bord",
       getStarted: "Commencer",
       pricing: "Tarifs",
     },
-    // ── Hero
     hero: {
       roleSeeker: "Chercheur d'emploi",
       roleRecruiter: "Recruteur",
@@ -26,12 +24,10 @@ export const translations = {
       ctaRecruiter: "Démarrer l'analyse groupée",
       freeChecks: "3 analyses gratuites",
     },
-    // ── Testimonials
     testimonials: {
       trustedSeekers: "Approuvé par les chercheurs d'emploi",
       trustedHiring: "Approuvé par les équipes RH",
     },
-    // ── Features
     features: {
       whyTitle: "Pourquoi Pathwise ?",
       whySub: "Conçu pour la clarté dans un marché du travail chaotique.",
@@ -77,7 +73,6 @@ export const translations = {
       speedSuffixSeeker: "Ou moins par réévaluation",
       speedSuffixRecruiter: "Plus rapide que la revue manuelle",
     },
-    // ── How it works
     howItWorks: {
       title: "Comment ça marche",
       step1TitleSeeker: "Importez CV & Fiche de Poste",
@@ -99,7 +94,6 @@ export const translations = {
       step3DescRecruiter:
         "Consultez un tableau classé montrant qui correspond le mieux. Chaque candidat reçoit un score et un verdict IA résumant ses points forts et ses lacunes.",
     },
-    // ── Pricing
     pricing: {
       title: "Tarification simple et transparente.",
       sub: "Commencez gratuitement. Passez à la version supérieure quand vous décrochez l'entretien (ou embauchez le candidat).",
@@ -115,7 +109,6 @@ export const translations = {
       upgradePro: "Passer à Pro",
       popular: "POPULAIRE",
     },
-    // ── Footer
     footer: {
       tagline: "Vérifiez votre CV avant que le recruteur ne le fasse.",
       privacy: "Confidentialité",
@@ -123,7 +116,6 @@ export const translations = {
       twitter: "Twitter",
       rights: "Tous droits réservés.",
     },
-    // ── Auth pages
     auth: {
       signInTitle: "Connexion",
       signUpTitle: "Créer un compte",
@@ -146,7 +138,6 @@ export const translations = {
         generic: "Une erreur est survenue. Veuillez réessayer.",
       },
     },
-    // ── Onboarding
     onboarding: {
       title: "Bienvenue sur Pathwise",
       chooseRole: "Choisissez votre rôle",
@@ -156,7 +147,6 @@ export const translations = {
       seekerDesc: "Analysez votre CV et recevez des retours personnalisés.",
       recruiterDesc: "Sélectionnez des candidats et trouvez les meilleurs profils.",
     },
-    // ── Job Seeker Dashboard
     seekerDashboard: {
       hello: "Bonjour",
       uploadResume: "Importer mon CV",
@@ -195,7 +185,6 @@ export const translations = {
       deleteSuccess: "Analyse supprimée.",
       deleteError: "Erreur lors de la suppression.",
     },
-    // ── Recruiter Dashboard
     recruiterDashboard: {
       hello: "Bonjour",
       newSession: "Nouvelle session",
@@ -229,7 +218,6 @@ export const translations = {
       exportCSV: "Exporter CSV",
       topMatch: "Meilleure correspondance",
     },
-    // ── Shared UI
     ui: {
       loading: "Chargement…",
       error: "Une erreur est survenue.",
@@ -252,11 +240,9 @@ export const translations = {
       warningTitle: "Attention",
       infoTitle: "Information",
     },
-    // ── Pricing page
     pricingPage: {
       title: "Tarification",
-      subtitle:
-        "Des plans conçus pour les chercheurs d'emploi et les recruteurs.",
+      subtitle: "Des plans conçus pour les chercheurs d'emploi et les recruteurs.",
       monthly: "Mensuel",
       annual: "Annuel",
       save20: "Économisez 20 %",
@@ -265,7 +251,6 @@ export const translations = {
       contactSales: "Contacter les ventes",
       faqTitle: "Questions fréquentes",
     },
-    // ── Upload Page
     upload: {
       title: "Importer un CV",
       subtitle: "Importez votre CV pour obtenir une analyse et un score.",
@@ -289,7 +274,6 @@ export const translations = {
       fileSize: "Taille",
       pages: "pages",
     },
-    // ── Analysis Page
     analysis: {
       title: "Analyse du CV",
       subtitle: "Obtenez un retour détaillé sur votre CV.",
@@ -321,7 +305,6 @@ export const translations = {
       minimal: "Minimaliste",
       downloadPdf: "Télécharger en PDF",
     },
-    // ── Career Match Page
     careerMatch: {
       title: "Correspondance de poste",
       subtitle: "Voyez à quel point votre CV correspond à un poste visé.",
@@ -364,7 +347,6 @@ export const translations = {
       selectCVPlaceholder: "Sélectionner un CV",
       language: "Langue de réponse",
     },
-    // ── Chat Page
     chatPage: {
       title: "Conseiller carrière IA",
       subtitle: "Posez toutes vos questions sur votre CV ou votre parcours.",
@@ -383,7 +365,6 @@ export const translations = {
       advisor: "Conseiller IA",
       language: "Langue de conversation",
     },
-    // ── Jobs Page
     jobs: {
       title: "Offres d'emploi",
       subtitle: "Offres à distance correspondant à votre profil.",
@@ -403,7 +384,6 @@ export const translations = {
       autoDetected: "Offres correspondant à votre profil",
       refreshJobs: "Actualiser",
     },
-    // ── Extended Dashboard Translations
     ext: {
       checkFitTitle: "Vérifiez votre adéquation",
       checkFitSub: "Collez l'offre d'emploi, remplissez le titre exact...",
@@ -431,6 +411,7 @@ export const translations = {
       readyToApply: "Prêt à postuler",
       fixGapsFirst: "Corrigez les lacunes d'abord",
       whatRoleRequires: "Exigences du poste",
+      niceToHave: "Appréciées",
       blockingGapsTitle: "Ces lacunes doivent être corrigées avant de postuler",
       concreteStepsTitle: "Étapes concrètes avant de postuler",
       noBlockingIssues: "Aucun problème bloquant. Consultez l'onglet Lacunes.",
@@ -441,6 +422,29 @@ export const translations = {
       noRoadmap: "Aucune roadmap générée.",
       discussCoach: "Discuter avec le Coach IA",
       tryAnotherJob: "Essayer un autre poste",
+      // ── Tab labels
+      tabOverview: "Aperçu",
+      tabGaps: "Lacunes",
+      tabStrengths: "Atouts",
+      tabRoadmap: "Plan d'action",
+      // ── Severity badge labels
+      severityBlocking: "Bloquant",
+      severityImportant: "Important",
+      severityMinor: "Mineur",
+      // ── Verdict labels
+      verdictStrong: "Forte adéquation",
+      verdictGood: "Bonnes chances",
+      verdictBorderline: "Limite",
+      verdictTough: "Difficile",
+      // ── Char counter messages
+      charCounterMore: "caractères supplémentaires pour déverrouiller l'analyse",
+      charCounterShort: "Description courte — les résultats peuvent être limités. Collez l'offre complète pour plus de précision.",
+      charCounterGood: "Bon niveau de détail — plus vous collez, plus les lacunes seront précises.",
+      // ── Gate messages
+      gateNext: "pour continuer",
+      // ── Misc labels still hardcoded
+      poweredByAI: "Propulsé par l'IA",
+      selectLevel: "Sélectionner le niveau…",
       talentMgmt: "Gestion des Talents",
       talentMgmtSub: "Évaluez les candidats et analysez les CV.",
       tabCandidates: "Candidats",
@@ -536,7 +540,6 @@ export const translations = {
       quickMatchingTitle: "Flux de matching rapide",
       quickMatchingSteps: "Étape 1 : Détails du poste · Étape 2 : Upload des CV · Étape 3 : Résumé du matching IA.",
     },
-    // ── Global Errors
     errors: {
       notFound: "Page introuvable.",
       unauthorized: "Accès non autorisé. Veuillez vous connecter.",
@@ -799,7 +802,6 @@ export const translations = {
       contactSales: "Contact Sales",
       faqTitle: "Frequently Asked Questions",
     },
-    // ── Upload Page
     upload: {
       title: "Upload CV",
       subtitle: "Upload your resume to get an AI-powered score and analysis.",
@@ -823,7 +825,6 @@ export const translations = {
       fileSize: "File size",
       pages: "pages",
     },
-    // ── Analysis Page
     analysis: {
       title: "CV Analysis",
       subtitle: "Get detailed AI feedback on your resume.",
@@ -855,7 +856,6 @@ export const translations = {
       minimal: "Minimal",
       downloadPdf: "Download as PDF",
     },
-    // ── Career Match Page
     careerMatch: {
       title: "Career Match",
       subtitle: "See how well your CV matches your target job.",
@@ -898,7 +898,6 @@ export const translations = {
       selectCVPlaceholder: "Select a CV",
       language: "Response Language",
     },
-    // ── Chat Page
     chatPage: {
       title: "AI Career Advisor",
       subtitle: "Ask anything about your CV or career path.",
@@ -915,7 +914,6 @@ export const translations = {
       advisor: "AI Advisor",
       language: "Chat Language",
     },
-    // ── Jobs Page
     jobs: {
       title: "Browse Jobs",
       subtitle: "Remote job listings matched to your profile.",
@@ -935,7 +933,6 @@ export const translations = {
       autoDetected: "Auto-detected Matches",
       refreshJobs: "Refresh",
     },
-    // ── Extended Dashboard Translations
     ext: {
       checkFitTitle: "Check Your Fit Before Applying",
       checkFitSub: "Paste the real job post, fill in the exact title...",
@@ -963,6 +960,7 @@ export const translations = {
       readyToApply: "Ready to apply",
       fixGapsFirst: "Fix gaps first",
       whatRoleRequires: "What This Role Actually Requires",
+      niceToHave: "Nice to Have",
       blockingGapsTitle: "These gaps need to be addressed before you apply",
       concreteStepsTitle: "Concrete steps to take before applying",
       noBlockingIssues: "No blocking issues found. Check the Gaps tab.",
@@ -973,6 +971,29 @@ export const translations = {
       noRoadmap: "No roadmap generated.",
       discussCoach: "Discuss with AI Coach",
       tryAnotherJob: "Try Another Job",
+      // ── Tab labels
+      tabOverview: "Overview",
+      tabGaps: "Gaps",
+      tabStrengths: "Strengths",
+      tabRoadmap: "Roadmap",
+      // ── Severity badge labels
+      severityBlocking: "Blocking",
+      severityImportant: "Important",
+      severityMinor: "Minor",
+      // ── Verdict labels
+      verdictStrong: "Strong Match",
+      verdictGood: "Good Chances",
+      verdictBorderline: "Borderline",
+      verdictTough: "Tough Match",
+      // ── Char counter messages
+      charCounterMore: "more characters to unlock analysis",
+      charCounterShort: "Short description — results may be limited. Paste the full job posting for best accuracy.",
+      charCounterGood: "Good detail level — the more you paste, the more precise the gaps.",
+      // ── Gate messages
+      gateNext: "to continue",
+      // ── Misc
+      poweredByAI: "Powered by AI",
+      selectLevel: "Select level…",
       talentMgmt: "Talent Management",
       talentMgmtSub: "Screen candidates, analyze resumes, and match.",
       tabCandidates: "Candidates",
@@ -1068,7 +1089,6 @@ export const translations = {
       quickMatchingTitle: "Quick matching flow",
       quickMatchingSteps: "Step 1: Job details · Step 2: Upload CVs · Step 3: AI match summary.",
     },
-    // ── Global Errors
     errors: {
       notFound: "Page not found.",
       unauthorized: "Unauthorized. Please log in.",
