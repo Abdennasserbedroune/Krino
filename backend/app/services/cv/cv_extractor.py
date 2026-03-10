@@ -1,10 +1,98 @@
 """Service for extracting structured information from CV text using Groq AI."""
-from typing import Any, Dict
+from typing import Any, Dict, List
 import json
+import re
+from datetime import date
 
 from app.services.ai.groq_client import get_groq_client
 from app.services.ai.language_utils import detect_text_language
 
+
+# ── Month name tables (EN + FR) ────────────────────────────────────────────────
+_MONTHS_EN = {
+    "january": 1, "february": 2, "march": 3, "april": 4,
+    "may": 5, "june": 6, "july": 7, "august": 8,
+    "september": 9, "october": 10, "november": 11, "december": 12,
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4,
+    "jun": 6, "jul": 7, "aug": 8, "sep": 9,
+    "oct": 10, "nov": 11, "dec": 12,
+}
+_MONTHS_FR = {
+    "janvier": 1, "f\u00e9vrier": 2, "mars": 3, "avril": 4,
+    "mai": 5, "juin": 6, "juillet": 7, "ao\u00fbt": 8,
+    "septembre": 9, "octobre": 10, "novembre": 11, "d\u00e9cembre": 12,
+    "janv": 1, "f\u00e9vr": 2, "avr": 4, "juil": 7,
+}
+_ALL_MONTHS = {**_MONTHS_EN, **_MONTHS_FR}
+
+
+def _parse_date(raw: str) -> date | None:
+    """Parse a loose date string such as 'March 2021', 'jan 2020', '2018' into a date."""
+    if not raw:
+        return None
+    s = raw.strip().lower()
+    if s in ("present", "current", "now", "aujourd'hui", "actuel", "en cours"):
+        return date.today()
+
+    # Try ISO YYYY-MM
+    m = re.match(r"(\d{4})-(\d{1,2})", s)
+    if m:
+        return date(int(m.group(1)), int(m.group(2)), 1)
+
+    # Try "Month YYYY" or "YYYY Month"
+    parts = re.split(r"[\s,/]+", s)
+    year, month = None, None
+    for part in parts:
+        if re.match(r"^\d{4}$", part):
+            year = int(part)
+        elif part in _ALL_MONTHS:
+            month = _ALL_MONTHS[part]
+
+    if year and month:
+        return date(year, month, 1)
+    if year:
+        return date(year, 1, 1)
+    return None
+
+
+def _compute_years_experience(experience_list: List[Any]) -> int:
+    """Compute total years of professional experience from a list of experience dicts.
+
+    Each item is expected to have at least ``start_date`` and optionally
+    ``end_date``.  Overlapping periods are handled by merging intervals.
+    Returns 0 if the list is empty or dates cannot be parsed.
+    """
+    if not experience_list:
+        return 0
+
+    intervals: List[tuple[date, date]] = []
+    for item in experience_list:
+        if not isinstance(item, dict):
+            continue
+        start = _parse_date(str(item.get("start_date", "") or ""))
+        end_raw = str(item.get("end_date", "") or "")
+        end = _parse_date(end_raw) if end_raw else date.today()
+        if start and end and end >= start:
+            intervals.append((start, end))
+
+    if not intervals:
+        return 0
+
+    # Merge overlapping intervals to avoid double-counting
+    intervals.sort(key=lambda x: x[0])
+    merged: List[tuple[date, date]] = [intervals[0]]
+    for start, end in intervals[1:]:
+        prev_start, prev_end = merged[-1]
+        if start <= prev_end:
+            merged[-1] = (prev_start, max(prev_end, end))
+        else:
+            merged.append((start, end))
+
+    total_days = sum((e - s).days for s, e in merged)
+    return max(0, int(total_days / 365.25))
+
+
+# ── Main extraction function ───────────────────────────────────────────────────
 
 def extract_cv_data(cv_text: str) -> Dict[str, Any]:
     """Extract structured CV information from raw text using Groq AI."""
@@ -18,6 +106,8 @@ def extract_cv_data(cv_text: str) -> Dict[str, Any]:
             "certifications": [],
             "languages": [],
             "projects": [],
+            "cv_language": "en",
+            "total_years_experience": 0,
             "error": "No text content found in CV"
         }
 
@@ -154,10 +244,11 @@ CV Text:
                     else ""
                 )
 
-        # Store the detected language so every downstream feature
-        # (match-to-job, chat, analysis) reads it from the DB
-        # without re-detecting from raw text.
+        # Store detected language + canonical experience years
         extracted_data["cv_language"] = cv_language
+        extracted_data["total_years_experience"] = _compute_years_experience(
+            extracted_data.get("experience") or []
+        )
 
         return extracted_data
 
@@ -173,6 +264,7 @@ CV Text:
             "languages": [],
             "projects": [],
             "cv_language": cv_language,
+            "total_years_experience": 0,
             "error": f"Failed to parse AI response as JSON: {str(e)}"
         }
     except Exception as e:
@@ -187,6 +279,7 @@ CV Text:
             "languages": [],
             "projects": [],
             "cv_language": "en",
+            "total_years_experience": 0,
             "error": f"CV extraction failed: {str(e)}"
         }
 
@@ -210,5 +303,6 @@ def extract_cv_from_file(file_path: str, file_type: str) -> Dict[str, Any]:
             "languages": [],
             "projects": [],
             "cv_language": "en",
+            "total_years_experience": 0,
             "error": f"File extraction failed: {str(e)}"
         }
