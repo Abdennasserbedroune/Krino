@@ -6,72 +6,8 @@ from app.services.ai.groq_client import get_groq_client
 from app.services.ai.language_utils import detect_text_language
 
 
-def _compute_years_experience(experience: list) -> int:
-    """Compute total years of experience from structured experience array.
-
-    Iterates over each role and sums durations derived from start_date /
-    end_date strings.  Falls back to 0 when dates cannot be parsed.
-    """
-    from datetime import datetime
-    import re
-
-    MONTH_MAP = {
-        "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
-        "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
-        "janvier": 1, "février": 2, "mars": 3, "avril": 4, "mai": 5,
-        "juin": 6, "juillet": 7, "août": 8, "septembre": 9,
-        "octobre": 10, "novembre": 11, "décembre": 12,
-    }
-
-    def _parse_date(raw: str) -> datetime | None:
-        if not raw:
-            return None
-        raw = raw.strip().lower()
-        if raw in ("present", "current", "aujourd'hui", "maintenant", "en cours"):
-            return datetime.now()
-        # Try YYYY-MM
-        m = re.match(r"(\d{4})[-/](\d{1,2})", raw)
-        if m:
-            return datetime(int(m.group(1)), int(m.group(2)), 1)
-        # Try "Month YYYY" or "Month, YYYY"
-        m = re.match(r"([a-zéûôàâèù]+)[,\s]+(\d{4})", raw)
-        if m:
-            month_str = m.group(1)[:4]  # first 4 chars enough for most
-            year = int(m.group(2))
-            month = MONTH_MAP.get(month_str, None) or MONTH_MAP.get(m.group(1), None)
-            if month:
-                return datetime(year, month, 1)
-        # Try plain YYYY
-        m = re.match(r"(\d{4})", raw)
-        if m:
-            return datetime(int(m.group(1)), 1, 1)
-        return None
-
-    if not isinstance(experience, list):
-        return 0
-
-    total_months = 0
-    for role in experience:
-        if not isinstance(role, dict):
-            continue
-        start = _parse_date(role.get("start_date", ""))
-        end = _parse_date(role.get("end_date", ""))
-        if start and end and end >= start:
-            delta = (end.year - start.year) * 12 + (end.month - start.month)
-            total_months += max(0, delta)
-
-    return round(total_months / 12)
-
-
 def extract_cv_data(cv_text: str) -> Dict[str, Any]:
-    """Extract structured CV information from raw text using Groq AI.
-
-    Also computes:
-    - cv_language: 'fr' | 'en'  detected from the raw text
-    - total_years_experience: canonical integer derived from experience dates
-      (not a regex guess on raw text — avoids the inconsistency bug where
-      different pages showed 2, 4, or 10 years for the same candidate)
-    """
+    """Extract structured CV information from raw text using Groq AI."""
     if not cv_text or not cv_text.strip():
         return {
             "personal_info": {},
@@ -82,19 +18,24 @@ def extract_cv_data(cv_text: str) -> Dict[str, Any]:
             "certifications": [],
             "languages": [],
             "projects": [],
-            "cv_language": "fr",
-            "total_years_experience": 0,
-            "error": "No text content found in CV",
+            "error": "No text content found in CV"
         }
-
-    # Detect language BEFORE any AI call so we always have it
-    cv_language = detect_text_language(cv_text)
 
     client = get_groq_client()
 
+    # Detect language ONCE here and store it — all downstream features read this
+    cv_language = detect_text_language(cv_text)
+
+    lang_instruction = (
+        "IMPORTANT: This CV is written in French. Extract all fields exactly as they appear. "
+        "Do NOT translate any content.\n"
+        if cv_language == "fr"
+        else ""
+    )
+
     prompt = f"""You are a CV parsing expert. Extract structured information from the following CV text.
 
-Return ONLY a valid JSON object with this exact structure (no markdown, no code blocks, just raw JSON):
+{lang_instruction}Return ONLY a valid JSON object with this exact structure (no markdown, no code blocks, just raw JSON):
 
 {{
   "personal_info": {{
@@ -161,7 +102,7 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no code 
 Important:
 - Extract ALL information present in the CV
 - If a field is not present, use empty string "" or empty array []
-- Dates MUST be in "Month YYYY" format (e.g. "January 2020") or "Present"
+- Ensure dates are in a consistent format (Month Year)
 - Be thorough and accurate
 - Return ONLY the JSON object, no other text
 
@@ -175,9 +116,16 @@ CV Text:
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a CV parsing expert. Extract structured information from CVs and return ONLY valid JSON. Never include markdown code blocks or any text outside the JSON object.",
+                    "content": (
+                        "You are a CV parsing expert. Extract structured information from CVs "
+                        "and return ONLY valid JSON. Never include markdown code blocks or any "
+                        "text outside the JSON object."
+                    )
                 },
-                {"role": "user", "content": prompt},
+                {
+                    "role": "user",
+                    "content": prompt
+                }
             ],
             temperature=0.1,
             max_tokens=4000,
@@ -185,6 +133,7 @@ CV Text:
 
         content = response.choices[0].message.content.strip()
 
+        # Strip markdown fences if the model added them despite instructions
         if content.startswith("```json"):
             content = content[7:]
         elif content.startswith("```"):
@@ -195,6 +144,7 @@ CV Text:
 
         extracted_data = json.loads(content)
 
+        # Ensure required top-level keys are present
         required_keys = ["personal_info", "summary", "experience", "education", "skills"]
         for key in required_keys:
             if key not in extracted_data:
@@ -204,11 +154,10 @@ CV Text:
                     else ""
                 )
 
-        # ── Canonical values stored once, read everywhere ──────────────────
+        # Store the detected language so every downstream feature
+        # (match-to-job, chat, analysis) reads it from the DB
+        # without re-detecting from raw text.
         extracted_data["cv_language"] = cv_language
-        extracted_data["total_years_experience"] = _compute_years_experience(
-            extracted_data.get("experience", [])
-        )
 
         return extracted_data
 
@@ -224,8 +173,7 @@ CV Text:
             "languages": [],
             "projects": [],
             "cv_language": cv_language,
-            "total_years_experience": 0,
-            "error": f"Failed to parse AI response as JSON: {str(e)}",
+            "error": f"Failed to parse AI response as JSON: {str(e)}"
         }
     except Exception as e:
         print(f"CV extraction error: {e}")
@@ -238,9 +186,8 @@ CV Text:
             "certifications": [],
             "languages": [],
             "projects": [],
-            "cv_language": cv_language,
-            "total_years_experience": 0,
-            "error": f"CV extraction failed: {str(e)}",
+            "cv_language": "en",
+            "error": f"CV extraction failed: {str(e)}"
         }
 
 
@@ -262,7 +209,6 @@ def extract_cv_from_file(file_path: str, file_type: str) -> Dict[str, Any]:
             "certifications": [],
             "languages": [],
             "projects": [],
-            "cv_language": "fr",
-            "total_years_experience": 0,
-            "error": f"File extraction failed: {str(e)}",
+            "cv_language": "en",
+            "error": f"File extraction failed: {str(e)}"
         }
