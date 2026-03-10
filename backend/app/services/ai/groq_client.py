@@ -20,7 +20,7 @@ def review_cv_with_groq(
     extracted_cv: Dict[str, Any],
     structured_data: Dict[str, Any],
     analysis_result: Dict[str, Any],
-    language: str = "en",
+    language: str = "fr",
 ) -> Dict[str, Any]:
     """Review CV using Groq based on extracted CV data and analysis."""
     client = get_groq_client()
@@ -45,7 +45,7 @@ def review_cv_with_groq(
     )
 
     lang_note = (
-        "\nR\u00e9ponds enti\u00e8rement en fran\u00e7ais. Les valeurs JSON doivent aussi \u00eatre en fran\u00e7ais.\n"
+        "\nRéponds entièrement en français. Les valeurs JSON doivent aussi être en français.\n"
         if language == "fr"
         else ""
     )
@@ -93,14 +93,14 @@ def review_cv_with_groq(
 def rewrite_cv_with_groq(
     structured_data: Dict[str, Any],
     suggestions: Dict[str, Any],
-    language: str = "en",
+    language: str = "fr",
 ) -> str:
     """Rewrite CV based on structured data and suggestions."""
     client = get_groq_client()
     lang_directive = get_language_directive(language)
 
     lang_note = (
-        "R\u00e9\u00e9cris le CV enti\u00e8rement en fran\u00e7ais.\n"
+        "Réécris le CV entièrement en français.\n"
         if language == "fr"
         else "Rewrite the CV in English.\n"
     )
@@ -138,7 +138,7 @@ def rewrite_cv_with_groq(
 def match_cv_to_job_with_groq(
     job_summary: str,
     cv_summary: str,
-    language: str = "en",
+    language: str = "fr",
 ) -> Dict[str, Any]:
     """Ask Groq to explain how well a CV matches a job profile (recruiter flow)."""
     client = get_groq_client()
@@ -182,18 +182,14 @@ def match_cv_to_job_with_groq(
         }
 
 
-# ─── SEEKER MATCH PIPELINE ────────────────────────────────────────────────
-#
-# Two-step approach for the "Desired Job" seeker flow:
-#   Step 1 — extract_job_requirements  : reads only the job description (~300 tokens)
-#   Step 2 — analyze_cv_against_job    : reads step-1 output + cv structured JSON (~600 tokens)
+# ── SEEKER MATCH PIPELINE ─────────────────────────────────────────────────────
 
 def extract_job_requirements(
     job_description: str,
     job_category: str = "",
     job_title: str = "",
     skills_hint: str = "",
-    language: str = "en",
+    language: str = "fr",
 ) -> Dict[str, Any]:
     """Step 1 — Parse a raw job description into a structured requirements dict."""
     client = get_groq_client()
@@ -255,9 +251,14 @@ def analyze_cv_against_job(
     cv_structured: Dict[str, Any],
     cv_analysis: Dict[str, Any],
     job_title: str = "",
-    language: str = "en",
+    language: str = "fr",
+    candidate_years: int = 0,
 ) -> Dict[str, Any]:
-    """Step 2 — Deep analysis of a CV against already-extracted job requirements."""
+    """Step 2 — Deep analysis of a CV against already-extracted job requirements.
+
+    candidate_years is the canonical value computed from experience dates at
+    upload time — passed explicitly so the model never has to re-infer it.
+    """
     client = get_groq_client()
     lang_directive = get_language_directive(language)
 
@@ -273,13 +274,10 @@ def analyze_cv_against_job(
     cv_score = cv_analysis.get("score", "N/A")
     cv_readability = cv_analysis.get("readability_score", "N/A")
 
-    # Inject the pre-computed total_years_experience so the model cannot
-    # misread job-description sentences ("requires 5 years") as the
-    # candidate's own tenure.
-    total_years = (cv_structured or {}).get("total_years_experience", None)
+    # Inject canonical years so the model never guesses
     years_line = (
-        f"Candidate total years of experience (pre-computed from CV dates): {total_years} years\n"
-        if total_years is not None
+        f"Candidate total years of experience (computed from CV dates): {candidate_years} years.\n"
+        if candidate_years > 0
         else ""
     )
 
@@ -292,8 +290,7 @@ def analyze_cv_against_job(
         "- Actionable advice must be concrete: name the exact skill to add, the cert to get, or the section to rewrite\n"
         "- Be honest about weak matches — false hope hurts the user\n"
         "- The hire_probability must be a realistic percentage range based on the actual gaps found\n"
-        "- IMPORTANT: use the 'Candidate total years of experience' field provided below as the "
-        "authoritative value for experience — do NOT infer years from the job description text."
+        "- IMPORTANT: use the provided candidate_years value as the authoritative years of experience — do NOT re-derive it from the CV text"
         + lang_directive
     )
 
@@ -342,7 +339,7 @@ def analyze_cv_against_job(
 def recruiter_chat(
     cv_summary: str,
     messages: List[Dict[str, str]],
-    language: str = "en",
+    language: str = "fr",
 ) -> str:
     """Generate a recruiter-like reply using Groq."""
     client = get_groq_client()
@@ -389,4 +386,4 @@ def recruiter_chat(
         return reply
     except Exception as e:
         print(f"Groq recruiter_chat failed: {e}")
-        return "Sorry, I couldn't process your request at the moment."
+        return "Désolé, je n'ai pas pu traiter votre demande. Veuillez réessayer."
