@@ -70,20 +70,30 @@ export default function JobsPage() {
   const [error,        setError]        = useState("");
   const [searched,     setSearched]     = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      setLoadingCvs(true);
-      try {
-        const res  = await fetch("/api/v1/cv/mine", { credentials: "include" });
-        if (!res.ok) throw new Error();
-        const data = (await res.json()) as any[];
-        const list = (data || []).map(c => ({ id: c.id, original_filename: c.original_filename }));
-        setCvs(list);
-        if (list.length === 1) setSelectedCvId(list[0].id);
-      } catch { setCvs([]); }
-      finally { setLoadingCvs(false); }
-    })();
+  const loadCvs = useCallback(async () => {
+    setLoadingCvs(true);
+    try {
+      const res  = await fetch("/api/v1/cv/mine", { credentials: "include" });
+      if (!res.ok) throw new Error();
+      const data = (await res.json()) as any[];
+      const list = (data || []).map(c => ({ id: c.id, original_filename: c.original_filename }));
+      setCvs(list);
+      if (list.length === 1) setSelectedCvId(list[0].id);
+    } catch { setCvs([]); }
+    finally { setLoadingCvs(false); }
   }, []);
+
+  // Initial load
+  useEffect(() => {
+    void loadCvs();
+  }, [loadCvs]);
+
+  // Re-fetch CV list whenever a CV is uploaded from another tab/page
+  useEffect(() => {
+    const handler = () => void loadCvs();
+    window.addEventListener("cv:uploaded", handler);
+    return () => window.removeEventListener("cv:uploaded", handler);
+  }, [loadCvs]);
 
   const fetchJobs = useCallback(async (search: string, category: string) => {
     setLoading(true); setError(""); setSearched(true);
@@ -118,7 +128,6 @@ export default function JobsPage() {
         const slug = (data?.category_slug  as string) || "";
 
         if (sq || slug) {
-          // Role detected — fetch targeted jobs
           setDetectedRole(role);
           setCategorySlug(slug);
           setInput(sq);
@@ -126,13 +135,11 @@ export default function JobsPage() {
           setActiveFilter(null);
           fetchJobs(sq, slug);
         } else {
-          // Role not detected — fetch a broad batch so the page isn't empty
           setDetectedRole("");
           setCategorySlug("");
-          fetchJobs("", "software-dev"); // default fallback category
+          fetchJobs("", "software-dev");
         }
       } catch {
-        // On error, still show something useful
         fetchJobs("", "software-dev");
       } finally {
         setInferring(false);
@@ -145,7 +152,7 @@ export default function JobsPage() {
     if (!trimmed) return;
     setActiveFilter(null);
     setQuery(trimmed);
-    fetchJobs(trimmed, ""); // Manual search = drop category filter for broader results
+    fetchJobs(trimmed, "");
   };
 
   const handlePillClick = (term: string) => {
