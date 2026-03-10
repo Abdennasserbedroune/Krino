@@ -31,7 +31,7 @@ from app.services.cv.action_plan import generate_action_plan
 router = APIRouter(prefix="/cv", tags=["cv"])
 
 
-# ─── Schemas ───────────────────────────────────────────────────────────────────────────────
+# ─── Schemas ──────────────────────────────────────────────────────────────────────────────────────
 class JobMatchRequest(BaseModel):
     cv_id: int
     job_category: str = Field(default="", description="Domain category selected by user")
@@ -44,7 +44,7 @@ class JobMatchRequest(BaseModel):
     experience_required: str = Field(default="", description="e.g. '3-5 years' or 'Senior'")
     skills_required: str = Field(default="", description="Comma-separated skills from the form")
     language: Literal["en", "fr", "auto"] = Field(
-        default="en",
+        default="auto",
         description="Language for AI-generated analysis responses",
     )
 
@@ -70,8 +70,10 @@ class SuggestJobQueryRequest(BaseModel):
     cv_id: int
 
 
-# ─── Scoring helpers ───────────────────────────────────────────────────────────────────────
+# ─── Scoring helpers ──────────────────────────────────────────────────────────────────────────────
 import re
+from dateutil import parser as dateutil_parser
+from datetime import date
 
 _YEARS_RE = re.compile(r"(\d{1,2})\+?\s+years?", re.IGNORECASE)
 
@@ -145,14 +147,47 @@ _ROLE_TO_CATEGORY: Dict[str, str] = {
 }
 
 
-def _parse_candidate_years(text: str) -> int:
-    matches = _YEARS_RE.findall(text or "")
-    if not matches:
+def _compute_total_years_from_structured(structured: Dict[str, Any]) -> int:
+    """Compute total years of experience by summing role durations from structured data.
+
+    This is the SINGLE source of truth for years-of-experience used by all
+    scoring and AI functions. It avoids the naive full-text regex that was
+    matching requirement sentences (e.g. '5 years required') instead of the
+    candidate's actual tenure.
+    """
+    experience = structured.get("experience") or []
+    if not isinstance(experience, list) or not experience:
         return 0
-    try:
-        return max(int(m) for m in matches)
-    except ValueError:
-        return 0
+
+    today = date.today()
+    total_days = 0
+
+    for role in experience:
+        if not isinstance(role, dict):
+            continue
+        start_raw = (role.get("start_date") or "").strip()
+        end_raw = (role.get("end_date") or "").strip().lower()
+
+        if not start_raw:
+            continue
+
+        try:
+            start_date = dateutil_parser.parse(start_raw, default=datetime(today.year, 1, 1)).date()
+        except Exception:
+            continue
+
+        if not end_raw or end_raw in ("present", "aujourd'hui", "maintenant", "actuel", "current", "now"):
+            end_date = today
+        else:
+            try:
+                end_date = dateutil_parser.parse(end_raw, default=datetime(today.year, 12, 31)).date()
+            except Exception:
+                end_date = today
+
+        if end_date >= start_date:
+            total_days += (end_date - start_date).days
+
+    return round(total_days / 365.25)
 
 
 def _parse_required_years(range_str: str) -> int:
@@ -253,7 +288,35 @@ def _resolve_raw_text(cv: CV) -> str:
     return raw_text
 
 
-# ─── Endpoints ──────────────────────────────────────────────────────────────────────────────
+def _resolve_cv_language(cv: CV, payload_language: str = "auto") -> str:
+    """Resolve language to use for AI responses.
+
+    Priority order:
+    1. Explicit 'fr' or 'en' from frontend payload.
+    2. cv_language stored in extracted_cv at upload time (most reliable).
+    3. Fallback: detect from raw text.
+    """
+    if payload_language in ("fr", "en"):
+        return payload_language
+
+    # Read the language detected and stored at upload time
+    extracted = cv.extracted_cv or {}
+    if isinstance(extracted, str):
+        try:
+            extracted = json.loads(extracted)
+        except Exception:
+            extracted = {}
+    stored_lang = extracted.get("cv_language", "") if isinstance(extracted, dict) else ""
+    if stored_lang in ("fr", "en"):
+        return stored_lang
+
+    # Last resort: detect from raw text
+    from app.services.ai.language_utils import detect_text_language
+    raw_text = _resolve_raw_text(cv)
+    return detect_text_language(raw_text) if raw_text else "en"
+
+
+# ─── Endpoints ────────────────────────────────────────────────────────────────────────────────────────
 @router.get("/db-test")
 def test_db():
     from app.db.session import SessionLocal
@@ -348,6 +411,10 @@ async def upload_cv(
     except Exception:
         structured_data = {}
 
+    # Compute total years once at upload — stored and reused by all features
+    total_years = _compute_total_years_from_structured(structured_data)
+    structured_data["total_years_experience"] = total_years
+
     cv = CV(
         user_id=current_user.id,
         original_filename=file.filename,
@@ -427,18 +494,22 @@ async def _do_match_cv_to_job(
             structured = extract_structured_data(raw_text) if raw_text else {}
         except Exception:
             structured = {}
+        # Compute and store total_years when structured data is freshly built
+        total_years = _compute_total_years_from_structured(structured)
+        structured["total_years_experience"] = total_years
         cv.structured_data = structured
 
     db.add(cv)
     db.commit()
     db.refresh(cv)
 
-    candidate_years = _parse_candidate_years(raw_text)
+    # Use the canonical years value — computed from structured dates, not regex on raw text
+    candidate_years = structured.get("total_years_experience") or _compute_total_years_from_structured(structured)
     exp_score = _experience_score(candidate_years, payload.experience_required)
     dom_score = _domain_score(payload.job_category, raw_text)
 
-    # Resolve language once — fallback to detecting from job description text
-    resolved_lang = resolve_language(payload.language, fallback_text=payload.job_description)
+    # Resolve language from the CV record itself (detected at upload time)
+    resolved_lang = _resolve_cv_language(cv, payload.language)
 
     job_reqs = extract_job_requirements(
         job_description=payload.job_description,
@@ -484,7 +555,7 @@ async def _do_match_cv_to_job(
     )
 
 
-# ─── /mine and /suggest-job-query MUST come before /{cv_id} ─────────────────────
+# ─── /mine and /suggest-job-query MUST come before /{cv_id} ───────────────────────────────
 @router.get("/mine", response_model=list[CVRead])
 async def list_my_cvs(
     db: Session = Depends(get_db),
@@ -656,7 +727,7 @@ async def get_cv(
 @router.post("/{cv_id}/analyze", response_model=CVRead)
 async def analyze_cv(
     cv_id: int,
-    language: str = "en",
+    language: str = "auto",
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_supabase_user),
 ) -> CVRead:
@@ -675,6 +746,8 @@ async def analyze_cv(
             cv.score = analysis_result.get("score", 0)
 
             structured_data = extract_structured_data(raw_text)
+            total_years = _compute_total_years_from_structured(structured_data)
+            structured_data["total_years_experience"] = total_years
             cv.structured_data = structured_data
 
             db.add(cv)
@@ -686,7 +759,7 @@ async def analyze_cv(
     if not cv.extracted_cv:
         raise HTTPException(status_code=500, detail="Failed to extract CV text.")
 
-    resolved_lang = resolve_language(language, fallback_text="")
+    resolved_lang = _resolve_cv_language(cv, language)
     suggestions = review_cv_with_groq(
         cv.extracted_cv,
         cv.structured_data,
@@ -706,7 +779,7 @@ async def analyze_cv(
 @router.post("/{cv_id}/rewrite", response_model=Dict[str, str])
 async def rewrite_cv(
     cv_id: int,
-    language: str = "en",
+    language: str = "auto",
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_supabase_user),
 ) -> Dict[str, str]:
@@ -717,7 +790,7 @@ async def rewrite_cv(
     if not cv.structured_data or not cv.suggestions:
         raise HTTPException(status_code=400, detail="CV must be analyzed before rewriting.")
 
-    resolved_lang = resolve_language(language, fallback_text="")
+    resolved_lang = _resolve_cv_language(cv, language)
     rewritten_content = rewrite_cv_with_groq(
         cv.structured_data,
         cv.suggestions,
