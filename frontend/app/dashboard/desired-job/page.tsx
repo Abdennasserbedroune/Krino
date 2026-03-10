@@ -77,13 +77,6 @@ function scoreColor(s: number) {
   return              { bar: "bg-red-400",     text: "text-red-600",     border: "border-red-200",     bg: "bg-red-50"     };
 }
 
-function verdictLabel(s: number) {
-  if (s >= 75) return { label: "Strong Match",  color: "text-emerald-600" };
-  if (s >= 60) return { label: "Good Chances",  color: "text-blue-600"   };
-  if (s >= 45) return { label: "Borderline",    color: "text-amber-600"  };
-  return              { label: "Tough Match",   color: "text-red-600"    };
-}
-
 function parsePipeItem(raw: string): { prefix: string; prose: string } {
   const idx = raw.indexOf(" | ");
   if (idx === -1) return { prefix: raw, prose: "" };
@@ -95,12 +88,6 @@ function parseGapSeverity(prefix: string): { severity: "BLOCKING" | "IMPORTANT" 
   if (match) return { severity: match[1] as "BLOCKING" | "IMPORTANT" | "MINOR", skill: match[2].trim() };
   return { severity: null, skill: prefix };
 }
-
-const SEVERITY_STYLE = {
-  BLOCKING:  { badge: "bg-red-100 text-red-700 border border-red-300",       card: "border-red-200 bg-red-50",     dot: "bg-red-500",    label: "Blocking"  },
-  IMPORTANT: { badge: "bg-amber-100 text-amber-700 border border-amber-300", card: "border-amber-200 bg-amber-50", dot: "bg-amber-500",  label: "Important" },
-  MINOR:     { badge: "bg-slate-100 text-slate-600 border border-slate-300", card: "border-slate-200 bg-slate-50", dot: "bg-slate-400",  label: "Minor"     },
-};
 
 function ScoreBar({ label, value }: { label: string; value: number }) {
   const c = scoreColor(value);
@@ -129,14 +116,21 @@ function SectionLabel({ number, title, subtitle }: { number: number; title: stri
   );
 }
 
-function GapCard({ raw }: { raw: string }) {
+function GapCard({ raw, severityLabels }: { raw: string; severityLabels: { BLOCKING: string; IMPORTANT: string; MINOR: string } }) {
+  const SEVERITY_STYLE = {
+    BLOCKING:  { badge: "bg-red-100 text-red-700 border border-red-300",       card: "border-red-200 bg-red-50",     dot: "bg-red-500"    },
+    IMPORTANT: { badge: "bg-amber-100 text-amber-700 border border-amber-300", card: "border-amber-200 bg-amber-50", dot: "bg-amber-500"  },
+    MINOR:     { badge: "bg-slate-100 text-slate-600 border border-slate-300", card: "border-slate-200 bg-slate-50", dot: "bg-slate-400"  },
+  };
   const { prefix, prose } = parsePipeItem(raw);
   const { severity, skill } = parseGapSeverity(prefix);
-  const style = severity ? SEVERITY_STYLE[severity] : SEVERITY_STYLE.MINOR;
+  const key = severity ?? "MINOR";
+  const style = SEVERITY_STYLE[key];
+  const label = severityLabels[key];
   return (
     <div className={`rounded-xl border p-4 space-y-2.5 ${style.card}`}>
       <div className="flex items-center gap-2 flex-wrap">
-        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${style.badge}`}>{style.label}</span>
+        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${style.badge}`}>{label}</span>
         <span className="text-sm font-bold text-foreground">{skill}</span>
       </div>
       {prose && <p className="text-sm leading-relaxed text-slate-700">{prose}</p>}
@@ -206,6 +200,29 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
   const [error,     setError]     = useState("");
   const [activeTab, setActiveTab] = useState<"overview" | "gaps" | "strengths" | "roadmap">("overview");
 
+  // Severity badge labels driven by translations
+  const severityLabels = {
+    BLOCKING:  t.ext.severityBlocking,
+    IMPORTANT: t.ext.severityImportant,
+    MINOR:     t.ext.severityMinor,
+  };
+
+  // Verdict label driven by translations
+  function verdictLabel(s: number): { label: string; color: string } {
+    if (s >= 75) return { label: t.ext.verdictStrong,    color: "text-emerald-600" };
+    if (s >= 60) return { label: t.ext.verdictGood,      color: "text-blue-600"   };
+    if (s >= 45) return { label: t.ext.verdictBorderline, color: "text-amber-600"  };
+    return              { label: t.ext.verdictTough,     color: "text-red-600"    };
+  }
+
+  // Tab labels driven by translations
+  const tabLabels: Record<"overview" | "gaps" | "strengths" | "roadmap", string> = {
+    overview:  t.ext.tabOverview,
+    gaps:      t.ext.tabGaps,
+    strengths: t.ext.tabStrengths,
+    roadmap:   t.ext.tabRoadmap,
+  };
+
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -250,7 +267,6 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
       setTimeout(() => {
         setCvs(prev => [created, ...prev]);
         setSelectedCv(created.id);
-        // Notify chat & jobs pages so they refresh their CV list without a page reload
         window.dispatchEvent(new CustomEvent("cv:uploaded", { detail: created }));
         setUploading(false); setUploadPct(0); setUploadStage("");
         showToast({ title: "CV uploaded", description: "Uploaded and processed successfully." });
@@ -282,12 +298,21 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
 
   const canAnalyse = !!(category && jobTitle.trim() && expLevel && description.trim().length >= 50 && selectedCv && !analysing);
 
-  const gateMessage = !category ? "Select a category"
-    : !jobTitle.trim() ? "Enter the exact job title"
-    : !expLevel ? "Select an experience level"
-    : description.trim().length < 50 ? "Paste the full job description"
-    : !selectedCv ? "Select or upload a CV"
+  // Gate messages — all via t() keys
+  const gateMessage = !category            ? t.ext.gateSelectCategory
+    : !jobTitle.trim()                      ? t.ext.gateJobTitle
+    : !expLevel                             ? t.ext.gateExpLevel
+    : description.trim().length < 50        ? t.ext.gateJobDesc
+    : !selectedCv                           ? t.ext.gateSelectCv
     : null;
+
+  // Char counter hint — all via t() keys
+  const remaining = 50 - description.trim().length;
+  const charHint = description.trim().length < 50
+    ? `${remaining} ${t.ext.charCounterMore}`
+    : description.trim().length < 300
+    ? t.ext.charCounterShort
+    : t.ext.charCounterGood;
 
   const handleAnalyse = async () => {
     if (!canAnalyse) return;
@@ -365,7 +390,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             </label>
             <select value={expLevel} onChange={e => setExpLevel(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">Select level…</option>
+              <option value="">{t.ext.selectLevel}</option>
               {EXPERIENCE_LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
             </select>
           </div>
@@ -389,13 +414,8 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             rows={10}
             className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed" />
           <div className="flex justify-between mt-1.5">
-            <p className="text-xs text-muted-foreground">
-              {description.trim().length < 50
-                ? `${50 - description.trim().length} more character${50 - description.trim().length === 1 ? "" : "s"} to unlock analysis`
-                : description.trim().length < 300
-                ? "Short description — results may be limited. Paste the full job posting for best accuracy."
-                : "Good detail level — the more you paste, the more precise the gaps."}
-            </p>
+            {/* ── Char counter — now fully driven by t() keys ── */}
+            <p className="text-xs text-muted-foreground">{charHint}</p>
             <span className={`text-xs font-medium flex-shrink-0 ml-4 ${ description.length > MAX_DESC * 0.9 ? "text-amber-500" : "text-muted-foreground" }`}>
               {description.length.toLocaleString()} / {MAX_DESC.toLocaleString()}
             </span>
@@ -492,8 +512,9 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
               ? <><Loader2 className="h-4 w-4 animate-spin" /> {t.ext.analysingWait}</>
               : <><Target className="h-4 w-4" /> {t.ext.analyzeChances}</>}
           </button>
+          {/* ── Gate message — fully via t() keys ── */}
           {gateMessage && !analysing && (
-            <span className="text-xs text-muted-foreground">← {gateMessage} {t.ui.next.toLowerCase()}</span>
+            <span className="text-xs text-muted-foreground">← {gateMessage} {t.ext.gateNext}</span>
           )}
         </div>
       </div>
@@ -505,8 +526,9 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
 
           <div className="flex items-start justify-between gap-4">
             <SectionLabel number={3} title={t.ext.yourResult} subtitle={t.ext.yourResultSub} />
+            {/* ── "Powered by AI" badge — via t() key ── */}
             <span className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full bg-violet-50 border border-violet-200 px-3 py-1 text-xs font-semibold text-violet-700">
-              <Sparkles className="h-3 w-3" /> Powered by AI
+              <Sparkles className="h-3 w-3" /> {t.ext.poweredByAI}
             </span>
           </div>
 
@@ -518,6 +540,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                   <span className={`font-serif text-6xl font-bold ${scoreColor(result.match_score).text}`}>{result.match_score}</span>
                   <span className="text-2xl text-muted-foreground mb-1">/100</span>
                 </div>
+                {/* ── Verdict label — now via verdictLabel() which uses t() ── */}
                 <p className={`text-base font-bold mt-1 ${verdictLabel(result.match_score).color}`}>{verdictLabel(result.match_score).label}</p>
               </div>
               <div className="text-right space-y-2">
@@ -558,7 +581,8 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
               </div>
               {result.job_requirements.nice_to_have && result.job_requirements.nice_to_have.length > 0 && (
                 <>
-                  <p className="text-xs font-semibold text-muted-foreground mt-3 mb-2">Nice to Have</p>
+                  {/* ── "Nice to Have" — now via t() key ── */}
+                  <p className="text-xs font-semibold text-muted-foreground mt-3 mb-2">{t.ext.niceToHave}</p>
                   <div className="flex flex-wrap gap-2">
                     {result.job_requirements.nice_to_have.map((s, i) => (
                       <span key={i} className="rounded-full bg-white border border-dashed border-slate-300 px-3 py-1 text-xs font-medium text-slate-500">{s}</span>
@@ -569,6 +593,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             </div>
           )}
 
+          {/* ── Tabs — labels fully via tabLabels map ── */}
           <div className="border-b border-slate-200">
             <div className="flex gap-1 overflow-x-auto">
               {(["overview", "gaps", "strengths", "roadmap"] as const).map(tab => (
@@ -576,9 +601,9 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                   className={`whitespace-nowrap px-4 py-2.5 text-sm font-semibold capitalize transition-colors border-b-2 -mb-px ${
                     activeTab === tab ? "border-blue-600 text-blue-600" : "border-transparent text-muted-foreground hover:text-foreground"
                   }`}>
-                  {tab === "gaps"       ? `Gaps (${result.gaps.length})`
-                  : tab === "strengths" ? `Strengths (${result.strengths.length})`
-                  : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  {tab === "gaps"       ? `${tabLabels.gaps} (${result.gaps.length})`
+                  : tab === "strengths" ? `${tabLabels.strengths} (${result.strengths.length})`
+                  : tabLabels[tab]}
                 </button>
               ))}
             </div>
@@ -593,7 +618,9 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                     <p className="text-sm font-bold text-red-800">{t.ext.blockingGapsTitle}</p>
                   </div>
                   <div className="space-y-3">
-                    {result.gaps.filter(g => g.startsWith("[BLOCKING]")).map((g, i) => <GapCard key={i} raw={g} />)}
+                    {result.gaps.filter(g => g.startsWith("[BLOCKING]")).map((g, i) => (
+                      <GapCard key={i} raw={g} severityLabels={severityLabels} />
+                    ))}
                   </div>
                 </div>
               )}
@@ -626,7 +653,9 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                   <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">{t.ext.noGaps}</p>
                 </div>
-              ) : result.gaps.map((g, i) => <GapCard key={i} raw={g} />)}
+              ) : result.gaps.map((g, i) => (
+                <GapCard key={i} raw={g} severityLabels={severityLabels} />
+              ))}
             </div>
           )}
 
