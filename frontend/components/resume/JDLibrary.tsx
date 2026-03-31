@@ -11,10 +11,11 @@ const STATUS_LABELS: Record<JobStatus | 'all', string> = {
   archived: 'Archived',
 };
 
+// Uses semantic surface tokens — no hardcoded gray-* classes
 const STATUS_COLORS: Record<JobStatus, string> = {
-  active: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
-  applied: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  archived: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+  active:   'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+  applied:  'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
+  archived: 'bg-[var(--surface-elevated)] text-[var(--muted-foreground)]',
 };
 
 const SCORE_COLOR = (score: number) => {
@@ -75,14 +76,14 @@ export default function JDLibrary() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">JD Library</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+          <h1 className="text-2xl font-bold text-foreground">JD Library</h1>
+          <p className="text-sm text-[var(--muted-foreground)] mt-0.5">
             Save job descriptions, run your resume against all of them, and track your applications.
           </p>
         </div>
         <button
           onClick={openModal}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground text-sm font-medium rounded-lg transition-opacity"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M12 5v14M5 12h14" />
@@ -94,7 +95,7 @@ export default function JDLibrary() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px]">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
           </svg>
           <input
@@ -102,7 +103,7 @@ export default function JDLibrary() {
             placeholder="Search jobs, companies..."
             value={filters.search}
             onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-[var(--border)] rounded-lg bg-[var(--card)] text-foreground placeholder-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
           />
         </div>
         <div className="flex gap-2">
@@ -112,8 +113,8 @@ export default function JDLibrary() {
               onClick={() => setFilters((f) => ({ ...f, status: s }))}
               className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                 filters.status === s
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-[var(--surface-elevated)] text-[var(--muted-foreground)] hover:bg-[var(--surface-tinted)]'
               }`}
             >
               {STATUS_LABELS[s]}
@@ -126,7 +127,7 @@ export default function JDLibrary() {
             const [sortBy, sortDir] = e.target.value.split(':') as [typeof filters.sortBy, typeof filters.sortDir];
             setFilters((f) => ({ ...f, sortBy, sortDir }));
           }}
-          className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="px-3 py-2 text-sm border border-[var(--border)] rounded-lg bg-[var(--card)] text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
         >
           <option value="created_at:desc">Newest first</option>
           <option value="created_at:asc">Oldest first</option>
@@ -139,11 +140,11 @@ export default function JDLibrary() {
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="rounded-xl border border-gray-200 dark:border-gray-700 p-5 animate-pulse">
-              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3 mb-3" />
-              <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded w-1/3 mb-4" />
-              <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded w-full mb-2" />
-              <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded w-5/6" />
+            <div key={i} className="rounded-xl border border-[var(--border)] p-5 animate-pulse">
+              <div className="h-4 bg-[var(--surface-elevated)] rounded w-2/3 mb-3" />
+              <div className="h-3 bg-[var(--surface-tinted)] rounded w-1/3 mb-4" />
+              <div className="h-3 bg-[var(--surface-tinted)] rounded w-full mb-2" />
+              <div className="h-3 bg-[var(--surface-tinted)] rounded w-5/6" />
             </div>
           ))}
         </div>
@@ -153,24 +154,24 @@ export default function JDLibrary() {
             <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
           </svg>
           <p className="text-red-500 font-medium">{error}</p>
-          <p className="text-gray-400 text-sm mt-1">Try refreshing the page.</p>
+          <p className="text-[var(--muted-foreground)] text-sm mt-1">Try refreshing the page.</p>
         </div>
       ) : jobs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <svg className="text-gray-300 dark:text-gray-600 mb-4" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <svg className="text-[var(--muted-foreground)] mb-4 opacity-40" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
             <polyline points="14 2 14 8 20 8" />
             <line x1="16" y1="13" x2="8" y2="13" />
             <line x1="16" y1="17" x2="8" y2="17" />
             <polyline points="10 9 9 9 8 9" />
           </svg>
-          <h3 className="text-gray-700 dark:text-gray-300 font-semibold text-lg">No job descriptions saved yet</h3>
-          <p className="text-gray-400 dark:text-gray-500 text-sm mt-1 max-w-xs">
+          <h3 className="text-foreground font-semibold text-lg">No job descriptions saved yet</h3>
+          <p className="text-[var(--muted-foreground)] text-sm mt-1 max-w-xs">
             Save job descriptions from LinkedIn, Indeed, or any job board and run your resume against all of them.
           </p>
           <button
             onClick={openModal}
-            className="mt-5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+            className="mt-5 px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground text-sm font-medium rounded-lg transition-opacity"
           >
             Save your first JD
           </button>
@@ -180,15 +181,15 @@ export default function JDLibrary() {
           {jobs.map((job) => (
             <div
               key={job.id}
-              className="group relative flex flex-col rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 hover:shadow-md transition-shadow"
+              className="group relative flex flex-col rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 hover:shadow-md transition-shadow"
             >
               {/* Card header */}
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 dark:text-white truncate" title={job.title}>
+                  <h3 className="font-semibold text-foreground truncate" title={job.title}>
                     {job.title}
                   </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{job.company}</p>
+                  <p className="text-sm text-[var(--muted-foreground)] truncate">{job.company}</p>
                 </div>
                 {job.match_score != null && (
                   <span className={`text-lg font-bold tabular-nums shrink-0 ${SCORE_COLOR(job.match_score)}`}>
@@ -202,7 +203,7 @@ export default function JDLibrary() {
                 <select
                   value={job.status}
                   onChange={(e) => handleStatusChange(job, e.target.value as JobStatus)}
-                  className={`text-xs font-medium px-2 py-0.5 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 ${STATUS_COLORS[job.status]}`}
+                  className={`text-xs font-medium px-2 py-0.5 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--ring)] ${STATUS_COLORS[job.status]}`}
                 >
                   <option value="active">Active</option>
                   <option value="applied">Applied</option>
@@ -211,13 +212,13 @@ export default function JDLibrary() {
               </div>
 
               {/* Description preview */}
-              <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-3 flex-1">
+              <p className="text-sm text-[var(--muted-foreground)] line-clamp-3 flex-1">
                 {expandedId === job.id ? job.description : job.description.slice(0, 180) + (job.description.length > 180 ? '...' : '')}
               </p>
               {job.description.length > 180 && (
                 <button
                   onClick={() => setExpandedId(expandedId === job.id ? null : job.id)}
-                  className="text-xs text-indigo-500 hover:text-indigo-700 mt-1 self-start"
+                  className="text-xs text-primary hover:opacity-70 mt-1 self-start transition-opacity"
                 >
                   {expandedId === job.id ? 'Show less' : 'Show more'}
                 </button>
@@ -227,7 +228,7 @@ export default function JDLibrary() {
               {job.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-3">
                   {job.tags.map((tag) => (
-                    <span key={tag} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-full text-xs">
+                    <span key={tag} className="px-2 py-0.5 bg-[var(--surface-elevated)] text-[var(--muted-foreground)] rounded-full text-xs">
                       {tag}
                     </span>
                   ))}
@@ -235,8 +236,8 @@ export default function JDLibrary() {
               )}
 
               {/* Footer actions */}
-              <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
-                <span className="text-xs text-gray-400">
+              <div className="flex items-center justify-between mt-4 pt-3 border-t border-[var(--border)]">
+                <span className="text-xs text-[var(--muted-foreground)] opacity-70">
                   {new Date(job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </span>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -246,7 +247,7 @@ export default function JDLibrary() {
                       const encoded = encodeURIComponent(job.description);
                       window.location.href = `/dashboard/analyze?jd=${encoded}`;
                     }}
-                    className="p-1.5 rounded-md text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                    className="p-1.5 rounded-md text-[var(--muted-foreground)] hover:text-primary hover:bg-[var(--surface-elevated)] transition-colors"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
@@ -256,13 +257,13 @@ export default function JDLibrary() {
                     <div className="flex gap-1">
                       <button
                         onClick={() => { deleteJob(job.id); setDeleteConfirmId(null); }}
-                        className="px-2 py-1 text-xs rounded-md bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 font-medium"
+                        className="px-2 py-1 text-xs rounded-md bg-[var(--feedback-red-bg)] text-[var(--feedback-red-text)] hover:bg-[var(--feedback-red-border)] font-medium transition-colors"
                       >
                         Delete
                       </button>
                       <button
                         onClick={() => setDeleteConfirmId(null)}
-                        className="px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                        className="px-2 py-1 text-xs rounded-md bg-[var(--surface-elevated)] text-[var(--muted-foreground)] transition-colors"
                       >
                         Cancel
                       </button>
@@ -271,7 +272,7 @@ export default function JDLibrary() {
                     <button
                       title="Delete"
                       onClick={() => setDeleteConfirmId(job.id)}
-                      className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      className="p-1.5 rounded-md text-[var(--muted-foreground)] hover:text-[var(--feedback-red-sub)] hover:bg-[var(--feedback-red-bg)] transition-colors"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <polyline points="3 6 5 6 21 6" />
@@ -291,12 +292,12 @@ export default function JDLibrary() {
       {/* Save Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Save Job Description</h2>
+          <div className="w-full max-w-lg bg-[var(--card)] rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
+              <h2 className="text-lg font-semibold text-foreground">Save Job Description</h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                className="p-1.5 rounded-lg text-[var(--muted-foreground)] hover:text-foreground hover:bg-[var(--surface-elevated)] transition-colors"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 6L6 18M6 6l12 12" />
@@ -306,42 +307,42 @@ export default function JDLibrary() {
             <div className="overflow-y-auto p-5 flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Job Title *</label>
+                  <label className="text-xs font-medium text-[var(--muted-foreground)]">Job Title *</label>
                   <input
                     type="text"
                     placeholder="e.g. Senior Product Manager"
                     value={form.title}
                     onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                    className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="px-3 py-2 text-sm border border-[var(--border)] rounded-lg bg-[var(--card)] text-foreground placeholder-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Company *</label>
+                  <label className="text-xs font-medium text-[var(--muted-foreground)]">Company *</label>
                   <input
                     type="text"
                     placeholder="e.g. Stripe"
                     value={form.company}
                     onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))}
-                    className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="px-3 py-2 text-sm border border-[var(--border)] rounded-lg bg-[var(--card)] text-foreground placeholder-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                   />
                 </div>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Job Description *</label>
+                <label className="text-xs font-medium text-[var(--muted-foreground)]">Job Description *</label>
                 <textarea
                   rows={8}
                   placeholder="Paste the full job description here..."
                   value={form.description}
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                  className="px-3 py-2 text-sm border border-[var(--border)] rounded-lg bg-[var(--card)] text-foreground placeholder-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] resize-none"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Status</label>
+                <label className="text-xs font-medium text-[var(--muted-foreground)]">Status</label>
                 <select
                   value={form.status}
                   onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as JobStatus }))}
-                  className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="px-3 py-2 text-sm border border-[var(--border)] rounded-lg bg-[var(--card)] text-foreground focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                 >
                   <option value="active">Active</option>
                   <option value="applied">Applied</option>
@@ -349,7 +350,7 @@ export default function JDLibrary() {
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Tags</label>
+                <label className="text-xs font-medium text-[var(--muted-foreground)]">Tags</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -357,11 +358,11 @@ export default function JDLibrary() {
                     value={tagInput}
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
-                    className="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="flex-1 px-3 py-2 text-sm border border-[var(--border)] rounded-lg bg-[var(--card)] text-foreground placeholder-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                   />
                   <button
                     onClick={addTag}
-                    className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
+                    className="px-3 py-2 text-sm bg-[var(--surface-elevated)] text-[var(--muted-foreground)] rounded-lg hover:bg-[var(--surface-tinted)] transition-colors"
                   >
                     Add
                   </button>
@@ -369,9 +370,9 @@ export default function JDLibrary() {
                 {(form.tags?.length ?? 0) > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-1">
                     {form.tags?.map((tag) => (
-                      <span key={tag} className="flex items-center gap-1 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-xs">
+                      <span key={tag} className="flex items-center gap-1 px-2 py-0.5 bg-[var(--seeker-soft)] text-[var(--icon-blue-text)] rounded-full text-xs">
                         {tag}
-                        <button onClick={() => removeTag(tag)} className="hover:text-indigo-900 dark:hover:text-indigo-100">
+                        <button onClick={() => removeTag(tag)} className="hover:opacity-70 transition-opacity">
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                             <path d="M18 6L6 18M6 6l12 12" />
                           </svg>
@@ -382,17 +383,17 @@ export default function JDLibrary() {
                 )}
               </div>
             </div>
-            <div className="flex justify-end gap-2 p-5 border-t border-gray-100 dark:border-gray-800">
+            <div className="flex justify-end gap-2 p-5 border-t border-[var(--border)]">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-[var(--muted-foreground)] hover:bg-[var(--surface-elevated)] rounded-lg transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving || !form.title.trim() || !form.company.trim() || !form.description.trim()}
-                className="px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium bg-primary hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed text-primary-foreground rounded-lg transition-opacity"
               >
                 {saving ? 'Saving...' : 'Save Job'}
               </button>

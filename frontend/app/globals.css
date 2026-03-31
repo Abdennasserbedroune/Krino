@@ -6,51 +6,58 @@
 
 @layer base {
   :root {
-    /* Rich Organic Palette — Light Mode */
+    /* ── Surface layers ── */
     --background: #f4f4f0;
     --foreground: #1c1c1c;
-
     --card: #ffffff;
     --card-foreground: #1c1c1c;
-
     --popover: #ffffff;
     --popover-foreground: #1c1c1c;
 
+    /* ── Brand ── */
     --primary: #2c3e50;
     --primary-foreground: #ffffff;
-
-    --secondary: #e2e2df;
-    --secondary-foreground: #1c1c1c;
-
-    --muted: #e2e2df;
-    --muted-foreground: #64748b;
-
     --accent: #e07a5f;
     --accent-foreground: #ffffff;
 
+    /* ── Muted / supporting text ── */
+    --secondary: #e2e2df;
+    --secondary-foreground: #1c1c1c;
+    --muted: #e2e2df;
+    --muted-foreground: #64748b;
+
+    /* ── Semantic aliases used across components ── */
+    --brand: var(--primary);
+    --brand-contrast: var(--primary-foreground);
+    --muted-2: #9ca3af;
+
+    /* ── Status ── */
     --destructive: #ef4444;
     --destructive-foreground: #ffffff;
 
+    /* ── Chrome ── */
     --border: #d1d1cf;
     --input: #d1d1cf;
     --ring: #2c3e50;
 
+    /* ── Elevated surfaces ── */
     --surface-elevated: #ecece7;
     --surface-tinted: #e4e4de;
     --progress-track: #dadad4;
 
+    /* ── Shadows ── */
     --shadow-soft: 0 24px 60px rgba(15, 23, 42, 0.12);
     --shadow-ring: 0 0 0 1px rgba(148, 163, 184, 0.45);
 
     --radius: 1.5rem;
 
-    /* Role-specific soft backgrounds */
+    /* ── Role-specific ── */
     --seeker-soft: #eff6ff;
     --seeker-soft-border: #bfdbfe;
     --recruiter-soft: #fff7ed;
     --recruiter-soft-border: #fed7aa;
 
-    /* Feedback card backgrounds */
+    /* ── Feedback cards ── */
     --feedback-red-bg: #fef2f2;
     --feedback-red-border: #fecaca;
     --feedback-red-text: #991b1b;
@@ -60,60 +67,70 @@
     --feedback-green-text: #14532d;
     --feedback-green-sub: #16a34a;
 
-    /* Feature icon colors */
+    /* ── Feature icon colors ── */
     --icon-purple-bg: #f3e8ff;
     --icon-purple-text: #7c3aed;
     --icon-blue-bg: #dbeafe;
     --icon-blue-text: #1d4ed8;
 
-    /* Workflow step */
+    /* ── Misc ── */
     --step-circle-border: #ffffff;
   }
 
-  /* ─── Dark Mode ─── */
+  /* ─────────────────────────────────────────
+     DARK MODE — warm charcoal, not blue-gray
+     ───────────────────────────────────────── */
   .dark {
+    /* ── Surface layers — warm charcoal ── */
     --background: #141412;
     --foreground: #e8e8e4;
-
     --card: #1e1e1b;
     --card-foreground: #e8e8e4;
-
     --popover: #242420;
     --popover-foreground: #e8e8e4;
 
+    /* ── Brand — soft blue-slate in dark ── */
     --primary: #9bb5cc;
     --primary-foreground: #141412;
-
-    --secondary: #2a2a27;
-    --secondary-foreground: #e8e8e4;
-
-    --muted: #2a2a27;
-    --muted-foreground: #a1a09b;
-
     --accent: #e07a5f;
     --accent-foreground: #141412;
 
+    /* ── Muted / supporting text ── */
+    --secondary: #2a2a27;
+    --secondary-foreground: #e8e8e4;
+    --muted: #2a2a27;
+    --muted-foreground: #a1a09b;
+
+    /* ── Semantic aliases ── */
+    --brand: var(--primary);
+    --brand-contrast: var(--primary-foreground);
+    --muted-2: #6b6b67;
+
+    /* ── Status ── */
     --destructive: #f87171;
     --destructive-foreground: #141412;
 
+    /* ── Chrome — warm dark borders ── */
     --border: #2e2e2b;
     --input: #2e2e2b;
     --ring: #9bb5cc;
 
+    /* ── Elevated surfaces ── */
     --surface-elevated: #242420;
     --surface-tinted: #272724;
     --progress-track: #333330;
 
+    /* ── Shadows ── */
     --shadow-soft: 0 24px 60px rgba(0, 0, 0, 0.45);
     --shadow-ring: 0 0 0 1px rgba(255, 255, 255, 0.06);
 
-    /* Role-specific soft — dark variants (no near-white!) */
+    /* ── Role-specific — dark ── */
     --seeker-soft: #1e3a5f;
     --seeker-soft-border: #1e40af;
     --recruiter-soft: #431407;
     --recruiter-soft-border: #9a3412;
 
-    /* Feedback card backgrounds — dark variants */
+    /* ── Feedback cards — dark ── */
     --feedback-red-bg: #2d1515;
     --feedback-red-border: #7f1d1d;
     --feedback-red-text: #fca5a5;
@@ -123,13 +140,13 @@
     --feedback-green-text: #86efac;
     --feedback-green-sub: #4ade80;
 
-    /* Feature icon colors — dark variants */
+    /* ── Feature icon colors — dark ── */
     --icon-purple-bg: #2e1065;
     --icon-purple-text: #c084fc;
     --icon-blue-bg: #1e3a5f;
     --icon-blue-text: #60a5fa;
 
-    /* Workflow step */
+    /* ── Misc ── */
     --step-circle-border: #2e2e2b;
   }
 }
@@ -160,7 +177,6 @@
     opacity: 0;
     transform: translateY(12px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
@@ -171,7 +187,6 @@
   .animate-in-up {
     animation: fade-in-up 480ms ease-out both;
   }
-
   .animate-in-up-delay {
     animation: fade-in-up 640ms ease-out 120ms both;
   }
@@ -193,34 +208,19 @@
   overflow: hidden;
 }
 
-/* Infinite scroll animations for testimonials */
 @keyframes scroll-left {
-  0% {
-    transform: translateX(0);
-  }
-
-  100% {
-    transform: translateX(-50%);
-  }
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
 @keyframes scroll-right {
-  0% {
-    transform: translateX(-50%);
-  }
-
-  100% {
-    transform: translateX(0);
-  }
+  0%   { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
 }
 
 @keyframes progress-stripe {
-  from {
-    background-position: 1rem 0;
-  }
-  to {
-    background-position: 0 0;
-  }
+  from { background-position: 1rem 0; }
+  to   { background-position: 0 0; }
 }
 
 .hover\:pause-animation:hover {
