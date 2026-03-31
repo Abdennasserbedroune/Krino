@@ -53,6 +53,7 @@ if DB_AVAILABLE:
     try:
         from app.db.models.user import User  # noqa
         from app.db.models.cv import CV  # noqa
+        from app.db.models.recruiter import JobPosting, CandidateCard  # noqa
     except Exception as e:
         logger.warning(f"⚠️  Could not import models: {e}")
 
