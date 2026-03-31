@@ -6,11 +6,9 @@
 
 @layer base {
   :root {
-    /* Rich Organic Palette */
+    /* Rich Organic Palette — Light Mode */
     --background: #f4f4f0;
-    /* Warm Stone */
     --foreground: #1c1c1c;
-    /* Off-Black */
 
     --card: #ffffff;
     --card-foreground: #1c1c1c;
@@ -19,18 +17,15 @@
     --popover-foreground: #1c1c1c;
 
     --primary: #2c3e50;
-    /* Deep Navy/Slate */
     --primary-foreground: #ffffff;
 
     --secondary: #e2e2df;
-    /* Darker Stone */
     --secondary-foreground: #1c1c1c;
 
     --muted: #e2e2df;
     --muted-foreground: #64748b;
 
     --accent: #e07a5f;
-    /* Burnt Sienna */
     --accent-foreground: #ffffff;
 
     --destructive: #ef4444;
@@ -49,6 +44,44 @@
 
     --radius: 1.5rem;
   }
+
+  /* ─── Dark Mode ─── */
+  .dark {
+    --background: #141412;
+    --foreground: #e8e8e4;
+
+    --card: #1e1e1b;
+    --card-foreground: #e8e8e4;
+
+    --popover: #1e1e1b;
+    --popover-foreground: #e8e8e4;
+
+    --primary: #7a95b0;
+    --primary-foreground: #141412;
+
+    --secondary: #2a2a27;
+    --secondary-foreground: #e8e8e4;
+
+    --muted: #2a2a27;
+    --muted-foreground: #9ca3af;
+
+    --accent: #e07a5f;
+    --accent-foreground: #141412;
+
+    --destructive: #f87171;
+    --destructive-foreground: #141412;
+
+    --border: #2e2e2b;
+    --input: #2e2e2b;
+    --ring: #7a95b0;
+
+    --surface-elevated: #242420;
+    --surface-tinted: #272724;
+    --progress-track: #333330;
+
+    --shadow-soft: 0 24px 60px rgba(0, 0, 0, 0.45);
+    --shadow-ring: 0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
 }
 
 @layer base {
@@ -64,7 +97,7 @@
 
 @layer components {
   .glass-button {
-    @apply bg-white/60 backdrop-blur-md border border-white/80 shadow-glass-button text-foreground rounded-full transition-all duration-200 hover:bg-white/80 hover:-translate-y-px hover:shadow-lg;
+    @apply bg-white/60 dark:bg-white/10 backdrop-blur-md border border-white/80 dark:border-white/10 shadow-glass-button text-foreground rounded-full transition-all duration-200 hover:bg-white/80 dark:hover:bg-white/20 hover:-translate-y-px hover:shadow-lg;
   }
 }
 

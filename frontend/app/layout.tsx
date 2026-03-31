@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
 
 const plusJakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-sans" });
 const fraunces = Fraunces({
@@ -33,14 +34,16 @@ export default function RootLayout({ children }: RootLayoutProps) {
       className={`${plusJakarta.variable} ${fraunces.variable}`}
     >
       <body className="bg-background font-sans text-foreground antialiased selection:bg-primary selection:text-primary-foreground">
-        <LanguageProvider>
-          <AuthProvider>
-            <div className="flex min-h-screen flex-col">
-              <main className="flex-1">{children}</main>
-            </div>
-            <Toaster />
-          </AuthProvider>
-        </LanguageProvider>
+        <ThemeProvider defaultTheme="system">
+          <LanguageProvider>
+            <AuthProvider>
+              <div className="flex min-h-screen flex-col">
+                <main className="flex-1">{children}</main>
+              </div>
+              <Toaster />
+            </AuthProvider>
+          </LanguageProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
