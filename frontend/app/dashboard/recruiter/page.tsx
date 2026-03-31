@@ -29,6 +29,7 @@ import {
     X,
     Trash2,
     RefreshCw,
+    ClipboardList,
 } from "lucide-react";
 import { ProfileDropdown } from "@/components/ui/profile-dropdown";
 import Protected from "@/components/Protected";
@@ -144,6 +145,82 @@ function CopyButton({ text }: { text: string }) {
             {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
         </button>
     );
+}
+
+// ─── CopyAllQuestionsButton ───────────────────────────────────────────────────
+
+function CopyAllQuestionsButton({ questions }: { questions: string }) {
+    const [copied, setCopied] = useState(false);
+    const handleCopy = () => {
+        navigator.clipboard.writeText(questions).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
+    };
+    return (
+        <button
+            onClick={handleCopy}
+            className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-all ${
+                copied
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                    : "border-border/60 bg-background text-muted-foreground hover:border-recruiter/60 hover:bg-recruiter/5 hover:text-recruiter"
+            }`}
+            title="Copy all interview questions as Markdown"
+        >
+            {copied ? (
+                <>
+                    <Check className="h-3.5 w-3.5 text-emerald-600" />
+                    Copied to clipboard!
+                </>
+            ) : (
+                <>
+                    <ClipboardList className="h-3.5 w-3.5" />
+                    Copy All as Markdown
+                </>
+            )}
+        </button>
+    );
+}
+
+// ─── buildAllQuestionsMarkdown ────────────────────────────────────────────────
+
+function buildAllQuestionsMarkdown(
+    jobDomain: string,
+    strengths: string[],
+    risks: string[]
+): string {
+    const generalQuestions = [
+        `Walk me through your most relevant experience for this ${jobDomain} role and why it fits.`,
+        `What would your first 90 days look like if you joined us in this position?`,
+        `How do you stay current in ${jobDomain}? Any recent learning or projects?`,
+    ];
+
+    const strengthQuestions = strengths.map(
+        (s) => `Your profile shows strength in "${s}" — can you walk me through a specific project or situation where this made a real impact?`
+    );
+
+    const riskQuestions = risks.map(
+        (r) => `I noticed "${r}" in the profile. How do you approach this in your day-to-day work, and how have you improved in this area?`
+    );
+
+    const lines: string[] = [];
+
+    lines.push("## Interview Questions\n");
+
+    lines.push("### General Fit\n");
+    generalQuestions.forEach((q, i) => lines.push(`${i + 1}. ${q}`));
+
+    if (strengthQuestions.length > 0) {
+        lines.push("\n### Explore Strengths\n");
+        strengthQuestions.forEach((q, i) => lines.push(`${i + 1}. ${q}`));
+    }
+
+    if (riskQuestions.length > 0) {
+        lines.push("\n### Probe Gaps\n");
+        riskQuestions.forEach((q, i) => lines.push(`${i + 1}. ${q}`));
+    }
+
+    return lines.join("\n");
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -528,9 +605,18 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                         <MessageCircle className="h-5 w-5 text-recruiter" />
                                         <h3 className="font-serif text-xl md:text-2xl text-foreground">{t.ext.interviewQuestions}</h3>
                                     </div>
-                                    <p className="mb-6 text-xs md:text-sm text-muted-foreground">
-                                        {t.ext.interviewQuestionsSub}
-                                    </p>
+                                    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <p className="text-xs md:text-sm text-muted-foreground">
+                                            {t.ext.interviewQuestionsSub}
+                                        </p>
+                                        <CopyAllQuestionsButton
+                                            questions={buildAllQuestionsMarkdown(
+                                                jobDomain,
+                                                focusedResult.reasons.strengths ?? [],
+                                                focusedResult.reasons.risks ?? []
+                                            )}
+                                        />
+                                    </div>
 
                                     <div className="space-y-5">
                                         {/* General */}
