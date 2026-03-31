@@ -54,14 +54,16 @@ const config: Config = {
         progress: "var(--positive)",
         "progress-track": "var(--progress-track)",
         seeker: {
-          DEFAULT: "#3b82f6", // Blue-500
+          DEFAULT: "#3b82f6",
           foreground: "#ffffff",
-          soft: "#eff6ff", // Blue-50
+          soft: "var(--seeker-soft)",
+          "soft-border": "var(--seeker-soft-border)",
         },
         recruiter: {
-          DEFAULT: "#f97316", // Orange-500
+          DEFAULT: "#f97316",
           foreground: "#ffffff",
-          soft: "#fff7ed", // Orange-50
+          soft: "var(--recruiter-soft)",
+          "soft-border": "var(--recruiter-soft-border)",
         },
       },
       fontFamily: {

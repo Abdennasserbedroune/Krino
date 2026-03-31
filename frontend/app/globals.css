@@ -43,6 +43,31 @@
     --shadow-ring: 0 0 0 1px rgba(148, 163, 184, 0.45);
 
     --radius: 1.5rem;
+
+    /* Role-specific soft backgrounds */
+    --seeker-soft: #eff6ff;
+    --seeker-soft-border: #bfdbfe;
+    --recruiter-soft: #fff7ed;
+    --recruiter-soft-border: #fed7aa;
+
+    /* Feedback card backgrounds */
+    --feedback-red-bg: #fef2f2;
+    --feedback-red-border: #fecaca;
+    --feedback-red-text: #991b1b;
+    --feedback-red-sub: #dc2626;
+    --feedback-green-bg: #f0fdf4;
+    --feedback-green-border: #bbf7d0;
+    --feedback-green-text: #14532d;
+    --feedback-green-sub: #16a34a;
+
+    /* Feature icon colors */
+    --icon-purple-bg: #f3e8ff;
+    --icon-purple-text: #7c3aed;
+    --icon-blue-bg: #dbeafe;
+    --icon-blue-text: #1d4ed8;
+
+    /* Workflow step */
+    --step-circle-border: #ffffff;
   }
 
   /* ─── Dark Mode ─── */
@@ -53,17 +78,17 @@
     --card: #1e1e1b;
     --card-foreground: #e8e8e4;
 
-    --popover: #1e1e1b;
+    --popover: #242420;
     --popover-foreground: #e8e8e4;
 
-    --primary: #7a95b0;
+    --primary: #9bb5cc;
     --primary-foreground: #141412;
 
     --secondary: #2a2a27;
     --secondary-foreground: #e8e8e4;
 
     --muted: #2a2a27;
-    --muted-foreground: #9ca3af;
+    --muted-foreground: #a1a09b;
 
     --accent: #e07a5f;
     --accent-foreground: #141412;
@@ -73,7 +98,7 @@
 
     --border: #2e2e2b;
     --input: #2e2e2b;
-    --ring: #7a95b0;
+    --ring: #9bb5cc;
 
     --surface-elevated: #242420;
     --surface-tinted: #272724;
@@ -81,6 +106,31 @@
 
     --shadow-soft: 0 24px 60px rgba(0, 0, 0, 0.45);
     --shadow-ring: 0 0 0 1px rgba(255, 255, 255, 0.06);
+
+    /* Role-specific soft — dark variants (no near-white!) */
+    --seeker-soft: #1e3a5f;
+    --seeker-soft-border: #1e40af;
+    --recruiter-soft: #431407;
+    --recruiter-soft-border: #9a3412;
+
+    /* Feedback card backgrounds — dark variants */
+    --feedback-red-bg: #2d1515;
+    --feedback-red-border: #7f1d1d;
+    --feedback-red-text: #fca5a5;
+    --feedback-red-sub: #f87171;
+    --feedback-green-bg: #052e16;
+    --feedback-green-border: #14532d;
+    --feedback-green-text: #86efac;
+    --feedback-green-sub: #4ade80;
+
+    /* Feature icon colors — dark variants */
+    --icon-purple-bg: #2e1065;
+    --icon-purple-text: #c084fc;
+    --icon-blue-bg: #1e3a5f;
+    --icon-blue-text: #60a5fa;
+
+    /* Workflow step */
+    --step-circle-border: #2e2e2b;
   }
 }
 
@@ -93,11 +143,15 @@
     @apply bg-background text-foreground antialiased;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
   }
+
+  .dark body {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
+  }
 }
 
 @layer components {
   .glass-button {
-    @apply bg-white/60 dark:bg-white/10 backdrop-blur-md border border-white/80 dark:border-white/10 shadow-glass-button text-foreground rounded-full transition-all duration-200 hover:bg-white/80 dark:hover:bg-white/20 hover:-translate-y-px hover:shadow-lg;
+    @apply bg-white/60 dark:bg-white/8 backdrop-blur-md border border-white/80 dark:border-white/12 shadow-glass-button text-foreground rounded-full transition-all duration-200 hover:bg-white/80 dark:hover:bg-white/15 hover:-translate-y-px hover:shadow-lg;
   }
 }
 
