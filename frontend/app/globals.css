@@ -78,76 +78,76 @@
   }
 
   /* ─────────────────────────────────────────
-     DARK MODE — warm charcoal, not blue-gray
+     DARK MODE — deep slate, warm contrast
      ───────────────────────────────────────── */
   .dark {
-    /* ── Surface layers — warm charcoal ── */
-    --background: #141412;
-    --foreground: #e8e8e4;
-    --card: #1e1e1b;
-    --card-foreground: #e8e8e4;
-    --popover: #242420;
-    --popover-foreground: #e8e8e4;
+    /* ── Surface layers — 5 distinct steps ── */
+    --background: #0f1117;
+    --foreground: #e2e4e9;
+    --card: #181b22;
+    --card-foreground: #e2e4e9;
+    --popover: #1e2130;
+    --popover-foreground: #e2e4e9;
 
-    /* ── Brand — soft blue-slate in dark ── */
-    --primary: #9bb5cc;
-    --primary-foreground: #141412;
+    /* ── Brand ── */
+    --primary: #7aaccc;
+    --primary-foreground: #0f1117;
     --accent: #e07a5f;
-    --accent-foreground: #141412;
+    --accent-foreground: #0f1117;
 
     /* ── Muted / supporting text ── */
-    --secondary: #2a2a27;
-    --secondary-foreground: #e8e8e4;
-    --muted: #2a2a27;
-    --muted-foreground: #a1a09b;
+    --secondary: #252836;
+    --secondary-foreground: #e2e4e9;
+    --muted: #252836;
+    --muted-foreground: #8b90a0;
 
     /* ── Semantic aliases ── */
     --brand: var(--primary);
     --brand-contrast: var(--primary-foreground);
-    --muted-2: #6b6b67;
+    --muted-2: #5a5f70;
 
     /* ── Status ── */
     --destructive: #f87171;
-    --destructive-foreground: #141412;
+    --destructive-foreground: #0f1117;
 
-    /* ── Chrome — warm dark borders ── */
-    --border: #2e2e2b;
-    --input: #2e2e2b;
-    --ring: #9bb5cc;
+    /* ── Chrome ── */
+    --border: #2a2d3a;
+    --input: #2a2d3a;
+    --ring: #7aaccc;
 
     /* ── Elevated surfaces ── */
-    --surface-elevated: #242420;
-    --surface-tinted: #272724;
-    --progress-track: #333330;
+    --surface-elevated: #1e2130;
+    --surface-tinted: #232638;
+    --progress-track: #2e3244;
 
     /* ── Shadows ── */
-    --shadow-soft: 0 24px 60px rgba(0, 0, 0, 0.45);
+    --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
     --shadow-ring: 0 0 0 1px rgba(255, 255, 255, 0.06);
 
-    /* ── Role-specific — dark ── */
-    --seeker-soft: #1e3a5f;
-    --seeker-soft-border: #1e40af;
-    --recruiter-soft: #431407;
-    --recruiter-soft-border: #9a3412;
+    /* ── Role-specific — dark, clearly hue-tinted ── */
+    --seeker-soft: #0d1f3c;
+    --seeker-soft-border: #1e3a6e;
+    --recruiter-soft: #251507;
+    --recruiter-soft-border: #7c3412;
 
-    /* ── Feedback cards — dark ── */
-    --feedback-red-bg: #2d1515;
-    --feedback-red-border: #7f1d1d;
+    /* ── Feedback cards — readable dark variants ── */
+    --feedback-red-bg: #2a1212;
+    --feedback-red-border: #6b1c1c;
     --feedback-red-text: #fca5a5;
     --feedback-red-sub: #f87171;
-    --feedback-green-bg: #052e16;
-    --feedback-green-border: #14532d;
+    --feedback-green-bg: #0d2318;
+    --feedback-green-border: #1a4a2e;
     --feedback-green-text: #86efac;
     --feedback-green-sub: #4ade80;
 
     /* ── Feature icon colors — dark ── */
-    --icon-purple-bg: #2e1065;
+    --icon-purple-bg: #1e1040;
     --icon-purple-text: #c084fc;
-    --icon-blue-bg: #1e3a5f;
+    --icon-blue-bg: #0d1f3c;
     --icon-blue-text: #60a5fa;
 
     /* ── Misc ── */
-    --step-circle-border: #2e2e2b;
+    --step-circle-border: #2a2d3a;
   }
 }
 
