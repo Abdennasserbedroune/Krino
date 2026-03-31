@@ -9,23 +9,34 @@ questions) so recruiters can conduct structured interviews without any extra ste
 from __future__ import annotations
 
 import json
+import os
 import re
+import tempfile
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.security import get_current_supabase_user
 from app.db.models.cv import CV
+from app.db.models.recruiter import CandidateCard, JobPosting, PipelineStage
 from app.db.models.user import User
 from app.db.session import get_db
 from app.schemas.recruiter import (
+    CandidateCardOut,
+    CandidateNoteUpdate,
+    CandidateStageUpdate,
     HrToolkit,
+    JobPostingCreate,
+    JobPostingOut,
+    JobPostingUpdate,
     JobProfile,
     MatchCvRequest,
     MatchReason,
     MatchResult,
     MatchSessionResponse,
+    PipelineResponse,
     ScorecardRow,
 )
 from app.services.ai.groq_client import match_cv_to_job_with_groq
@@ -60,6 +71,10 @@ DOMAIN_KEYWORDS: Dict[str, List[str]] = {
     "design & ux": ["design", "designer", "ux", "ui", "figma", "wireframe", "prototype", "adobe"],
 }
 
+
+# ============================================================================
+# LEGACY ENDPOINT — POST /recruiter/match-cvs  (DO NOT MODIFY)
+# ============================================================================
 
 @router.post(
     "/match-cvs",
@@ -105,7 +120,6 @@ async def match_cvs_to_job(
         )
 
     job = payload.job
-    # Resolve once for all CVs in this batch — fallback text is the job domain
     resolved_lang = resolve_language(payload.language, fallback_text=job.domain)
     results: List[MatchResult] = []
 
@@ -186,9 +200,385 @@ async def match_cvs_to_job(
         )
 
     results_sorted = sorted(results, key=lambda r: r.match_score, reverse=True)
-
     return MatchSessionResponse(job=job, results=results_sorted)
 
+
+# ============================================================================
+# PIPELINE HELPERS — shared by all new persistent endpoints
+# ============================================================================
+
+DEFAULT_WEIGHTS: Dict[str, int] = {
+    "domain": 40,
+    "experience": 30,
+    "skills": 20,
+    "quality": 10,
+}
+
+
+def _job_with_count(job: JobPosting, db: Session) -> JobPostingOut:
+    """Build a JobPostingOut response, injecting the live candidate count."""
+    count = db.query(CandidateCard).filter(CandidateCard.job_id == job.id).count()
+    out = JobPostingOut.model_validate(job)
+    out.candidate_count = count
+    return out
+
+
+def _get_job_or_404(job_id: int, user: User, db: Session) -> JobPosting:
+    """Fetch a job posting that belongs to *user* or raise 404."""
+    job = (
+        db.query(JobPosting)
+        .filter(JobPosting.id == job_id, JobPosting.recruiter_id == user.id)
+        .first()
+    )
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found.")
+    return job
+
+
+def _get_card_or_404(card_id: int, user: User, db: Session) -> CandidateCard:
+    """Fetch a candidate card whose parent job belongs to *user* or raise 404."""
+    card = (
+        db.query(CandidateCard)
+        .join(JobPosting, JobPosting.id == CandidateCard.job_id)
+        .filter(CandidateCard.id == card_id, JobPosting.recruiter_id == user.id)
+        .first()
+    )
+    if not card:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Candidate not found."
+        )
+    return card
+
+
+def _score_raw_text(
+    raw_text: str,
+    job: JobPosting,
+    weights: Dict[str, int],
+) -> Tuple[int, int, int, int]:
+    """Return (total, skills, experience, quality) scores for a CV text block."""
+    structured = extract_structured_data(raw_text)
+    analysis = analyze_cv_local(raw_text)
+
+    candidate_years = _parse_years_experience(raw_text)
+    exp_score = _compute_experience_score(candidate_years, job.experience_range)
+    dom_score = _compute_domain_match_score(job.domain, raw_text)
+    skl_score = _compute_skills_overlap_score(
+        job.skills_text or "", structured.get("skills") or []
+    )
+    qual_score = int(analysis.get("score", 50) or 50)
+
+    total = (
+        weights.get("domain", 40)     * dom_score  / 100
+        + weights.get("experience", 30) * exp_score  / 100
+        + weights.get("skills", 20)     * skl_score  / 100
+        + weights.get("quality", 10)    * qual_score / 100
+    )
+    return max(0, min(100, int(total))), skl_score, exp_score, qual_score
+
+
+# ============================================================================
+# JOB CRUD — POST / GET / PATCH / DELETE
+# ============================================================================
+
+@router.post(
+    "/jobs",
+    response_model=JobPostingOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new persistent job posting.",
+)
+async def create_job(
+    payload: JobPostingCreate,
+    current_user: User = Depends(get_current_supabase_user),
+    db: Session = Depends(get_db),
+) -> JobPostingOut:
+    job = JobPosting(**payload.model_dump(), recruiter_id=current_user.id)
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    return _job_with_count(job, db)
+
+
+@router.get(
+    "/jobs",
+    response_model=List[JobPostingOut],
+    summary="List all job postings for the authenticated recruiter.",
+)
+async def list_jobs(
+    status_filter: Optional[str] = None,
+    current_user: User = Depends(get_current_supabase_user),
+    db: Session = Depends(get_db),
+) -> List[JobPostingOut]:
+    q = db.query(JobPosting).filter(JobPosting.recruiter_id == current_user.id)
+    if status_filter:
+        q = q.filter(JobPosting.status == status_filter)
+    jobs = q.order_by(JobPosting.created_at.desc()).all()
+    return [_job_with_count(j, db) for j in jobs]
+
+
+@router.get(
+    "/jobs/{job_id}",
+    response_model=JobPostingOut,
+    summary="Get a single job posting by ID.",
+)
+async def get_job(
+    job_id: int,
+    current_user: User = Depends(get_current_supabase_user),
+    db: Session = Depends(get_db),
+) -> JobPostingOut:
+    job = _get_job_or_404(job_id, current_user, db)
+    return _job_with_count(job, db)
+
+
+@router.patch(
+    "/jobs/{job_id}",
+    response_model=JobPostingOut,
+    summary="Partially update a job posting (title, status, weights, etc.).",
+)
+async def update_job(
+    job_id: int,
+    payload: JobPostingUpdate,
+    current_user: User = Depends(get_current_supabase_user),
+    db: Session = Depends(get_db),
+) -> JobPostingOut:
+    job = _get_job_or_404(job_id, current_user, db)
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(job, field, value)
+    db.commit()
+    db.refresh(job)
+    return _job_with_count(job, db)
+
+
+@router.delete(
+    "/jobs/{job_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a job posting and all its candidate cards.",
+)
+async def delete_job(
+    job_id: int,
+    current_user: User = Depends(get_current_supabase_user),
+    db: Session = Depends(get_db),
+) -> None:
+    job = _get_job_or_404(job_id, current_user, db)
+    db.delete(job)  # cascade="all, delete-orphan" removes candidate_cards
+    db.commit()
+
+
+# ============================================================================
+# PIPELINE — Kanban board data
+# ============================================================================
+
+@router.get(
+    "/jobs/{job_id}/pipeline",
+    response_model=PipelineResponse,
+    summary="Get all candidates grouped by pipeline stage (Kanban board data).",
+)
+async def get_pipeline(
+    job_id: int,
+    current_user: User = Depends(get_current_supabase_user),
+    db: Session = Depends(get_db),
+) -> PipelineResponse:
+    job = _get_job_or_404(job_id, current_user, db)
+    cards = (
+        db.query(CandidateCard)
+        .filter(CandidateCard.job_id == job_id)
+        .order_by(CandidateCard.match_score.desc())
+        .all()
+    )
+    # Initialise all 6 stage keys so the frontend never has to do key-exists checks
+    pipeline: Dict[str, List[CandidateCardOut]] = {
+        stage.value: [] for stage in PipelineStage
+    }
+    for card in cards:
+        stage_key = card.stage or PipelineStage.SCREENED.value
+        if stage_key in pipeline:
+            pipeline[stage_key].append(CandidateCardOut.model_validate(card))
+        else:
+            pipeline[PipelineStage.SCREENED.value].append(
+                CandidateCardOut.model_validate(card)
+            )
+
+    return PipelineResponse(
+        job=_job_with_count(job, db),
+        pipeline=pipeline,
+        total_candidates=len(cards),
+    )
+
+
+# ============================================================================
+# CANDIDATE CARD MUTATIONS — stage move + notes
+# ============================================================================
+
+@router.patch(
+    "/candidates/{card_id}/stage",
+    response_model=CandidateCardOut,
+    summary="Move a candidate to a new pipeline stage.",
+)
+async def move_stage(
+    card_id: int,
+    payload: CandidateStageUpdate,
+    current_user: User = Depends(get_current_supabase_user),
+    db: Session = Depends(get_db),
+) -> CandidateCardOut:
+    card = _get_card_or_404(card_id, current_user, db)
+    card.stage = payload.stage
+    card.moved_at = datetime.utcnow()
+    db.commit()
+    db.refresh(card)
+    return CandidateCardOut.model_validate(card)
+
+
+@router.patch(
+    "/candidates/{card_id}/notes",
+    response_model=CandidateCardOut,
+    summary="Add or update recruiter private notes on a candidate card.",
+)
+async def update_notes(
+    card_id: int,
+    payload: CandidateNoteUpdate,
+    current_user: User = Depends(get_current_supabase_user),
+    db: Session = Depends(get_db),
+) -> CandidateCardOut:
+    card = _get_card_or_404(card_id, current_user, db)
+    card.notes = payload.notes
+    db.commit()
+    db.refresh(card)
+    return CandidateCardOut.model_validate(card)
+
+
+# ============================================================================
+# BATCH SCREEN — upload PDFs → score → persist as CandidateCards
+# ============================================================================
+
+@router.post(
+    "/jobs/{job_id}/screen",
+    response_model=List[CandidateCardOut],
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload up to 10 CVs, screen them against a job, persist results.",
+)
+async def screen_candidates(
+    job_id: int,
+    files: List[UploadFile] = File(..., description="PDF or DOCX CV files, max 10"),
+    current_user: User = Depends(get_current_supabase_user),
+    db: Session = Depends(get_db),
+) -> List[CandidateCardOut]:
+    """Upload CV files, score each one against the job, and persist CandidateCards.
+
+    Reuses all existing scoring helpers and Groq LLM calls from /match-cvs.
+    Returns cards sorted by match_score descending.
+    """
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="At least one CV file is required."
+        )
+    if len(files) > 10:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Maximum 10 CVs per screen run."
+        )
+
+    job = _get_job_or_404(job_id, current_user, db)
+    weights = job.scoring_weights or DEFAULT_WEIGHTS
+    resolved_lang = resolve_language("auto", fallback_text=job.domain)
+
+    # Build a JD text for Groq — use full jd_text if provided, else build a summary
+    jd_for_match = job.jd_text or _build_job_summary(
+        JobProfile(
+            domain=job.domain,
+            experience_range=job.experience_range,
+            salary_range=job.salary_range or "",
+            location=job.location,
+            contract_type=job.contract_type,
+            skills_text=job.skills_text,
+        )
+    )
+
+    created_cards: List[CandidateCard] = []
+
+    for upload in files:
+        # ── Extract text from uploaded file ──────────────────────────────────
+        suffix = os.path.splitext(upload.filename or "cv.pdf")[1].lower() or ".pdf"
+        file_type = suffix.lstrip(".")
+
+        raw_bytes = await upload.read()
+        tmp_path: Optional[str] = None
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(raw_bytes)
+                tmp_path = tmp.name
+
+            try:
+                raw_text = extract_text_from_file(tmp_path, file_type)
+            except Exception:
+                raw_text = ""
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+        # ── Score — reuse shared helper ───────────────────────────────────────
+        total, skl_score, exp_score, qual_score = _score_raw_text(raw_text, job, weights)
+
+        # ── LLM verdict (Groq) — same call as /match-cvs ────────────────────
+        cv_summary = raw_text[:4000] if raw_text else ""
+        reasons_dict = match_cv_to_job_with_groq(
+            jd_for_match, cv_summary, language=resolved_lang
+        )
+
+        # ── HR Toolkit — same generator as /match-cvs ───────────────────────
+        match_result_dict = {
+            "match_score": total,
+            "experience_score": exp_score,
+            "skills_match_score": skl_score,
+            "cv_quality_score": qual_score,
+            "reasons": {
+                "strengths": reasons_dict.get("strengths", []),
+                "risks":    reasons_dict.get("risks", []),
+            },
+        }
+        toolkit_dict = generate_hr_toolkit(
+            job_domain=job.domain,
+            job_skills_text=job.skills_text or "",
+            experience_range=job.experience_range,
+            match_result_dict=match_result_dict,
+            cv_analysis=analyze_cv_local(raw_text),
+        )
+
+        # ── Extract candidate identity from CV text ──────────────────────────
+        structured = extract_structured_data(raw_text)
+        personal   = structured.get("personal_info") or {}
+        name       = personal.get("name") or personal.get("full_name")
+        email      = personal.get("email")
+
+        # ── Persist CandidateCard ─────────────────────────────────────────────
+        card = CandidateCard(
+            job_id=job_id,
+            cv_id=None,  # recruiter-uploaded files have no Pathwise account
+            candidate_name=name,
+            candidate_email=email,
+            original_filename=upload.filename,
+            match_score=total,
+            skills_score=skl_score,
+            experience_score=exp_score,
+            quality_score=qual_score,
+            ai_verdict=reasons_dict.get("overall_reason"),
+            strengths=reasons_dict.get("strengths", []),
+            risks=reasons_dict.get("risks", []),
+            hr_toolkit=toolkit_dict,
+            stage=PipelineStage.SCREENED.value,
+            source="upload",
+        )
+        db.add(card)
+        created_cards.append(card)
+
+    db.commit()
+    for c in created_cards:
+        db.refresh(c)
+
+    sorted_cards = sorted(created_cards, key=lambda c: c.match_score or 0, reverse=True)
+    return [CandidateCardOut.model_validate(c) for c in sorted_cards]
+
+
+# ============================================================================
+# SHARED HELPERS — used by both legacy /match-cvs and new pipeline routes
+# ============================================================================
 
 def _build_job_summary(job: JobProfile) -> str:
     parts: List[str] = []
