@@ -151,7 +151,7 @@
 
 @layer components {
   .glass-button {
-    @apply bg-white/60 dark:bg-white/8 backdrop-blur-md border border-white/80 dark:border-white/12 shadow-glass-button text-foreground rounded-full transition-all duration-200 hover:bg-white/80 dark:hover:bg-white/15 hover:-translate-y-px hover:shadow-lg;
+    @apply bg-white/60 dark:bg-white/10 backdrop-blur-md border border-white/80 dark:border-white/10 shadow-glass-button text-foreground rounded-full transition-all duration-200 hover:bg-white/80 dark:hover:bg-white/15 hover:-translate-y-px hover:shadow-lg;
   }
 }
 
