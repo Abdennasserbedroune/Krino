@@ -46,7 +46,7 @@
     --progress-track: #dadad4;
 
     /* ── Shadows ── */
-    --shadow-soft: 0 24px 60px rgba(15, 23, 42, 0.12);
+    --shadow-soft: 0 8px 32px rgba(15, 23, 42, 0.10), 0 1px 4px rgba(15, 23, 42, 0.06);
     --shadow-ring: 0 0 0 1px rgba(148, 163, 184, 0.45);
 
     --radius: 1.5rem;
@@ -75,79 +75,90 @@
 
     /* ── Misc ── */
     --step-circle-border: #ffffff;
+
+    /* ── Positive / progress ── */
+    --positive: #22c55e;
   }
 
   /* ─────────────────────────────────────────
-     DARK MODE — warm charcoal, not blue-gray
+     DARK MODE
+     Philosophy: layered warm-charcoal surfaces.
+     Each step is ~3-4% lighter. Never pure black.
+     Text is off-white — never #ffffff (eye strain).
+     Borders are very subtle. Shadows are strong.
+     Accent tints use hue, not flat gray.
      ───────────────────────────────────────── */
   .dark {
-    /* ── Surface layers — warm charcoal ── */
-    --background: #141412;
-    --foreground: #e8e8e4;
-    --card: #1e1e1b;
-    --card-foreground: #e8e8e4;
-    --popover: #242420;
-    --popover-foreground: #e8e8e4;
+    /* ── Surface stack — 5 distinct layers ── */
+    --background:        #111110;  /* deepest — page bg             */
+    --card:              #1a1a18;  /* cards sit above bg            */
+    --popover:           #222220;  /* dropdowns, tooltips           */
+    --surface-elevated:  #232321;  /* modals, elevated panels       */
+    --surface-tinted:    #2a2a28;  /* hover states, active items   */
+    --progress-track:    #2e2e2c;  /* progress bar tracks          */
 
-    /* ── Brand — soft blue-slate in dark ── */
-    --primary: #9bb5cc;
-    --primary-foreground: #141412;
-    --accent: #e07a5f;
-    --accent-foreground: #141412;
+    /* ── Text — never pure white ── */
+    --foreground:        #e6e6e2;  /* primary text                  */
+    --card-foreground:   #e6e6e2;
+    --popover-foreground: #e6e6e2;
+    --muted-foreground:  #9a9a95;  /* secondary / caption text     */
+    --muted-2:           #66665f;  /* faintest text                 */
 
-    /* ── Muted / supporting text ── */
-    --secondary: #2a2a27;
-    --secondary-foreground: #e8e8e4;
-    --muted: #2a2a27;
-    --muted-foreground: #a1a09b;
+    /* ── Brand ── */
+    --primary:           #94afc5;  /* softened blue-slate           */
+    --primary-foreground: #111110;
+    --accent:            #d4705a;  /* slightly muted coral          */
+    --accent-foreground: #111110;
+
+    /* ── Supporting surfaces ── */
+    --secondary:         #252523;
+    --secondary-foreground: #e6e6e2;
+    --muted:             #252523;
 
     /* ── Semantic aliases ── */
     --brand: var(--primary);
     --brand-contrast: var(--primary-foreground);
-    --muted-2: #6b6b67;
 
     /* ── Status ── */
-    --destructive: #f87171;
-    --destructive-foreground: #141412;
+    --destructive:       #f87171;
+    --destructive-foreground: #111110;
 
-    /* ── Chrome — warm dark borders ── */
-    --border: #2e2e2b;
-    --input: #2e2e2b;
-    --ring: #9bb5cc;
+    /* ── Chrome — barely visible borders ── */
+    --border:            #2c2c2a;
+    --input:             #2c2c2a;
+    --ring:              #94afc5;
 
-    /* ── Elevated surfaces ── */
-    --surface-elevated: #242420;
-    --surface-tinted: #272724;
-    --progress-track: #333330;
+    /* ── Shadows — strong layered for real depth ── */
+    --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.50), 0 1px 4px rgba(0, 0, 0, 0.30);
+    --shadow-ring: 0 0 0 1px rgba(255, 255, 255, 0.05);
 
-    /* ── Shadows ── */
-    --shadow-soft: 0 24px 60px rgba(0, 0, 0, 0.45);
-    --shadow-ring: 0 0 0 1px rgba(255, 255, 255, 0.06);
+    /* ── Role-specific — hue-tinted, not flat gray ── */
+    --seeker-soft:        #0f1f36;  /* deep blue tint                */
+    --seeker-soft-border: #1e3a5f;  /* visible but subtle blue rim  */
+    --recruiter-soft:     #241508;  /* deep orange/amber tint       */
+    --recruiter-soft-border: #7c3500; /* warm orange rim            */
 
-    /* ── Role-specific — dark ── */
-    --seeker-soft: #1e3a5f;
-    --seeker-soft-border: #1e40af;
-    --recruiter-soft: #431407;
-    --recruiter-soft-border: #9a3412;
-
-    /* ── Feedback cards — dark ── */
-    --feedback-red-bg: #2d1515;
-    --feedback-red-border: #7f1d1d;
-    --feedback-red-text: #fca5a5;
-    --feedback-red-sub: #f87171;
-    --feedback-green-bg: #052e16;
+    /* ── Feedback cards — dark, readable contrast ── */
+    --feedback-red-bg:     #1f0d0d;
+    --feedback-red-border: #5c1a1a;
+    --feedback-red-text:   #fca5a5;
+    --feedback-red-sub:    #f87171;
+    --feedback-green-bg:   #091a0f;
     --feedback-green-border: #14532d;
     --feedback-green-text: #86efac;
-    --feedback-green-sub: #4ade80;
+    --feedback-green-sub:  #4ade80;
 
-    /* ── Feature icon colors — dark ── */
-    --icon-purple-bg: #2e1065;
-    --icon-purple-text: #c084fc;
-    --icon-blue-bg: #1e3a5f;
-    --icon-blue-text: #60a5fa;
+    /* ── Feature icon colors — tinted, not garish ── */
+    --icon-purple-bg:    #1e0e38;
+    --icon-purple-text:  #c084fc;
+    --icon-blue-bg:      #0d1e35;
+    --icon-blue-text:    #60a5fa;
 
     /* ── Misc ── */
-    --step-circle-border: #2e2e2b;
+    --step-circle-border: #2c2c2a;
+
+    /* ── Positive / progress ── */
+    --positive: #4ade80;
   }
 }
 
@@ -162,13 +173,13 @@
   }
 
   .dark body {
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.06'/%3E%3C/svg%3E");
   }
 }
 
 @layer components {
   .glass-button {
-    @apply bg-white/60 dark:bg-white/10 backdrop-blur-md border border-white/80 dark:border-white/10 shadow-glass-button text-foreground rounded-full transition-all duration-200 hover:bg-white/80 dark:hover:bg-white/15 hover:-translate-y-px hover:shadow-lg;
+    @apply bg-white/60 dark:bg-white/8 backdrop-blur-md border border-white/80 dark:border-white/10 shadow-glass-button text-foreground rounded-full transition-all duration-200 hover:bg-white/80 dark:hover:bg-white/12 hover:-translate-y-px hover:shadow-lg;
   }
 }
 
