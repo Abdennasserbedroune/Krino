@@ -23,7 +23,7 @@
     /* ── Muted / supporting text ── */
     --secondary: #e2e2df;
     --secondary-foreground: #1c1c1c;
-    --muted: #e2e2df;
+    --muted: #e8e8e4;
     --muted-foreground: #64748b;
 
     /* ── Semantic aliases used across components ── */
@@ -32,7 +32,7 @@
     --muted-2: #9ca3af;
 
     /* ── Status ── */
-    --destructive: #ef4444;
+    --destructive: #dc2626;
     --destructive-foreground: #ffffff;
 
     /* ── Chrome ── */
@@ -45,40 +45,50 @@
     --surface-tinted: #e4e4de;
     --progress-track: #dadad4;
 
-    /* ── Shadows ── */
-    --shadow-soft: 0 24px 60px rgba(15, 23, 42, 0.12);
-    --shadow-ring: 0 0 0 1px rgba(148, 163, 184, 0.45);
+    /* ── Shadows — layered for depth ── */
+    --shadow-soft:
+      0 1px 3px rgba(15, 23, 42, 0.06),
+      0 8px 24px rgba(15, 23, 42, 0.08);
+    --shadow-card-hover:
+      0 2px 6px rgba(15, 23, 42, 0.08),
+      0 12px 32px rgba(15, 23, 42, 0.10);
+    --shadow-ring: 0 0 0 1px rgba(148, 163, 184, 0.40);
 
-    --radius: 1.5rem;
+    --radius: 0.75rem;
 
-    /* ── Role-specific ── */
-    --seeker-soft: #eff6ff;
-    --seeker-soft-border: #bfdbfe;
-    --recruiter-soft: #fff7ed;
+    /* ── Role-specific accent colours ── */
+    --seeker:              #2563eb;
+    --seeker-foreground:   #ffffff;
+    --seeker-soft:         #eff6ff;
+    --seeker-soft-border:  #bfdbfe;
+
+    --recruiter:           #ea580c;
+    --recruiter-foreground: #ffffff;
+    --recruiter-soft:      #fff7ed;
     --recruiter-soft-border: #fed7aa;
 
     /* ── Feedback cards ── */
-    --feedback-red-bg: #fef2f2;
+    --feedback-red-bg:     #fef2f2;
     --feedback-red-border: #fecaca;
-    --feedback-red-text: #991b1b;
-    --feedback-red-sub: #dc2626;
-    --feedback-green-bg: #f0fdf4;
+    --feedback-red-text:   #991b1b;
+    --feedback-red-sub:    #dc2626;
+    --feedback-green-bg:   #f0fdf4;
     --feedback-green-border: #bbf7d0;
     --feedback-green-text: #14532d;
-    --feedback-green-sub: #16a34a;
+    --feedback-green-sub:  #16a34a;
 
-    /* ── Feature icon colors ── */
-    --icon-purple-bg: #f3e8ff;
+    /* ── Feature icon colours ── */
+    --icon-purple-bg:   #f3e8ff;
     --icon-purple-text: #7c3aed;
-    --icon-blue-bg: #dbeafe;
-    --icon-blue-text: #1d4ed8;
+    --icon-blue-bg:     #dbeafe;
+    --icon-blue-text:   #1d4ed8;
 
     /* ── Misc ── */
     --step-circle-border: #ffffff;
   }
 
   /* ─────────────────────────────────────────
-     DARK MODE — deep slate, warm contrast
+     DARK MODE
      ───────────────────────────────────────── */
   .dark {
     /* ── Surface layers — 5 distinct steps ── */
@@ -120,31 +130,41 @@
     --surface-tinted: #232638;
     --progress-track: #2e3244;
 
-    /* ── Shadows ── */
-    --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
+    /* ── Shadows — stronger in dark mode ── */
+    --shadow-soft:
+      0 1px 4px rgba(0, 0, 0, 0.30),
+      0 8px 24px rgba(0, 0, 0, 0.22);
+    --shadow-card-hover:
+      0 2px 8px rgba(0, 0, 0, 0.40),
+      0 12px 36px rgba(0, 0, 0, 0.30);
     --shadow-ring: 0 0 0 1px rgba(255, 255, 255, 0.06);
 
-    /* ── Role-specific — dark, clearly hue-tinted ── */
-    --seeker-soft: #0d1f3c;
-    --seeker-soft-border: #1e3a6e;
-    --recruiter-soft: #251507;
+    /* ── Role colours — dark hue-tinted ── */
+    --seeker:              #60a5fa;
+    --seeker-foreground:   #0f1117;
+    --seeker-soft:         #0d1f3c;
+    --seeker-soft-border:  #1e3a6e;
+
+    --recruiter:           #fb923c;
+    --recruiter-foreground: #0f1117;
+    --recruiter-soft:      #251507;
     --recruiter-soft-border: #7c3412;
 
-    /* ── Feedback cards — readable dark variants ── */
-    --feedback-red-bg: #2a1212;
+    /* ── Feedback cards — dark variants ── */
+    --feedback-red-bg:     #2a1212;
     --feedback-red-border: #6b1c1c;
-    --feedback-red-text: #fca5a5;
-    --feedback-red-sub: #f87171;
-    --feedback-green-bg: #0d2318;
+    --feedback-red-text:   #fca5a5;
+    --feedback-red-sub:    #f87171;
+    --feedback-green-bg:   #0d2318;
     --feedback-green-border: #1a4a2e;
     --feedback-green-text: #86efac;
-    --feedback-green-sub: #4ade80;
+    --feedback-green-sub:  #4ade80;
 
-    /* ── Feature icon colors — dark ── */
-    --icon-purple-bg: #1e1040;
+    /* ── Feature icon colours ── */
+    --icon-purple-bg:   #1e1040;
     --icon-purple-text: #c084fc;
-    --icon-blue-bg: #0d1f3c;
-    --icon-blue-text: #60a5fa;
+    --icon-blue-bg:     #0d1f3c;
+    --icon-blue-text:   #60a5fa;
 
     /* ── Misc ── */
     --step-circle-border: #2a2d3a;
@@ -152,35 +172,68 @@
 }
 
 @layer base {
-  * {
-    @apply border-border;
+  *, *::before, *::after {
+    @apply border-border box-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-padding-top: 5rem;
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+    @apply bg-background text-foreground;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
   }
 
   .dark body {
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.07'/%3E%3C/svg%3E");
+  }
+
+  /* Consistent focus ring across the app */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+    border-radius: 0.375rem;
+  }
+
+  /* Selection colour */
+  ::selection {
+    background-color: color-mix(in srgb, var(--primary) 20%, transparent);
+    color: var(--foreground);
   }
 }
 
+/* ── Reusable component utilities ── */
 @layer components {
   .glass-button {
-    @apply bg-white/60 dark:bg-white/10 backdrop-blur-md border border-white/80 dark:border-white/10 shadow-glass-button text-foreground rounded-full transition-all duration-200 hover:bg-white/80 dark:hover:bg-white/15 hover:-translate-y-px hover:shadow-lg;
+    @apply bg-white/60 dark:bg-white/10 backdrop-blur-md border border-white/80 dark:border-white/10
+    text-foreground rounded-full transition-all duration-200
+    hover:bg-white/80 dark:hover:bg-white/15 hover:-translate-y-px hover:shadow-lg;
+  }
+
+  /* Inline form field — consistent across all pages */
+  .field-input {
+    @apply w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm
+    placeholder:text-muted-foreground/60
+    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
+    transition-colors duration-150;
+  }
+
+  /* Utility: visually-hidden but keyboard-accessible */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0;
   }
 }
 
+/* ── Animations ── */
 @keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0);     }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -209,18 +262,18 @@
 }
 
 @keyframes scroll-left {
-  0%   { transform: translateX(0); }
+  0%   { transform: translateX(0);    }
   100% { transform: translateX(-50%); }
 }
 
 @keyframes scroll-right {
   0%   { transform: translateX(-50%); }
-  100% { transform: translateX(0); }
+  100% { transform: translateX(0);    }
 }
 
 @keyframes progress-stripe {
   from { background-position: 1rem 0; }
-  to   { background-position: 0 0; }
+  to   { background-position: 0 0;    }
 }
 
 .hover\:pause-animation:hover {
