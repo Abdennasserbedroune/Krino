@@ -16,12 +16,12 @@ export function Hero() {
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
             className="relative z-20"
           >
-            <div className="mb-6 inline-flex items-center gap-2 rounded-none border-2 border-foreground bg-accent px-4 py-2 text-sm font-bold uppercase tracking-widest text-accent-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-none border-2 border-foreground bg-accent px-4 py-2 text-sm font-bold uppercase tracking-widest text-accent-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)]">
               <Star className="h-4 w-4 fill-current" />
               <span>AI-Powered Studio</span>
             </div>
             <h1 className="font-serif text-7xl font-extrabold uppercase leading-[0.9] tracking-tighter text-foreground sm:text-8xl md:text-9xl">
-              <span className="text-black">Path</span>
+              <span className="text-foreground">Path</span>
               <span className="relative z-10 inline-block text-primary">
                 wise
                 <span className="absolute -bottom-2 left-0 -z-10 h-4 w-full bg-accent/30" />
@@ -34,20 +34,20 @@ export function Hero() {
             <div className="mt-10 flex flex-wrap gap-4">
               <Link
                 href="/auth/sign-up"
-                className="group relative inline-flex items-center gap-2 overflow-hidden border-2 border-foreground bg-primary px-8 py-4 text-lg font-bold text-primary-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1 hover:translate-x-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] active:translate-x-0 active:translate-y-0 active:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] dark:hover:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] dark:active:shadow-[0px_0px_0px_0px_rgba(255,255,255,1)]"
+                className="group relative inline-flex items-center gap-2 overflow-hidden border-2 border-foreground bg-primary px-8 py-4 text-lg font-bold text-primary-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] transition-transform hover:-translate-y-1 hover:translate-x-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.15)] active:translate-x-0 active:translate-y-0 active:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] dark:active:shadow-none"
               >
                 <span className="relative z-10">Start Building</span>
                 <ArrowRight className="relative z-10 h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Link>
               <Link
                 href="/pricing"
-                className="inline-flex items-center justify-center border-2 border-foreground bg-background px-8 py-4 text-lg font-bold text-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1 hover:translate-x-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] active:translate-x-0 active:translate-y-0 active:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] dark:hover:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] dark:active:shadow-[0px_0px_0px_0px_rgba(255,255,255,1)]"
+                className="inline-flex items-center justify-center border-2 border-foreground bg-background px-8 py-4 text-lg font-bold text-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] transition-transform hover:-translate-y-1 hover:translate-x-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.15)] active:translate-x-0 active:translate-y-0"
               >
                 Pricing
               </Link>
               <button
                 type="button"
-                className="inline-flex items-center justify-center border-2 border-foreground bg-secondary px-8 py-4 text-lg font-bold text-secondary-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1 hover:translate-x-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] active:translate-x-0 active:translate-y-0 active:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] dark:hover:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] dark:active:shadow-[0px_0px_0px_0px_rgba(255,255,255,1)]"
+                className="inline-flex items-center justify-center border-2 border-foreground bg-secondary px-8 py-4 text-lg font-bold text-secondary-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] transition-transform hover:-translate-y-1 hover:translate-x-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.15)] active:translate-x-0 active:translate-y-0"
               >
                 View Gallery
               </button>
@@ -63,9 +63,8 @@ export function Hero() {
             transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
             className="relative aspect-[3/4] w-full max-w-sm"
           >
-            {/* CV Document Representation */}
-            <div className="absolute inset-0 translate-x-4 translate-y-4 border-2 border-foreground bg-accent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]" />
-            <div className="absolute inset-0 border-2 border-foreground bg-background p-8 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
+            <div className="absolute inset-0 translate-x-4 translate-y-4 border-2 border-foreground bg-accent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]" />
+            <div className="absolute inset-0 border-2 border-foreground bg-card p-8 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
               {/* CV Header */}
               <div className="mb-8 border-b-2 border-foreground pb-4">
                 <div className="h-8 w-3/4 bg-foreground" />
@@ -87,9 +86,8 @@ export function Hero() {
                   <div className="h-4 w-5/6 bg-muted-foreground/20" />
                 </div>
               </div>
-
               {/* Floating Badge */}
-              <div className="absolute -right-4 top-12 rotate-12 border-2 border-foreground bg-primary px-3 py-1 text-xs font-bold text-primary-foreground shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">
+              <div className="absolute -right-4 top-12 rotate-12 border-2 border-foreground bg-primary px-3 py-1 text-xs font-bold text-primary-foreground shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.1)]">
                 TOP RATED
               </div>
             </div>
@@ -97,11 +95,11 @@ export function Hero() {
         </div>
       </div>
 
-      {/* Marquee */}
-      <div className="absolute bottom-0 w-full border-y-2 border-black bg-accent py-3">
+      {/* Marquee — dark mode uses foreground border + tinted accent bg */}
+      <div className="absolute bottom-0 w-full border-y-2 border-foreground bg-accent py-3">
         <div className="flex animate-marquee whitespace-nowrap">
           {Array.from({ length: 10 }).map((_, i) => (
-            <span key={i} className="mx-4 text-xl font-bold uppercase tracking-widest text-black">
+            <span key={i} className="mx-4 text-xl font-bold uppercase tracking-widest text-accent-foreground">
               Analysis • Optimization • Design • Strategy •
             </span>
           ))}

@@ -89,7 +89,8 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-accent selection:text-white overflow-x-hidden relative">
 
-      <header className="fixed top-0 left-0 right-0 z-[100] bg-background/95 backdrop-blur-xl border-b border-white/10">
+      {/* ── Header ── */}
+      <header className="fixed top-0 left-0 right-0 z-[100] bg-background/95 backdrop-blur-xl border-b border-border/40">
         <div className="container mx-auto px-6 h-20 flex items-center justify-between">
           <div className="font-serif text-3xl font-bold tracking-tight text-primary select-none cursor-default">Pathwise</div>
           <div className="flex items-center gap-4">
@@ -118,7 +119,8 @@ export default function LandingPage() {
       </header>
 
       <main className="pt-32 pb-20 relative">
-        {/* Hero Section */}
+
+        {/* ── Hero Section ── */}
         <section className="container mx-auto px-6 mb-20 relative">
           <div className="max-w-5xl mx-auto text-center">
 
@@ -126,17 +128,25 @@ export default function LandingPage() {
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="inline-flex bg-white/80 backdrop-blur-sm p-1.5 rounded-full shadow-craft mb-12 border border-border/50"
+              className="inline-flex bg-surface-elevated/80 dark:bg-surface-elevated/60 backdrop-blur-sm p-1.5 rounded-full shadow-craft mb-12 border border-border/50"
             >
               <button
                 onClick={() => setActiveRole("seeker")}
-                className={`px-8 py-3 rounded-full text-sm font-bold transition-all duration-300 ${activeRole === 'seeker' ? 'bg-seeker text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}`}
+                className={`px-8 py-3 rounded-full text-sm font-bold transition-all duration-300 ${
+                  activeRole === 'seeker'
+                    ? 'bg-seeker text-white shadow-md'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50 dark:hover:bg-surface-tinted'
+                }`}
               >
                 {t.hero.roleSeeker}
               </button>
               <button
                 onClick={() => setActiveRole("recruiter")}
-                className={`px-8 py-3 rounded-full text-sm font-bold transition-all duration-300 ${activeRole === 'recruiter' ? 'bg-recruiter text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}`}
+                className={`px-8 py-3 rounded-full text-sm font-bold transition-all duration-300 ${
+                  activeRole === 'recruiter'
+                    ? 'bg-recruiter text-white shadow-md'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50 dark:hover:bg-surface-tinted'
+                }`}
               >
                 {t.hero.roleRecruiter}
               </button>
@@ -172,7 +182,9 @@ export default function LandingPage() {
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
                   <Link
                     href={ctaHref}
-                    className={`px-8 py-4 rounded-full text-lg font-bold text-white shadow-glow hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ${activeRole === 'seeker' ? 'bg-seeker' : 'bg-recruiter'}`}
+                    className={`px-8 py-4 rounded-full text-lg font-bold text-white shadow-glow hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ${
+                      activeRole === 'seeker' ? 'bg-seeker' : 'bg-recruiter'
+                    }`}
                   >
                     {activeRole === "seeker" ? t.hero.ctaSeeker : t.hero.ctaRecruiter}
                   </Link>
@@ -186,7 +198,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Job Seeker Testimonials Marquee */}
+        {/* ── Job Seeker Testimonials ── */}
         <section className="mb-32 overflow-hidden py-10 relative">
           <div className="container mx-auto px-6 mb-8 text-center">
             <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">{t.testimonials.trustedSeekers}</p>
@@ -194,13 +206,10 @@ export default function LandingPage() {
           <InfiniteMovingCards items={jobSeekerTestimonials} direction="right" speed="slow" />
         </section>
 
-        {/* Bento Grid Features */}
+        {/* ── Bento Grid Features ── */}
         <section className="container mx-auto px-6 mb-32 relative">
           <div className="text-center mb-16">
-            <motion.h2
-              {...clipAnimation}
-              className="font-serif text-4xl md:text-5xl mb-6 text-primary"
-            >
+            <motion.h2 {...clipAnimation} className="font-serif text-4xl md:text-5xl mb-6 text-primary">
               {t.features.whyTitle}
             </motion.h2>
             <motion.p
@@ -216,19 +225,27 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
 
-            {/* Large Card: Deep Match Analysis */}
+            {/* Large Bento: Deep Match Analysis */}
             <motion.div
               initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, ease: "easeOut" }}
-              className={`md:col-span-2 p-10 rounded-[2.5rem] border border-white/40 shadow-craft hover:shadow-card-hover hover:-translate-y-1 transition-transform transition-shadow duration-150 group relative overflow-hidden ${activeRole === 'seeker' ? 'bg-gradient-to-br from-blue-50/80 to-indigo-50/80' : 'bg-gradient-to-br from-orange-50/80 to-amber-50/80'}`}
+              className={`md:col-span-2 p-10 rounded-[2.5rem] border shadow-craft hover:shadow-card-hover hover:-translate-y-1 transition-all duration-150 group relative overflow-hidden ${
+                activeRole === 'seeker'
+                  ? 'bg-gradient-to-br from-blue-50/80 to-indigo-50/80 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-100/60 dark:border-blue-900/30'
+                  : 'bg-gradient-to-br from-orange-50/80 to-amber-50/80 dark:from-orange-950/30 dark:to-amber-950/30 border-orange-100/60 dark:border-orange-900/30'
+              }`}
             >
-              <div className="absolute top-0 right-0 w-96 h-96 bg-white/40 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+              <div className="absolute top-0 right-0 w-96 h-96 bg-white/40 dark:bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
 
               <div className="relative z-10 grid md:grid-cols-2 gap-12 items-center h-full">
                 <div className="space-y-6">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm ${activeRole === 'seeker' ? 'bg-white text-seeker shadow-blue-200' : 'bg-white text-recruiter shadow-orange-200'}`}>
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm ${
+                    activeRole === 'seeker'
+                      ? 'bg-white dark:bg-surface-elevated text-seeker'
+                      : 'bg-white dark:bg-surface-elevated text-recruiter'
+                  }`}>
                     <Search className="w-7 h-7" />
                   </div>
                   <h3 className="font-serif text-3xl text-primary">
@@ -249,39 +266,41 @@ export default function LandingPage() {
                   </ul>
                 </div>
 
-                {/* Nested Card: Mock UI */}
-                <motion.div
-                  className="bg-white/90 backdrop-blur rounded-3xl p-6 shadow-xl border border-white/50 transform rotate-2 group-hover:rotate-0 group-hover:scale-[1.02] transition-transform transition-shadow duration-150"
-                >
+                {/* Nested Mock UI Card */}
+                <motion.div className="bg-white/90 dark:bg-surface-elevated/95 backdrop-blur rounded-3xl p-6 shadow-xl border border-white/50 dark:border-border transform rotate-2 group-hover:rotate-0 group-hover:scale-[1.02] transition-transform duration-150">
                   <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center font-serif font-bold text-gray-500">JD</div>
+                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-serif font-bold text-muted-foreground">JD</div>
                       <div>
                         <div className="text-xs font-bold uppercase text-muted-foreground">{t.features.targetRole}</div>
                         <div className="text-sm font-bold text-primary">Senior Frontend Dev</div>
                       </div>
                     </div>
-                    <div className={`px-3 py-1 rounded-full text-xs font-bold ${activeRole === 'seeker' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                    <div className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      activeRole === 'seeker'
+                        ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'
+                        : 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400'
+                    }`}>
                       85% Match
                     </div>
                   </div>
                   <div className="space-y-3">
-                    <div className="p-3 rounded-xl bg-red-50 border border-red-100 flex items-start gap-3">
-                      <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="text-red-600 text-xs font-bold">!</span>
+                    <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-800/30 flex items-start gap-3">
+                      <div className="w-5 h-5 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-red-600 dark:text-red-400 text-xs font-bold">!</span>
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-red-800 mb-1">{t.features.missingSkill}</div>
-                        <div className="text-xs text-red-600">{t.features.missingSkillDesc}</div>
+                        <div className="text-xs font-bold text-red-800 dark:text-red-300 mb-1">{t.features.missingSkill}</div>
+                        <div className="text-xs text-red-600 dark:text-red-400">{t.features.missingSkillDesc}</div>
                       </div>
                     </div>
-                    <div className="p-3 rounded-xl bg-green-50 border border-green-100 flex items-start gap-3">
-                      <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center shrink-0 mt-0.5">
-                        <Check className="w-3 h-3 text-green-600" />
+                    <div className="p-3 rounded-xl bg-green-50 dark:bg-green-950/40 border border-green-100 dark:border-green-800/30 flex items-start gap-3">
+                      <div className="w-5 h-5 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center shrink-0 mt-0.5">
+                        <Check className="w-3 h-3 text-green-600 dark:text-green-400" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-green-800 mb-1">{t.features.strongMatch}</div>
-                        <div className="text-xs text-green-600">{t.features.strongMatchDesc}</div>
+                        <div className="text-xs font-bold text-green-800 dark:text-green-300 mb-1">{t.features.strongMatch}</div>
+                        <div className="text-xs text-green-600 dark:text-green-400">{t.features.strongMatchDesc}</div>
                       </div>
                     </div>
                   </div>
@@ -289,7 +308,7 @@ export default function LandingPage() {
               </div>
             </motion.div>
 
-            {/* Tall Card: Privacy */}
+            {/* Tall Bento: Privacy */}
             <motion.div
               initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -304,7 +323,6 @@ export default function LandingPage() {
               <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center mb-8 backdrop-blur-sm border border-white/10">
                 <Shield className="w-7 h-7 text-white" />
               </div>
-
               <h3 className="font-serif text-3xl mb-4 relative z-10">
                 {activeRole === "seeker" ? t.features.privacyTitleSeeker : t.features.privacyTitleRecruiter}
               </h3>
@@ -312,7 +330,6 @@ export default function LandingPage() {
                 {activeRole === "seeker" ? t.features.privacyDescSeeker : t.features.privacyDescRecruiter}
               </p>
 
-              {/* Nested Card: Privacy Toggle */}
               <div className="mt-auto bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/10 relative z-10 group-hover:bg-white/15 transition-colors">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -327,20 +344,19 @@ export default function LandingPage() {
               </div>
             </motion.div>
 
-            {/* Medium Card: Actionable Feedback */}
+            {/* Medium Bento: Actionable Feedback */}
             <motion.div
               initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               whileHover={{ scale: 1.02 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-white/60 backdrop-blur-md p-10 rounded-[2.5rem] border border-white/40 shadow-craft hover:shadow-card-hover transition-all duration-500 group relative overflow-hidden"
+              className="bg-card/60 dark:bg-surface-elevated/60 backdrop-blur-md p-10 rounded-[2.5rem] border border-white/40 dark:border-border/50 shadow-craft hover:shadow-card-hover transition-all duration-500 group relative overflow-hidden"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 to-pink-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 to-pink-50/50 dark:from-purple-950/20 dark:to-pink-950/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
               <div className="relative z-10">
-                <div className="w-14 h-14 rounded-2xl bg-purple-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-sm">
-                  <Sparkles className="w-7 h-7 text-purple-600" />
+                <div className="w-14 h-14 rounded-2xl bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-sm">
+                  <Sparkles className="w-7 h-7 text-purple-600 dark:text-purple-400" />
                 </div>
                 <h3 className="font-serif text-2xl mb-3 text-primary">
                   {activeRole === "seeker" ? t.features.feedbackTitleSeeker : t.features.feedbackTitleRecruiter}
@@ -348,16 +364,15 @@ export default function LandingPage() {
                 <p className="text-muted-foreground mb-6">
                   {activeRole === "seeker" ? t.features.feedbackDescSeeker : t.features.feedbackDescRecruiter}
                 </p>
-
                 <div className="space-y-2">
-                  <div className="flex items-center gap-3 p-2 rounded-lg bg-white/50 border border-white/50 hover:bg-white transition-colors">
-                    <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-bold">1</div>
+                  <div className="flex items-center gap-3 p-2 rounded-lg bg-white/50 dark:bg-surface-tinted/50 border border-white/50 dark:border-border hover:bg-white dark:hover:bg-surface-tinted transition-colors">
+                    <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 flex items-center justify-center text-xs font-bold">1</div>
                     <span className="text-sm font-medium">
                       {activeRole === "seeker" ? t.features.feedbackItem1Seeker : t.features.feedbackItem1Recruiter}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3 p-2 rounded-lg bg-white/50 border border-white/50 hover:bg-white transition-colors">
-                    <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-bold">2</div>
+                  <div className="flex items-center gap-3 p-2 rounded-lg bg-white/50 dark:bg-surface-tinted/50 border border-white/50 dark:border-border hover:bg-white dark:hover:bg-surface-tinted transition-colors">
+                    <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 flex items-center justify-center text-xs font-bold">2</div>
                     <span className="text-sm font-medium">
                       {activeRole === "seeker" ? t.features.feedbackItem2Seeker : t.features.feedbackItem2Recruiter}
                     </span>
@@ -366,20 +381,19 @@ export default function LandingPage() {
               </div>
             </motion.div>
 
-            {/* Medium Card: Team/Speed */}
+            {/* Medium Bento: Speed */}
             <motion.div
               initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               whileHover={{ scale: 1.02 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-white/60 backdrop-blur-md p-10 rounded-[2.5rem] border border-white/40 shadow-craft hover:shadow-card-hover transition-all duration-500 group relative overflow-hidden"
+              className="bg-card/60 dark:bg-surface-elevated/60 backdrop-blur-md p-10 rounded-[2.5rem] border border-white/40 dark:border-border/50 shadow-craft hover:shadow-card-hover transition-all duration-500 group relative overflow-hidden"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 dark:from-blue-950/20 dark:to-cyan-950/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
               <div className="relative z-10">
-                <div className="w-14 h-14 rounded-2xl bg-blue-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-sm">
-                  <Clock className="w-7 h-7 text-blue-600" />
+                <div className="w-14 h-14 rounded-2xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-sm">
+                  <Clock className="w-7 h-7 text-blue-600 dark:text-blue-400" />
                 </div>
                 <h3 className="font-serif text-2xl mb-3 text-primary">
                   {activeRole === "seeker" ? t.features.speedTitleSeeker : t.features.speedTitleRecruiter}
@@ -400,17 +414,15 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Workflow Section */}
-        <section className="py-32 bg-white/50 backdrop-blur-sm border-y border-border/50 relative">
+        {/* ── Workflow Section ── */}
+        <section className="py-32 bg-surface-elevated/40 dark:bg-surface-elevated/20 backdrop-blur-sm border-y border-border/50 relative">
           <div className="container mx-auto px-6">
             <div className="text-center mb-20">
               <h2 className="font-serif text-5xl mb-6 text-primary">{t.howItWorks.title}</h2>
             </div>
-
             <div className="max-w-5xl mx-auto">
               <div className="grid md:grid-cols-3 gap-12 relative">
                 <div className="hidden md:block absolute top-8 left-[15%] right-[15%] h-0.5 bg-border/50"></div>
-
                 {[
                   {
                     icon: Upload,
@@ -436,7 +448,9 @@ export default function LandingPage() {
                     transition={{ delay: i * 0.2 }}
                     className="relative flex flex-col items-center text-center group"
                   >
-                    <div className={`w-16 h-16 rounded-full bg-background border-4 border-white shadow-xl flex items-center justify-center mb-8 z-10 group-hover:scale-110 transition-transform duration-300 ${activeRole === 'seeker' ? 'text-seeker' : 'text-recruiter'}`}>
+                    <div className={`w-16 h-16 rounded-full bg-background border-4 border-surface-elevated dark:border-border shadow-xl flex items-center justify-center mb-8 z-10 group-hover:scale-110 transition-transform duration-300 ${
+                      activeRole === 'seeker' ? 'text-seeker' : 'text-recruiter'
+                    }`}>
                       <item.icon className="w-7 h-7" />
                     </div>
                     <h3 className="text-2xl font-serif font-bold mb-3 text-primary">{item.title}</h3>
@@ -448,7 +462,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Recruiter Testimonials Marquee */}
+        {/* ── Recruiter Testimonials ── */}
         <section className="mb-32 overflow-hidden py-10 relative">
           <div className="container mx-auto px-6 mb-8 text-center">
             <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">{t.testimonials.trustedHiring}</p>
@@ -456,7 +470,7 @@ export default function LandingPage() {
           <InfiniteMovingCards items={recruiterTestimonials} direction="left" speed="slow" />
         </section>
 
-        {/* Pricing */}
+        {/* ── Pricing ── */}
         <section className="container mx-auto px-6 pb-32 relative">
           <div className="max-w-4xl mx-auto">
             <div className="bg-primary rounded-[3rem] p-12 md:p-20 text-center text-primary-foreground relative overflow-hidden">
@@ -464,25 +478,33 @@ export default function LandingPage() {
                 <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-white/5 rounded-full blur-3xl"></div>
                 <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-accent/20 rounded-full blur-3xl"></div>
               </div>
-
               <div className="relative z-10">
                 <h2 className="font-serif text-4xl md:text-5xl mb-6">{t.pricing.title}</h2>
                 <p className="text-xl text-white/80 mb-12 max-w-2xl mx-auto">{t.pricing.sub}</p>
-
                 <div className="flex flex-col sm:flex-row justify-center gap-6">
+
                   {/* Free Plan */}
                   <motion.div
                     whileHover={{ y: -10 }}
-                    className="bg-white text-primary p-8 rounded-3xl flex-1 max-w-sm mx-auto shadow-xl transition-all duration-300 relative group"
+                    className="bg-card text-primary p-8 rounded-3xl flex-1 max-w-sm mx-auto shadow-xl transition-all duration-300 relative group"
                   >
                     <div className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-2">{t.pricing.starterLabel}</div>
                     <div className="text-5xl font-serif font-bold mb-4">$0</div>
                     <ul className="text-left space-y-4 mb-8">
-                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><Check size={12} /></div> {t.pricing.starterChecks}</li>
-                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><Check size={12} /></div> {t.pricing.starterScore}</li>
-                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><Check size={12} /></div> {t.pricing.starterSession}</li>
+                      <li className="flex items-center gap-3 text-sm font-medium">
+                        <div className="w-5 h-5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 flex items-center justify-center"><Check size={12} /></div>
+                        {t.pricing.starterChecks}
+                      </li>
+                      <li className="flex items-center gap-3 text-sm font-medium">
+                        <div className="w-5 h-5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 flex items-center justify-center"><Check size={12} /></div>
+                        {t.pricing.starterScore}
+                      </li>
+                      <li className="flex items-center gap-3 text-sm font-medium">
+                        <div className="w-5 h-5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 flex items-center justify-center"><Check size={12} /></div>
+                        {t.pricing.starterSession}
+                      </li>
                     </ul>
-                    <Link href={ctaHref} className="block w-full py-4 rounded-2xl bg-secondary text-primary font-bold hover:bg-secondary/80 transition-colors">
+                    <Link href={ctaHref} className="block w-full py-4 rounded-2xl bg-secondary dark:bg-surface-tinted text-primary font-bold hover:bg-secondary/80 dark:hover:bg-surface-elevated transition-colors">
                       {t.pricing.getStarted}
                     </Link>
                   </motion.div>
@@ -512,8 +534,8 @@ export default function LandingPage() {
 
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-border/50 py-16 relative">
+      {/* ── Footer ── */}
+      <footer className="bg-card dark:bg-card border-t border-border/50 py-16 relative">
         <div className="container mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="text-center md:text-left">
