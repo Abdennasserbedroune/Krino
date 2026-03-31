@@ -30,6 +30,9 @@ import {
     Trash2,
     RefreshCw,
     ClipboardList,
+    Download,
+    NotebookPen,
+    FileInput,
 } from "lucide-react";
 import { ProfileDropdown } from "@/components/ui/profile-dropdown";
 import Protected from "@/components/Protected";
@@ -223,6 +226,110 @@ function buildAllQuestionsMarkdown(
     return lines.join("\n");
 }
 
+// ─── exportResultsToCSV ───────────────────────────────────────────────────────
+// Task 3: Export results as a downloadable CSV file
+
+function exportResultsToCSV(results: MatchResult[]) {
+    const headers = [
+        "File Name",
+        "Overall Score",
+        "Skills Score",
+        "Experience Score",
+        "CV Quality Score",
+        "Verdict",
+        "Strengths",
+        "Risks",
+    ];
+
+    const rows = [...results]
+        .sort((a, b) => b.match_score - a.match_score)
+        .map((r) => {
+            const verdict = verdictFromScore(r.match_score).label;
+            const strengths = (r.reasons.strengths ?? []).join(" | ");
+            const risks = (r.reasons.risks ?? []).join(" | ");
+            return [
+                `"${r.file_name.replace(/"/g, '""')}"`,
+                r.match_score,
+                r.skills_match_score,
+                r.experience_score,
+                r.cv_quality_score,
+                `"${verdict}"`,
+                `"${strengths.replace(/"/g, '""')}"`,
+                `"${risks.replace(/"/g, '""')}"`,
+            ].join(",");
+        });
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `pathwise-candidates-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+// ─── ResultSkeleton ───────────────────────────────────────────────────────────
+// Task 5: Loading skeleton shown while AI matching is running
+
+function ResultSkeleton() {
+    return (
+        <div className="space-y-6 animate-pulse">
+            {/* Top verdict card skeleton */}
+            <div className="rounded-2xl border-2 border-border/40 bg-card/60 px-6 py-5 flex items-start gap-4">
+                <div className="h-10 w-10 rounded-full bg-muted flex-shrink-0" />
+                <div className="flex-1 space-y-3">
+                    <div className="h-3 w-24 rounded-full bg-muted" />
+                    <div className="h-4 w-48 rounded-full bg-muted" />
+                    <div className="h-3 w-full rounded-full bg-muted" />
+                    <div className="h-3 w-4/5 rounded-full bg-muted" />
+                </div>
+                <div className="hidden sm:flex flex-col items-end gap-1">
+                    <div className="h-10 w-12 rounded-lg bg-muted" />
+                    <div className="h-2.5 w-8 rounded-full bg-muted" />
+                </div>
+            </div>
+            {/* Score rings skeleton */}
+            <div className="rounded-3xl border border-border/40 bg-card/60 p-6 md:p-8">
+                <div className="mb-6 h-5 w-36 rounded-full bg-muted" />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 justify-items-center">
+                    {[1, 2, 3, 4].map((i) => (
+                        <div key={i} className="flex flex-col items-center gap-2">
+                            <div className="h-[68px] w-[68px] rounded-full bg-muted" />
+                            <div className="h-3 w-14 rounded-full bg-muted" />
+                        </div>
+                    ))}
+                </div>
+                <div className="mt-6 grid gap-3 md:grid-cols-2">
+                    {[1, 2, 3, 4].map((i) => (
+                        <div key={i} className="space-y-1.5">
+                            <div className="h-3 w-32 rounded-full bg-muted" />
+                            <div className="h-2 w-full rounded-full bg-muted" />
+                        </div>
+                    ))}
+                </div>
+            </div>
+            {/* Interview questions skeleton */}
+            <div className="rounded-3xl border border-border/40 bg-card/60 p-6 md:p-8 space-y-4">
+                <div className="h-5 w-48 rounded-full bg-muted" />
+                <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className="flex items-start gap-3 rounded-xl bg-muted/30 px-4 py-3">
+                            <div className="h-6 w-6 rounded-full bg-muted flex-shrink-0" />
+                            <div className="flex-1 space-y-1.5">
+                                <div className="h-3 w-full rounded-full bg-muted" />
+                                <div className="h-3 w-3/4 rounded-full bg-muted" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function RecruiterDashboardPage() {
@@ -245,11 +352,10 @@ export default function RecruiterDashboardPage() {
                     <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-orange-500/10 rounded-full blur-[100px] animate-blob animation-delay-4000 mix-blend-multiply" />
                 </div>
 
-                {/* ── Fixed Header (Aligned with Job Seeker Header) ── */}
+                {/* ── Fixed Header ── */}
                 <header className="fixed top-0 left-0 right-0 z-[60] bg-gradient-to-r from-recruiter/95 via-orange-600/95 to-red-600/95 backdrop-blur-xl border-b border-white/10 shadow-lg">
                     <div className="container mx-auto px-4 sm:px-6 h-16 md:h-20 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                            {/* Non-clickable logo */}
                             <span className="font-serif text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white select-none cursor-default">
                                 Pathwise
                             </span>
@@ -322,6 +428,8 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
     const [location, setLocation] = useState("");
     const [employmentType, setEmploymentType] = useState("");
     const [skills, setSkills] = useState("");
+    // Task 4.1 — job description free-text state
+    const [jobDescription, setJobDescription] = useState("");
     const [selectedCvs, setSelectedCvs] = useState<SelectedCv[]>([]);
     const [results, setResults] = useState<MatchResult[]>([]);
     const [isRunning, setIsRunning] = useState(false);
@@ -329,6 +437,8 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
     const [uploadingFileNames, setUploadingFileNames] = useState<string[]>([]);
     const [matchError, setMatchError] = useState<string | null>(null);
     const [focusedIndex, setFocusedIndex] = useState(0);
+    // Task 2 — candidate notes keyed by cv_id
+    const [candidateNotes, setCandidateNotes] = useState<Record<number, string>>({});
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const backendBaseUrl = "";
@@ -438,7 +548,10 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
         setIsRunning(true);
         setResults([]);
         setMatchError(null);
+        // Task 5: transition to step 3 immediately to show skeleton
+        setStep(3);
         try {
+            // Task 4.4 — include job_description in the payload
             const payload = {
                 job: {
                     domain: jobDomain,
@@ -447,6 +560,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                     location,
                     contract_type: employmentType,
                     skills_text: skills,
+                    job_description: jobDescription || undefined,
                 },
                 cv_ids: selectedCvs.map((cv) => cv.id),
             };
@@ -462,11 +576,11 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
             }
             const data = (await res.json()) as { results: MatchResult[] };
             setResults(data.results || []);
-            setStep(3);
         } catch (err: any) {
             const msg = err?.message ?? "Could not run AI matching.";
             setMatchError(msg);
             toast({ variant: "destructive", title: "Matching failed", description: msg });
+            setStep(2);
         } finally {
             setIsRunning(false);
         }
@@ -489,6 +603,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
         setResults([]);
         setMatchError(null);
         setFocusedIndex(0);
+        setCandidateNotes({});
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
@@ -509,7 +624,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                     </p>
                 </div>
 
-                {!hasResults && (
+                {!hasResults && !isRunning && (
                     <div className="rounded-3xl border-2 border-dashed border-recruiter/30 bg-recruiter/5 p-14 text-center">
                         <Sparkles className="mx-auto h-12 w-12 text-recruiter/40 mb-4" />
                         <p className="text-lg font-semibold text-foreground">{t.ext.noCandidatesYet}</p>
@@ -519,7 +634,10 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                     </div>
                 )}
 
-                {hasResults && (
+                {/* Task 5: show skeleton while running */}
+                {isRunning && <ResultSkeleton />}
+
+                {hasResults && !isRunning && (
                     <>
                         <div className="flex flex-wrap gap-2">
                             {results.map((r, idx) => {
@@ -722,6 +840,29 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                         )}
                                     </div>
                                 )}
+
+                                {/* ── Task 2: CANDIDATE NOTES ── */}
+                                <div className="rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
+                                    <div className="mb-3 flex items-center gap-2">
+                                        <NotebookPen className="h-5 w-5 text-recruiter" />
+                                        <h3 className="font-serif text-xl md:text-2xl text-foreground">Private Notes</h3>
+                                    </div>
+                                    <p className="mb-3 text-xs text-muted-foreground">
+                                        Session-only notes for this candidate. Not saved to the server.
+                                    </p>
+                                    <textarea
+                                        value={candidateNotes[focusedResult.cv_id] ?? ""}
+                                        onChange={(e) =>
+                                            setCandidateNotes((prev) => ({
+                                                ...prev,
+                                                [focusedResult.cv_id]: e.target.value,
+                                            }))
+                                        }
+                                        rows={3}
+                                        placeholder="e.g. Called, left voicemail. Salary expectation seems high. Follow up Friday."
+                                        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60 resize-none"
+                                    />
+                                </div>
 
                                 {/* ── 5. CANDIDATE COMPARISON TABLE ── */}
                                 {results.length > 1 && (
@@ -998,6 +1139,25 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                     placeholder={t.ext.keySkillsNotesPlaceholder}
                                     className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60" />
                             </div>
+                            {/* Task 4.2 — Job Description textarea */}
+                            <div className="grid gap-2">
+                                <div className="flex items-center gap-2">
+                                    <label className="text-sm font-medium text-muted-foreground">Job Description</label>
+                                    <span className="rounded-full bg-recruiter/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-recruiter">
+                                        Recommended
+                                    </span>
+                                </div>
+                                <textarea
+                                    value={jobDescription}
+                                    onChange={(e) => setJobDescription(e.target.value)}
+                                    rows={5}
+                                    placeholder="Paste the full job description here — the AI will use it for precise matching instead of relying only on category labels..."
+                                    className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60 resize-none"
+                                />
+                                <p className="text-[11px] text-muted-foreground">
+                                    Including the full JD gives the AI richer context and produces more accurate match scores.
+                                </p>
+                            </div>
                         </div>
                         <div className="pt-2">
                             <button disabled={!canContinueFromStep1} onClick={() => setStep(2)}
@@ -1006,6 +1166,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                             </button>
                         </div>
                     </div>
+                    {/* Task 4.3 — Show JD preview in role summary panel */}
                     <div className="space-y-4 rounded-3xl border border-dashed border-recruiter/40 bg-recruiter/5 p-6 md:p-8">
                         <h3 className="font-serif text-xl md:text-2xl text-foreground">{t.ext.roleSummaryTitle}</h3>
                         <p className="text-sm text-muted-foreground">{t.ext.roleSummarySub}</p>
@@ -1017,6 +1178,14 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                             <li><span className="font-semibold text-foreground">{t.ext.summaryContract}</span> {employmentType || t.ext.notSetYet}</li>
                         </ul>
                         {skills && <p className="mt-2 text-sm text-muted-foreground"><span className="font-semibold text-foreground">{t.ext.summarySkills}</span> {skills}</p>}
+                        {jobDescription && (
+                            <div className="mt-2 rounded-xl border border-recruiter/20 bg-recruiter/5 px-3 py-2">
+                                <p className="text-xs font-semibold text-recruiter mb-1">Job Description</p>
+                                <p className="text-xs text-muted-foreground line-clamp-3">
+                                    {jobDescription.length > 120 ? `${jobDescription.slice(0, 120)}…` : jobDescription}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -1156,73 +1325,93 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
 
             {step === 3 && (
                 <div className="space-y-6">
-                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] items-start">
-                        <div className="rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
-                            <div className="mb-4 flex items-center gap-3">
-                                <CheckCircle2 className="h-6 w-6 text-emerald-500" />
-                                <h3 className="font-serif text-2xl md:text-3xl text-foreground">{t.ext.bestMatchedCv}</h3>
-                            </div>
-                            {results.length > 0 && (
-                                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                                    <div>
-                                        <p className="text-base font-semibold text-foreground">{results[0].file_name}</p>
-                                        <p className="mt-1 text-sm text-muted-foreground">{results[0].reasons.overall_reason}</p>
-                                        {results[0].reasons.strengths?.length > 0 && (
-                                            <ul className="mt-3 list-disc pl-5 text-xs text-emerald-700">
-                                                {results[0].reasons.strengths.map((item, i) => <li key={i}>{item}</li>)}
-                                            </ul>
-                                        )}
+                    {/* Task 5: show skeleton while AI is running, real results after */}
+                    {isRunning ? (
+                        <ResultSkeleton />
+                    ) : (
+                        <>
+                            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] items-start">
+                                <div className="rounded-3xl border border-border/60 bg-card/80 p-6 md:p-8">
+                                    <div className="mb-4 flex items-center gap-3">
+                                        <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                                        <h3 className="font-serif text-2xl md:text-3xl text-foreground">{t.ext.bestMatchedCv}</h3>
                                     </div>
-                                    <div className="text-right flex-shrink-0">
-                                        <div className="text-4xl font-bold text-recruiter">{results[0].match_score}</div>
-                                        <div className="text-xs uppercase tracking-wide text-muted-foreground">{t.ext.matchPer100}</div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        <div className="rounded-3xl border border-border/60 bg-card/70 p-6 md:p-8">
-                            <h3 className="font-serif text-xl md:text-2xl text-foreground mb-2">{t.ext.jobOverview}</h3>
-                            <p className="text-sm text-muted-foreground">{jobDomain} · {experienceRange || t.ext.expNotSet} · {salaryRange || t.ext.salaryNotSet}</p>
-                            {(location || employmentType || skills) && (
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                    {[location, employmentType, skills && `${t.ext.skillsColon} ${skills}`].filter(Boolean).join(" · ")}
-                                </p>
-                            )}
-                        </div>
-                    </div>
-
-                    {results.length > 1 && (
-                        <div className="grid gap-4 md:grid-cols-2">
-                            {results.slice(1).map((r) => (
-                                <div key={r.cv_id} className="flex items-start gap-3 rounded-2xl border border-border/60 bg-card/80 p-4 group">
-                                    <FileText className="mt-1 h-5 w-5 text-recruiter flex-shrink-0" />
-                                    <div className="space-y-1 flex-1 min-w-0">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <p className="text-sm font-semibold text-foreground truncate">{r.file_name}</p>
-                                            <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground flex-shrink-0">{r.match_score}/100</span>
+                                    {results.length > 0 && (
+                                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                                            <div>
+                                                <p className="text-base font-semibold text-foreground">{results[0].file_name}</p>
+                                                <p className="mt-1 text-sm text-muted-foreground">{results[0].reasons.overall_reason}</p>
+                                                {results[0].reasons.strengths?.length > 0 && (
+                                                    <ul className="mt-3 list-disc pl-5 text-xs text-emerald-700">
+                                                        {results[0].reasons.strengths.map((item, i) => <li key={i}>{item}</li>)}
+                                                    </ul>
+                                                )}
+                                            </div>
+                                            <div className="text-right flex-shrink-0">
+                                                <div className="text-4xl font-bold text-recruiter">{results[0].match_score}</div>
+                                                <div className="text-xs uppercase tracking-wide text-muted-foreground">{t.ext.matchPer100}</div>
+                                            </div>
                                         </div>
-                                        <p className="text-xs text-muted-foreground">{r.reasons.overall_reason}</p>
-                                    </div>
-                                    <button
-                                        onClick={() => handleRemoveFromResults(r.cv_id)}
-                                        className="flex-shrink-0 rounded-md p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 transition"
-                                        title={t.ext.removeCandidate}
-                                    >
-                                        <X className="h-3.5 w-3.5" />
-                                    </button>
+                                    )}
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                                <div className="rounded-3xl border border-border/60 bg-card/70 p-6 md:p-8">
+                                    <h3 className="font-serif text-xl md:text-2xl text-foreground mb-2">{t.ext.jobOverview}</h3>
+                                    <p className="text-sm text-muted-foreground">{jobDomain} · {experienceRange || t.ext.expNotSet} · {salaryRange || t.ext.salaryNotSet}</p>
+                                    {(location || employmentType || skills) && (
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            {[location, employmentType, skills && `${t.ext.skillsColon} ${skills}`].filter(Boolean).join(" · ")}
+                                        </p>
+                                    )}
+                                    {jobDescription && (
+                                        <p className="mt-2 text-xs text-muted-foreground line-clamp-2 italic">
+                                            "{jobDescription.slice(0, 100)}{jobDescription.length > 100 ? "…" : ""}"
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
 
-                    <div className="flex gap-3 pt-2">
-                        <button onClick={() => { setStep(2); setMatchError(null); }} className="inline-flex items-center justify-center rounded-full border border-border/70 bg-background px-5 py-2 text-sm font-semibold text-foreground hover:bg-secondary/60">
-                            {t.ext.backToCvs}
-                        </button>
-                        <button onClick={handleReset} className="inline-flex items-center justify-center rounded-full bg-recruiter px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:-translate-y-0.5 hover:shadow-lg">
-                            {t.ext.startNewMatch}
-                        </button>
-                    </div>
+                            {results.length > 1 && (
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    {results.slice(1).map((r) => (
+                                        <div key={r.cv_id} className="flex items-start gap-3 rounded-2xl border border-border/60 bg-card/80 p-4 group">
+                                            <FileText className="mt-1 h-5 w-5 text-recruiter flex-shrink-0" />
+                                            <div className="space-y-1 flex-1 min-w-0">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <p className="text-sm font-semibold text-foreground truncate">{r.file_name}</p>
+                                                    <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground flex-shrink-0">{r.match_score}/100</span>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">{r.reasons.overall_reason}</p>
+                                            </div>
+                                            <button
+                                                onClick={() => handleRemoveFromResults(r.cv_id)}
+                                                className="flex-shrink-0 rounded-md p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 transition"
+                                                title={t.ext.removeCandidate}
+                                            >
+                                                <X className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Task 3: Export CSV button */}
+                            <div className="flex gap-3 pt-2 flex-wrap">
+                                <button onClick={() => { setStep(2); setMatchError(null); }} className="inline-flex items-center justify-center rounded-full border border-border/70 bg-background px-5 py-2 text-sm font-semibold text-foreground hover:bg-secondary/60">
+                                    {t.ext.backToCvs}
+                                </button>
+                                <button
+                                    onClick={() => exportResultsToCSV(results)}
+                                    className="inline-flex items-center gap-2 justify-center rounded-full border border-border/70 bg-background px-5 py-2 text-sm font-semibold text-foreground hover:bg-secondary/60"
+                                >
+                                    <Download className="h-4 w-4" />
+                                    Export CSV
+                                </button>
+                                <button onClick={handleReset} className="inline-flex items-center justify-center rounded-full bg-recruiter px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:-translate-y-0.5 hover:shadow-lg">
+                                    {t.ext.startNewMatch}
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
         </div>
