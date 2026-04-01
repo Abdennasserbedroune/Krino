@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Check, Upload, FileText, Search, Shield, Clock, Users, Briefcase, Lock, Sparkles, ChevronRight, MessageCircle, ListChecks } from "lucide-react";
+import { ArrowRight, Check, Upload, FileText, Search, Shield, Clock, Users, Briefcase, Lock, Sparkles, ChevronRight, MessageCircle, ListChecks, Star } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { InfiniteMovingCards } from "@/components/ui/infinite-moving-cards";
@@ -73,6 +73,20 @@ const recruiterTestimonials = [
   },
 ];
 
+// Pill label above section headings
+function SectionPill({ children, color = "primary" }: { children: React.ReactNode; color?: "primary" | "seeker" | "recruiter" }) {
+  const colorMap = {
+    primary: "bg-[var(--primary)]/10 text-[var(--primary)] border-[var(--primary)]/20",
+    seeker:  "bg-[var(--seeker-soft)] text-[var(--seeker)] border-[var(--seeker-soft-border)]",
+    recruiter: "bg-[var(--recruiter-soft)] text-[var(--recruiter)] border-[var(--recruiter-soft-border)]",
+  };
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-widest border mb-5 ${colorMap[color]}`}>
+      {children}
+    </span>
+  );
+}
+
 export default function LandingPage() {
   const [activeRole, setActiveRole] = useState<"seeker" | "recruiter">("seeker");
   const { user } = useAuth();
@@ -88,57 +102,56 @@ export default function LandingPage() {
   const ctaHref = user ? getDashboardPath() : "/auth/sign-in";
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-accent selection:text-white overflow-x-hidden relative">
+    <div className="min-h-screen bg-background text-foreground font-sans overflow-x-hidden relative">
 
       {/* ── HEADER ── */}
       <header className="fixed top-0 left-0 right-0 z-[100] bg-background/95 backdrop-blur-xl border-b border-border">
         <div className="container mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="font-serif text-3xl font-bold tracking-tight text-primary select-none cursor-default">Pathwise</div>
-          <div className="flex items-center gap-3">
+          <div className="font-serif text-2xl font-bold tracking-tight text-[var(--primary)] select-none cursor-default">Pathwise</div>
+          <nav className="flex items-center gap-3">
             <LanguageSwitcher />
             <ThemeToggle />
             {user ? (
-              <Link
-                href={getDashboardPath()}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
+              <Link href={getDashboardPath()} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-lg hover:bg-secondary">
                 {t.nav.dashboard}
               </Link>
             ) : (
-              <Link href="/auth/sign-in" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              <Link href="/auth/sign-in" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-lg hover:bg-secondary">
                 {t.nav.signIn}
               </Link>
             )}
             <Link
               href={ctaHref}
-              className={`relative group px-6 py-2.5 rounded-full overflow-hidden font-medium shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 text-white ${
-                activeRole === 'seeker' ? 'bg-seeker' : 'bg-recruiter'
+              className={`relative group px-6 py-2.5 rounded-full overflow-hidden font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 text-white ${
+                activeRole === 'seeker'
+                  ? 'bg-[var(--seeker)]'
+                  : 'bg-[var(--recruiter)]'
               }`}
             >
               <span className="relative z-10">{t.nav.getStarted}</span>
-              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+              <div className="absolute inset-0 bg-white/15 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
             </Link>
-          </div>
+          </nav>
         </div>
       </header>
 
-      <main className="pt-32 pb-20 relative">
+      <main className="pt-28 pb-20 relative">
 
         {/* ── HERO ── */}
-        <section className="container mx-auto px-6 mb-20 relative">
+        <section className="container mx-auto px-6 mb-24 relative">
           <div className="max-w-5xl mx-auto text-center">
 
             {/* Role Toggle */}
             <motion.div
-              initial={{ opacity: 0, y: -20 }}
+              initial={{ opacity: 0, y: -16 }}
               animate={{ opacity: 1, y: 0 }}
-              className="inline-flex bg-surface-elevated backdrop-blur-sm p-1.5 rounded-full shadow-craft mb-12 border border-border"
+              className="inline-flex bg-[var(--surface-elevated)] p-1.5 rounded-full shadow-[var(--shadow-craft)] mb-12 border border-border"
             >
               <button
                 onClick={() => setActiveRole("seeker")}
-                className={`px-8 py-3 rounded-full text-sm font-bold transition-all duration-300 ${
+                className={`px-8 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 ${
                   activeRole === 'seeker'
-                    ? 'bg-seeker text-white shadow-md'
+                    ? 'bg-[var(--seeker)] text-white shadow-md'
                     : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
                 }`}
               >
@@ -146,9 +159,9 @@ export default function LandingPage() {
               </button>
               <button
                 onClick={() => setActiveRole("recruiter")}
-                className={`px-8 py-3 rounded-full text-sm font-bold transition-all duration-300 ${
+                className={`px-8 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 ${
                   activeRole === 'recruiter'
-                    ? 'bg-recruiter text-white shadow-md'
+                    ? 'bg-[var(--recruiter)] text-white shadow-md'
                     : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
                 }`}
               >
@@ -159,45 +172,50 @@ export default function LandingPage() {
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeRole}
-                initial={{ opacity: 0, scale: 0.95 }}
+                initial={{ opacity: 0, scale: 0.97 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.05 }}
-                transition={{ duration: 0.4, ease: "circOut" }}
-                className="space-y-8"
+                exit={{ opacity: 0, scale: 1.03 }}
+                transition={{ duration: 0.35, ease: "circOut" }}
+                className="space-y-7"
               >
-                <h1 className="font-serif text-6xl md:text-8xl leading-[1] tracking-tight text-primary">
+                <h1 className="font-serif text-5xl md:text-7xl leading-[1.05] tracking-tight text-[var(--primary)]">
                   {activeRole === "seeker" ? (
                     <>
                       {t.hero.headlineSeeker.split(t.hero.gradientSeeker)[0]}<br />
-                      <span className={`text-transparent bg-clip-text italic inline-block py-2 px-1 pr-4 ${
-                        activeRole === 'seeker'
-                          ? 'bg-gradient-to-r from-seeker to-blue-400'
-                          : 'bg-gradient-to-r from-recruiter to-orange-400'
-                      }`}>{t.hero.gradientSeeker}</span>
+                      <span className="text-transparent bg-clip-text italic inline-block py-1 bg-gradient-to-r from-[var(--seeker)] to-blue-400">
+                        {t.hero.gradientSeeker}
+                      </span>
                     </>
                   ) : (
                     <>
-                      {t.hero.headlineRecruiterLine1} <br />
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-recruiter to-orange-400 italic inline-block py-2 px-1 pr-4">{t.hero.gradientRecruiter}</span>
+                      {t.hero.headlineRecruiterLine1}<br />
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--recruiter)] to-orange-400 italic inline-block py-1">
+                        {t.hero.gradientRecruiter}
+                      </span>
                     </>
                   )}
                 </h1>
 
-                <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto leading-relaxed font-medium">
+                <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
                   {activeRole === "seeker" ? t.hero.subSeeker : t.hero.subRecruiter}
                 </p>
 
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6">
                   <Link
                     href={ctaHref}
-                    className={`px-8 py-4 rounded-full text-lg font-bold text-white shadow-glow hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ${
-                      activeRole === 'seeker' ? 'bg-seeker' : 'bg-recruiter'
+                    className={`btn-primary text-white shadow-[var(--shadow-glow)] ${
+                      activeRole === 'seeker'
+                        ? 'bg-[var(--seeker)] hover:bg-[var(--seeker)]/90'
+                        : 'bg-[var(--recruiter)] hover:bg-[var(--recruiter)]/90'
                     }`}
                   >
                     {activeRole === "seeker" ? t.hero.ctaSeeker : t.hero.ctaRecruiter}
+                    <ArrowRight className="w-4 h-4" />
                   </Link>
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <Check className="w-4 h-4 text-green-500" />
+                    <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
+                      <Check className="w-3 h-3 text-green-600" />
+                    </div>
                     <span>{t.hero.freeChecks}</span>
                   </div>
                 </div>
@@ -207,73 +225,90 @@ export default function LandingPage() {
         </section>
 
         {/* ── JOB SEEKER TESTIMONIALS ── */}
-        <section className="mb-32 overflow-hidden py-10 relative">
-          <div className="container mx-auto px-6 mb-8 text-center">
-            <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">{t.testimonials.trustedSeekers}</p>
+        <section className="mb-28 relative overflow-hidden">
+          {/* Dark navy band */}
+          <div className="bg-[var(--testimonial-bg)] py-14">
+            <div className="container mx-auto px-6 mb-8 text-center">
+              {/* Stars row */}
+              <div className="flex items-center justify-center gap-1 mb-3">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="w-4 h-4 fill-[var(--testimonial-accent)] text-[var(--testimonial-accent)]" />
+                ))}
+              </div>
+              <p className="text-sm font-bold uppercase tracking-widest text-[var(--testimonial-muted)]">
+                {t.testimonials.trustedSeekers}
+              </p>
+            </div>
+            {/* Override InfiniteMovingCards colors inside this dark band */}
+            <div className="[&_.testimonial-card]:bg-[var(--testimonial-card)] [&_.testimonial-card]:border-[var(--testimonial-card-border)] [&_.testimonial-quote]:text-[var(--testimonial-fg)] [&_.testimonial-name]:text-[var(--testimonial-accent)] [&_.testimonial-title]:text-[var(--testimonial-muted)]">
+              <InfiniteMovingCards items={jobSeekerTestimonials} direction="right" speed="slow" />
+            </div>
           </div>
-          <InfiniteMovingCards items={jobSeekerTestimonials} direction="right" speed="slow" />
         </section>
 
         {/* ── BENTO GRID FEATURES ── */}
-        <section className="container mx-auto px-6 mb-32 relative">
-          <div className="text-center mb-16">
+        <section className="container mx-auto px-6 mb-28 relative">
+          <div className="text-center mb-14">
+            <motion.div {...clipAnimation} className="flex justify-center">
+              <SectionPill color={activeRole === 'seeker' ? 'seeker' : 'recruiter'}>
+                {activeRole === 'seeker' ? 'For Job Seekers' : 'For Recruiters'}
+              </SectionPill>
+            </motion.div>
             <motion.h2
               {...clipAnimation}
-              className="font-serif text-4xl md:text-5xl mb-6 text-primary"
+              className="font-serif text-4xl md:text-5xl mb-5 text-[var(--primary)]"
             >
               {t.features.whyTitle}
             </motion.h2>
             <motion.p
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-              className="text-xl text-muted-foreground"
+              transition={{ delay: 0.15 }}
+              className="text-lg text-muted-foreground max-w-xl mx-auto"
             >
               {t.features.whySub}
             </motion.p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-7xl mx-auto">
 
             {/* Large Card: Deep Match Analysis */}
             <motion.div
-              initial={{ opacity: 0, y: 40 }}
+              initial={{ opacity: 0, y: 36 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
-              className={`md:col-span-2 p-10 rounded-[2.5rem] border shadow-craft hover:shadow-card-hover hover:-translate-y-1 transition-all duration-150 group relative overflow-hidden ${
+              transition={{ duration: 0.45, ease: "easeOut" }}
+              className={`md:col-span-2 p-10 rounded-3xl border shadow-[var(--shadow-craft)] hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-1 transition-all duration-200 group relative overflow-hidden ${
                 activeRole === 'seeker'
-                  ? 'bg-seeker-soft border-seeker-soft-border'
-                  : 'bg-recruiter-soft border-recruiter-soft-border'
+                  ? 'bg-[var(--seeker-soft)] border-[var(--seeker-soft-border)]'
+                  : 'bg-[var(--recruiter-soft)] border-[var(--recruiter-soft-border)]'
               }`}
             >
-              <div className="absolute top-0 right-0 w-96 h-96 bg-card/40 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-
-              <div className="relative z-10 grid md:grid-cols-2 gap-12 items-center h-full">
-                <div className="space-y-6">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm bg-card ${
-                    activeRole === 'seeker' ? 'text-seeker' : 'text-recruiter'
+              <div className="relative z-10 grid md:grid-cols-2 gap-10 items-center h-full">
+                <div className="space-y-5">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm bg-white ${
+                    activeRole === 'seeker' ? 'text-[var(--seeker)]' : 'text-[var(--recruiter)]'
                   }`}>
-                    <Search className="w-7 h-7" />
+                    <Search className="w-6 h-6" />
                   </div>
-                  <h3 className="font-serif text-3xl text-primary">
+                  <h3 className="font-serif text-2xl text-[var(--primary)]">
                     {activeRole === "seeker" ? t.features.matchTitleSeeker : t.features.matchTitleRecruiter}
                   </h3>
-                  <p className="text-lg text-muted-foreground leading-relaxed">
+                  <p className="text-base text-muted-foreground leading-relaxed">
                     {activeRole === "seeker" ? t.features.matchDescSeeker : t.features.matchDescRecruiter}
                   </p>
-                  <ul className="space-y-3">
-                    <li className="flex items-center gap-3 text-sm font-medium text-foreground">
-                      <div className={`w-1.5 h-1.5 rounded-full ${
-                        activeRole === 'seeker' ? 'bg-seeker' : 'bg-recruiter'
-                      }`}></div>
+                  <ul className="space-y-2.5">
+                    <li className="flex items-center gap-2.5 text-sm font-medium text-foreground">
+                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                        activeRole === 'seeker' ? 'bg-[var(--seeker)]' : 'bg-[var(--recruiter)]'
+                      }`} />
                       {activeRole === "seeker" ? t.features.matchBullet1Seeker : t.features.matchBullet1Recruiter}
                     </li>
-                    <li className="flex items-center gap-3 text-sm font-medium text-foreground">
-                      <div className={`w-1.5 h-1.5 rounded-full ${
-                        activeRole === 'seeker' ? 'bg-seeker' : 'bg-recruiter'
-                      }`}></div>
+                    <li className="flex items-center gap-2.5 text-sm font-medium text-foreground">
+                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                        activeRole === 'seeker' ? 'bg-[var(--seeker)]' : 'bg-[var(--recruiter)]'
+                      }`} />
                       {activeRole === "seeker" ? t.features.matchBullet2Seeker : t.features.matchBullet2Recruiter}
                     </li>
                   </ul>
@@ -281,41 +316,39 @@ export default function LandingPage() {
 
                 {/* Nested Card: Mock UI */}
                 <motion.div
-                  className="bg-card backdrop-blur rounded-3xl p-6 shadow-xl border border-border transform rotate-2 group-hover:rotate-0 group-hover:scale-[1.02] transition-all duration-150"
+                  className="bg-white dark:bg-[var(--card)] rounded-2xl p-5 shadow-lg border border-border transform rotate-2 group-hover:rotate-0 group-hover:scale-[1.02] transition-all duration-200"
                 >
-                  <div className="flex justify-between items-center mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center font-serif font-bold text-muted-foreground">JD</div>
+                  <div className="flex justify-between items-center mb-5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-full bg-[var(--surface-elevated)] flex items-center justify-center font-serif font-bold text-muted-foreground text-sm">JD</div>
                       <div>
-                        <div className="text-xs font-bold uppercase text-muted-foreground">{t.features.targetRole}</div>
-                        <div className="text-sm font-bold text-primary">Senior Frontend Dev</div>
+                        <div className="text-[11px] font-bold uppercase text-muted-foreground tracking-wide">{t.features.targetRole}</div>
+                        <div className="text-sm font-bold text-[var(--primary)]">Senior Frontend Dev</div>
                       </div>
                     </div>
-                    <div className={`px-3 py-1 rounded-full text-xs font-bold ${
+                    <div className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                       activeRole === 'seeker'
                         ? 'bg-[var(--feedback-green-bg)] text-[var(--feedback-green-text)]'
-                        : 'bg-recruiter-soft text-recruiter'
-                    }`}>
-                      85% Match
-                    </div>
+                        : 'bg-[var(--recruiter-soft)] text-[var(--recruiter)]'
+                    }`}>85% Match</div>
                   </div>
-                  <div className="space-y-3">
-                    <div className="p-3 rounded-xl border flex items-start gap-3 bg-[var(--feedback-red-bg)] border-[var(--feedback-red-border)]">
-                      <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 bg-[var(--feedback-red-bg)]">
-                        <span className="text-[var(--feedback-red-sub)] text-xs font-bold">!</span>
+                  <div className="space-y-2.5">
+                    <div className="p-3 rounded-xl border flex items-start gap-2.5 bg-[var(--feedback-red-bg)] border-[var(--feedback-red-border)]">
+                      <div className="w-4 h-4 rounded-full bg-[var(--feedback-red-sub)]/15 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-[var(--feedback-red-sub)] text-[10px] font-bold">!</span>
                       </div>
                       <div>
-                        <div className="text-xs font-bold mb-1 text-[var(--feedback-red-text)]">{t.features.missingSkill}</div>
-                        <div className="text-xs text-[var(--feedback-red-sub)]">{t.features.missingSkillDesc}</div>
+                        <div className="text-xs font-semibold mb-0.5 text-[var(--feedback-red-text)]">{t.features.missingSkill}</div>
+                        <div className="text-[11px] text-[var(--feedback-red-sub)] leading-relaxed">{t.features.missingSkillDesc}</div>
                       </div>
                     </div>
-                    <div className="p-3 rounded-xl border flex items-start gap-3 bg-[var(--feedback-green-bg)] border-[var(--feedback-green-border)]">
-                      <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 bg-[var(--feedback-green-bg)]">
-                        <Check className="w-3 h-3 text-[var(--feedback-green-sub)]" />
+                    <div className="p-3 rounded-xl border flex items-start gap-2.5 bg-[var(--feedback-green-bg)] border-[var(--feedback-green-border)]">
+                      <div className="w-4 h-4 rounded-full bg-[var(--feedback-green-sub)]/15 flex items-center justify-center shrink-0 mt-0.5">
+                        <Check className="w-2.5 h-2.5 text-[var(--feedback-green-sub)]" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold mb-1 text-[var(--feedback-green-text)]">{t.features.strongMatch}</div>
-                        <div className="text-xs text-[var(--feedback-green-sub)]">{t.features.strongMatchDesc}</div>
+                        <div className="text-xs font-semibold mb-0.5 text-[var(--feedback-green-text)]">{t.features.strongMatch}</div>
+                        <div className="text-[11px] text-[var(--feedback-green-sub)] leading-relaxed">{t.features.strongMatchDesc}</div>
                       </div>
                     </div>
                   </div>
@@ -323,109 +356,101 @@ export default function LandingPage() {
               </div>
             </motion.div>
 
-            {/* Tall Card: Privacy */}
+            {/* Tall Card: Privacy — deep navy */}
             <motion.div
-              initial={{ opacity: 0, y: 40 }}
+              initial={{ opacity: 0, y: 36 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               whileHover={{ scale: 1.02 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="md:row-span-2 bg-primary text-primary-foreground p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden group flex flex-col"
+              className="md:row-span-2 bg-[var(--primary)] text-white p-10 rounded-3xl shadow-2xl relative overflow-hidden group flex flex-col"
             >
-              <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-white/10 transition-colors duration-500"></div>
-              <div className="absolute bottom-0 left-0 w-60 h-60 bg-accent/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+              <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-white/8 transition-colors duration-500" />
+              <div className="absolute bottom-0 left-0 w-56 h-56 bg-[var(--accent)]/15 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
 
-              <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center mb-8 backdrop-blur-sm border border-white/10">
-                <Shield className="w-7 h-7 text-white" />
+              <div className="w-12 h-12 rounded-2xl bg-white/12 flex items-center justify-center mb-7 border border-white/15">
+                <Shield className="w-6 h-6 text-white" />
               </div>
 
-              <h3 className="font-serif text-3xl mb-4 relative z-10 text-primary-foreground">
+              <h3 className="font-serif text-2xl mb-3 relative z-10 text-white">
                 {activeRole === "seeker" ? t.features.privacyTitleSeeker : t.features.privacyTitleRecruiter}
               </h3>
-              <p className="text-lg text-primary-foreground/70 leading-relaxed mb-12 relative z-10">
+              <p className="text-base text-white/70 leading-relaxed mb-10 relative z-10">
                 {activeRole === "seeker" ? t.features.privacyDescSeeker : t.features.privacyDescRecruiter}
               </p>
 
-              {/* Nested Card: Privacy Toggle */}
-              <div className="mt-auto bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/15 relative z-10 group-hover:bg-white/15 transition-colors">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <Lock className="w-5 h-5 text-primary-foreground/80" />
-                    <span className="font-medium text-primary-foreground">{t.features.autoDelete}</span>
+              <div className="mt-auto bg-white/10 rounded-2xl p-5 border border-white/15 relative z-10 group-hover:bg-white/14 transition-colors">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <Lock className="w-4 h-4 text-white/80" />
+                    <span className="font-medium text-white text-sm">{t.features.autoDelete}</span>
                   </div>
-                  <div className="w-10 h-6 rounded-full bg-green-500 relative shadow-inner">
-                    <div className="absolute right-1 top-1 w-4 h-4 rounded-full bg-white shadow-sm"></div>
+                  <div className="w-10 h-6 rounded-full bg-green-400 relative shadow-inner">
+                    <div className="absolute right-1 top-1 w-4 h-4 rounded-full bg-white shadow-sm" />
                   </div>
                 </div>
-                <p className="text-xs text-primary-foreground/50">{t.features.autoDeleteDesc}</p>
+                <p className="text-xs text-white/50 leading-relaxed">{t.features.autoDeleteDesc}</p>
               </div>
             </motion.div>
 
             {/* Medium Card: Actionable Feedback */}
             <motion.div
-              initial={{ opacity: 0, y: 40 }}
+              initial={{ opacity: 0, y: 36 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               whileHover={{ scale: 1.02 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-card p-10 rounded-[2.5rem] border border-border shadow-craft hover:shadow-card-hover transition-all duration-500 group relative overflow-hidden"
+              className="bg-card p-8 rounded-3xl border border-border shadow-[var(--shadow-craft)] hover:shadow-[var(--shadow-card-hover)] transition-all duration-300 group relative overflow-hidden"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-[var(--icon-purple-bg)]/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
+              <div className="absolute inset-0 bg-gradient-to-br from-[var(--icon-purple-bg)]/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <div className="relative z-10">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-sm bg-[var(--icon-purple-bg)]">
-                  <Sparkles className="w-7 h-7 text-[var(--icon-purple-text)]" />
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300 shadow-sm bg-[var(--icon-purple-bg)]">
+                  <Sparkles className="w-6 h-6 text-[var(--icon-purple-text)]" />
                 </div>
-                <h3 className="font-serif text-2xl mb-3 text-primary">
+                <h3 className="font-serif text-xl mb-2.5 text-[var(--primary)]">
                   {activeRole === "seeker" ? t.features.feedbackTitleSeeker : t.features.feedbackTitleRecruiter}
                 </h3>
-                <p className="text-muted-foreground mb-6">
+                <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
                   {activeRole === "seeker" ? t.features.feedbackDescSeeker : t.features.feedbackDescRecruiter}
                 </p>
-
                 <div className="space-y-2">
-                  <div className="flex items-center gap-3 p-2 rounded-lg bg-surface-elevated border border-border hover:bg-secondary transition-colors">
-                    <div className="w-6 h-6 rounded-full bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] flex items-center justify-center text-xs font-bold">1</div>
-                    <span className="text-sm font-medium text-foreground">
-                      {activeRole === "seeker" ? t.features.feedbackItem1Seeker : t.features.feedbackItem1Recruiter}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 p-2 rounded-lg bg-surface-elevated border border-border hover:bg-secondary transition-colors">
-                    <div className="w-6 h-6 rounded-full bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] flex items-center justify-center text-xs font-bold">2</div>
-                    <span className="text-sm font-medium text-foreground">
-                      {activeRole === "seeker" ? t.features.feedbackItem2Seeker : t.features.feedbackItem2Recruiter}
-                    </span>
-                  </div>
+                  {[t.features.feedbackItem1Seeker, t.features.feedbackItem2Seeker].map((item, i) => (
+                    <div key={i} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-[var(--surface-elevated)] border border-border hover:bg-secondary transition-colors">
+                      <div className="w-5 h-5 rounded-full bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] flex items-center justify-center text-[11px] font-bold shrink-0">{i + 1}</div>
+                      <span className="text-sm font-medium text-foreground">
+                        {activeRole === "seeker" ? (i === 0 ? t.features.feedbackItem1Seeker : t.features.feedbackItem2Seeker) : (i === 0 ? t.features.feedbackItem1Recruiter : t.features.feedbackItem2Recruiter)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </motion.div>
 
-            {/* Medium Card: Team/Speed */}
+            {/* Medium Card: Speed */}
             <motion.div
-              initial={{ opacity: 0, y: 40 }}
+              initial={{ opacity: 0, y: 36 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               whileHover={{ scale: 1.02 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-card p-10 rounded-[2.5rem] border border-border shadow-craft hover:shadow-card-hover transition-all duration-500 group relative overflow-hidden"
+              className="bg-card p-8 rounded-3xl border border-border shadow-[var(--shadow-craft)] hover:shadow-[var(--shadow-card-hover)] transition-all duration-300 group relative overflow-hidden"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-[var(--icon-blue-bg)]/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
+              <div className="absolute inset-0 bg-gradient-to-br from-[var(--icon-blue-bg)]/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <div className="relative z-10">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-sm bg-[var(--icon-blue-bg)]">
-                  <Clock className="w-7 h-7 text-[var(--icon-blue-text)]" />
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300 shadow-sm bg-[var(--icon-blue-bg)]">
+                  <Clock className="w-6 h-6 text-[var(--icon-blue-text)]" />
                 </div>
-                <h3 className="font-serif text-2xl mb-3 text-primary">
+                <h3 className="font-serif text-xl mb-2.5 text-[var(--primary)]">
                   {activeRole === "seeker" ? t.features.speedTitleSeeker : t.features.speedTitleRecruiter}
                 </h3>
-                <p className="text-muted-foreground mb-6">
+                <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
                   {activeRole === "seeker" ? t.features.speedDescSeeker : t.features.speedDescRecruiter}
                 </p>
                 <div className="flex items-end gap-2">
-                  <span className="text-4xl font-serif font-bold text-primary">
+                  <span className="text-4xl font-serif font-bold text-[var(--primary)]">
                     {activeRole === "seeker" ? "10s" : "10x"}
                   </span>
-                  <span className="text-sm font-medium text-muted-foreground mb-1.5">
+                  <span className="text-sm font-medium text-muted-foreground mb-1">
                     {activeRole === "seeker" ? t.features.speedSuffixSeeker : t.features.speedSuffixRecruiter}
                   </span>
                 </div>
@@ -435,29 +460,37 @@ export default function LandingPage() {
         </section>
 
         {/* ── WORKFLOW ── */}
-        <section className="py-32 bg-surface-elevated border-y border-border relative">
+        <section className="py-28 bg-[var(--surface-elevated)] border-y border-border relative">
           <div className="container mx-auto px-6">
-            <div className="text-center mb-20">
-              <h2 className="font-serif text-5xl mb-6 text-primary">{t.howItWorks.title}</h2>
+            <div className="text-center mb-16">
+              <div className="flex justify-center">
+                <SectionPill color="primary">How it works</SectionPill>
+              </div>
+              <h2 className="font-serif text-4xl md:text-5xl mb-5 text-[var(--primary)]">{t.howItWorks.title}</h2>
+              <p className="text-lg text-muted-foreground max-w-md mx-auto">Three simple steps to a better outcome.</p>
             </div>
 
             <div className="max-w-5xl mx-auto">
-              <div className="grid md:grid-cols-3 gap-12 relative">
-                <div className="hidden md:block absolute top-8 left-[15%] right-[15%] h-0.5 bg-border"></div>
+              <div className="grid md:grid-cols-3 gap-10 relative">
+                {/* Connector line */}
+                <div className="hidden md:block absolute top-8 left-[16%] right-[16%] h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
                 {[
                   {
                     icon: Upload,
+                    step: "01",
                     title: activeRole === "seeker" ? t.howItWorks.step1TitleSeeker : t.howItWorks.step1TitleRecruiter,
                     desc: activeRole === "seeker" ? t.howItWorks.step1DescSeeker : t.howItWorks.step1DescRecruiter
                   },
                   {
                     icon: activeRole === "seeker" ? Sparkles : Search,
+                    step: "02",
                     title: activeRole === "seeker" ? t.howItWorks.step2TitleSeeker : t.howItWorks.step2TitleRecruiter,
                     desc: activeRole === "seeker" ? t.howItWorks.step2DescSeeker : t.howItWorks.step2DescRecruiter
                   },
                   {
                     icon: activeRole === "seeker" ? MessageCircle : ListChecks,
+                    step: "03",
                     title: activeRole === "seeker" ? t.howItWorks.step3TitleSeeker : t.howItWorks.step3TitleRecruiter,
                     desc: activeRole === "seeker" ? t.howItWorks.step3DescSeeker : t.howItWorks.step3DescRecruiter
                   }
@@ -467,16 +500,22 @@ export default function LandingPage() {
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    transition={{ delay: i * 0.2 }}
+                    transition={{ delay: i * 0.15 }}
                     className="relative flex flex-col items-center text-center group"
                   >
-                    <div className={`w-16 h-16 rounded-full bg-card border-4 border-[var(--step-circle-border)] shadow-xl flex items-center justify-center mb-8 z-10 group-hover:scale-110 transition-transform duration-300 ${
-                      activeRole === 'seeker' ? 'text-seeker' : 'text-recruiter'
-                    }`}>
-                      <item.icon className="w-7 h-7" />
+                    {/* Step number badge */}
+                    <div className="relative mb-6 z-10">
+                      <div className={`w-16 h-16 rounded-full bg-white dark:bg-[var(--card)] border-2 shadow-[var(--shadow-craft)] flex items-center justify-center group-hover:scale-110 transition-transform duration-300 ${
+                        activeRole === 'seeker' ? 'border-[var(--seeker)] text-[var(--seeker)]' : 'border-[var(--recruiter)] text-[var(--recruiter)]'
+                      }`}>
+                        <item.icon className="w-6 h-6" />
+                      </div>
+                      <span className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center text-white ${
+                        activeRole === 'seeker' ? 'bg-[var(--seeker)]' : 'bg-[var(--recruiter)]'
+                      }`}>{item.step}</span>
                     </div>
-                    <h3 className="text-2xl font-serif font-bold mb-3 text-primary">{item.title}</h3>
-                    <p className="text-muted-foreground leading-relaxed px-4">{item.desc}</p>
+                    <h3 className="text-xl font-serif font-bold mb-2.5 text-[var(--primary)]">{item.title}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed px-3">{item.desc}</p>
                   </motion.div>
                 ))}
               </div>
@@ -485,67 +524,84 @@ export default function LandingPage() {
         </section>
 
         {/* ── RECRUITER TESTIMONIALS ── */}
-        <section className="mb-32 overflow-hidden py-10 relative">
-          <div className="container mx-auto px-6 mb-8 text-center">
-            <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">{t.testimonials.trustedHiring}</p>
+        <section className="mb-28 relative overflow-hidden">
+          <div className="bg-[var(--testimonial-bg)] py-14">
+            <div className="container mx-auto px-6 mb-8 text-center">
+              <div className="flex items-center justify-center gap-1 mb-3">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="w-4 h-4 fill-[var(--testimonial-accent)] text-[var(--testimonial-accent)]" />
+                ))}
+              </div>
+              <p className="text-sm font-bold uppercase tracking-widest text-[var(--testimonial-muted)]">
+                {t.testimonials.trustedHiring}
+              </p>
+            </div>
+            <div className="[&_.testimonial-card]:bg-[var(--testimonial-card)] [&_.testimonial-card]:border-[var(--testimonial-card-border)] [&_.testimonial-quote]:text-[var(--testimonial-fg)] [&_.testimonial-name]:text-[var(--testimonial-accent)] [&_.testimonial-title]:text-[var(--testimonial-muted)]">
+              <InfiniteMovingCards items={recruiterTestimonials} direction="left" speed="slow" />
+            </div>
           </div>
-          <InfiniteMovingCards items={recruiterTestimonials} direction="left" speed="slow" />
         </section>
 
         {/* ── PRICING ── */}
-        <section className="container mx-auto px-6 pb-32 relative">
+        <section className="container mx-auto px-6 pb-28 relative">
           <div className="max-w-4xl mx-auto">
-            <div className="bg-primary rounded-[3rem] p-12 md:p-20 text-center text-primary-foreground relative overflow-hidden">
+            <div className="bg-[var(--primary)] rounded-[2.5rem] p-12 md:p-20 text-center text-white relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-                <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-white/5 rounded-full blur-3xl"></div>
-                <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-accent/20 rounded-full blur-3xl"></div>
+                <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-white/4 rounded-full blur-3xl" />
+                <div className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] bg-[var(--accent)]/15 rounded-full blur-3xl" />
               </div>
 
               <div className="relative z-10">
-                <h2 className="font-serif text-4xl md:text-5xl mb-6 text-primary-foreground">{t.pricing.title}</h2>
-                <p className="text-xl text-primary-foreground/80 mb-12 max-w-2xl mx-auto">{t.pricing.sub}</p>
+                <div className="flex justify-center mb-6">
+                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-widest border border-white/20 bg-white/10 text-white/80">
+                    Simple Pricing
+                  </span>
+                </div>
+                <h2 className="font-serif text-4xl md:text-5xl mb-5 text-white">{t.pricing.title}</h2>
+                <p className="text-lg text-white/70 mb-14 max-w-xl mx-auto">{t.pricing.sub}</p>
 
-                <div className="flex flex-col sm:flex-row justify-center gap-6">
+                <div className="flex flex-col sm:flex-row justify-center gap-5">
                   {/* Free Plan */}
                   <motion.div
-                    whileHover={{ y: -10 }}
-                    className="bg-card text-card-foreground p-8 rounded-3xl flex-1 max-w-sm mx-auto shadow-xl transition-all duration-300 relative group border border-border"
+                    whileHover={{ y: -8 }}
+                    className="bg-white/10 backdrop-blur-sm text-white p-8 rounded-2xl flex-1 max-w-sm mx-auto shadow-xl transition-all duration-300 border border-white/15 group"
                   >
-                    <div className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-2">{t.pricing.starterLabel}</div>
-                    <div className="text-5xl font-serif font-bold mb-4 text-primary">$0</div>
-                    <ul className="text-left space-y-4 mb-8">
-                      <li className="flex items-center gap-3 text-sm font-medium text-foreground">
-                        <div className="w-5 h-5 rounded-full bg-[var(--feedback-green-bg)] text-[var(--feedback-green-sub)] flex items-center justify-center"><Check size={12} /></div>
-                        {t.pricing.starterChecks}
-                      </li>
-                      <li className="flex items-center gap-3 text-sm font-medium text-foreground">
-                        <div className="w-5 h-5 rounded-full bg-[var(--feedback-green-bg)] text-[var(--feedback-green-sub)] flex items-center justify-center"><Check size={12} /></div>
-                        {t.pricing.starterScore}
-                      </li>
-                      <li className="flex items-center gap-3 text-sm font-medium text-foreground">
-                        <div className="w-5 h-5 rounded-full bg-[var(--feedback-green-bg)] text-[var(--feedback-green-sub)] flex items-center justify-center"><Check size={12} /></div>
-                        {t.pricing.starterSession}
-                      </li>
+                    <div className="text-[11px] font-bold uppercase tracking-widest text-white/60 mb-2">{t.pricing.starterLabel}</div>
+                    <div className="text-5xl font-serif font-bold mb-5 text-white">$0</div>
+                    <ul className="text-left space-y-3.5 mb-8">
+                      {[t.pricing.starterChecks, t.pricing.starterScore, t.pricing.starterSession].map((item, i) => (
+                        <li key={i} className="flex items-center gap-3 text-sm font-medium text-white/85">
+                          <div className="w-5 h-5 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0">
+                            <Check size={11} className="text-white" />
+                          </div>
+                          {item}
+                        </li>
+                      ))}
                     </ul>
-                    <Link href={ctaHref} className="block w-full py-4 rounded-2xl bg-secondary text-secondary-foreground font-bold hover:bg-muted transition-colors">
+                    <Link href={ctaHref} className="block w-full py-3.5 rounded-xl bg-white/20 text-white font-semibold text-sm hover:bg-white/30 transition-colors text-center">
                       {t.pricing.getStarted}
                     </Link>
                   </motion.div>
 
                   {/* Pro Plan */}
                   <motion.div
-                    whileHover={{ y: -10 }}
-                    className="bg-gradient-to-br from-accent to-orange-600 text-white p-8 rounded-3xl flex-1 max-w-sm mx-auto shadow-xl transition-all duration-300 border border-white/20 relative overflow-hidden"
+                    whileHover={{ y: -8 }}
+                    className="bg-white text-[var(--primary)] p-8 rounded-2xl flex-1 max-w-sm mx-auto shadow-2xl transition-all duration-300 relative overflow-hidden"
                   >
-                    <div className="absolute top-0 right-0 bg-white/20 px-4 py-1 rounded-bl-2xl text-xs font-bold backdrop-blur-sm">{t.pricing.popular}</div>
-                    <div className="text-sm font-bold uppercase tracking-wider text-white/80 mb-2">{t.pricing.proLabel}</div>
-                    <div className="text-5xl font-serif font-bold mb-4">$12</div>
-                    <ul className="text-left space-y-4 mb-8">
-                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center"><Check size={12} /></div> {t.pricing.proChecks}</li>
-                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center"><Check size={12} /></div> {t.pricing.proFeedback}</li>
-                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center"><Check size={12} /></div> {t.pricing.proSupport}</li>
+                    <div className="absolute top-0 right-0 bg-[var(--accent)] px-4 py-1 rounded-bl-2xl text-xs font-bold text-white">{t.pricing.popular}</div>
+                    <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-2">{t.pricing.proLabel}</div>
+                    <div className="text-5xl font-serif font-bold mb-5 text-[var(--primary)]">$12</div>
+                    <ul className="text-left space-y-3.5 mb-8">
+                      {[t.pricing.proChecks, t.pricing.proFeedback, t.pricing.proSupport].map((item, i) => (
+                        <li key={i} className="flex items-center gap-3 text-sm font-medium text-[var(--primary)]">
+                          <div className="w-5 h-5 rounded-full bg-[var(--seeker-soft)] flex items-center justify-center flex-shrink-0">
+                            <Check size={11} className="text-[var(--seeker)]" />
+                          </div>
+                          {item}
+                        </li>
+                      ))}
                     </ul>
-                    <Link href="/pricing" className="block w-full py-4 rounded-2xl bg-white text-accent font-bold hover:bg-gray-50 transition-colors shadow-lg">
+                    <Link href="/pricing" className="block w-full py-3.5 rounded-xl bg-[var(--primary)] text-white font-semibold text-sm hover:bg-[var(--primary)]/90 transition-colors text-center shadow-md">
                       {t.pricing.upgradePro}
                     </Link>
                   </motion.div>
@@ -558,24 +614,25 @@ export default function LandingPage() {
       </main>
 
       {/* ── FOOTER ── */}
-      <footer className="bg-card border-t border-border py-16 relative">
+      <footer className="bg-card border-t border-border py-14 relative">
         <div className="container mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="text-center md:text-left">
-              <div className="font-serif text-2xl font-bold text-primary mb-2">Pathwise</div>
-              <p className="text-muted-foreground">{t.footer.tagline}</p>
+              <div className="font-serif text-xl font-bold text-[var(--primary)] mb-1.5">Pathwise</div>
+              <p className="text-sm text-muted-foreground">{t.footer.tagline}</p>
             </div>
             <div className="flex gap-8 text-sm font-medium text-muted-foreground">
-              <Link href="#" className="hover:text-primary transition-colors">{t.footer.privacy}</Link>
-              <Link href="#" className="hover:text-primary transition-colors">{t.footer.terms}</Link>
-              <Link href="#" className="hover:text-primary transition-colors">{t.footer.twitter}</Link>
+              <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
+              <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
+              <Link href="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
             </div>
           </div>
-          <div className="mt-12 text-center text-xs text-muted-foreground/50">
-            &copy; {new Date().getFullYear()} Pathwise AI. {t.footer.rights}
+          <div className="mt-10 pt-8 border-t border-border text-center text-xs text-muted-foreground">
+            © {new Date().getFullYear()} Pathwise. All rights reserved.
           </div>
         </div>
       </footer>
+
     </div>
   );
 }
