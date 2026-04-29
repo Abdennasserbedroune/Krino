@@ -1,581 +1,203 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { ArrowRight, Check, Upload, FileText, Search, Shield, Clock, Users, Briefcase, Lock, Sparkles, ChevronRight, MessageCircle, ListChecks } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
-import { InfiniteMovingCards } from "@/components/ui/infinite-moving-cards";
-import { useAuth } from "@/lib/auth/client";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
-import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { ThemeToggle } from "@/components/navigation/theme-toggle";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { motion, useSpring } from 'framer-motion';
+import { useDropzone } from 'react-dropzone';
 
-const clipAnimation = {
-  initial: { clipPath: "inset(0 0 100% 0)", opacity: 0 },
-  whileInView: { clipPath: "inset(0 0 0 0)", opacity: 1 },
-  viewport: { once: true, margin: "-100px" },
-  transition: { duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }
-} as any;
+const SPRING = { type: 'spring' as const, stiffness: 300, damping: 30 };
 
-const jobSeekerTestimonials = [
-  {
-    quote: "Pathwise helped me identify exactly why I wasn't getting callbacks. I fixed my resume and got an interview the next day.",
-    name: "Sarah Chen",
-    title: "Software Engineer at TechFlow",
-  },
-  {
-    quote: "The AI feedback is so specific. It didn't just say 'improve skills', it told me to add my AWS certification.",
-    name: "Emily Watson",
-    title: "Cloud Architect",
-  },
-  {
-    quote: "Finally, a tool that understands context. It knew my 'Team Lead' experience was relevant for the Manager role.",
-    name: "David Kim",
-    title: "Product Manager",
-  },
-  {
-    quote: "I was skeptical about AI, but the match score was spot on. It highlighted gaps I hadn't even noticed.",
-    name: "Jessica Bloom",
-    title: "Marketing Director",
-  },
-  {
-    quote: "Used the free checks to optimize my resume for 3 different roles. Landed interviews for 2 of them.",
-    name: "Michael Torres",
-    title: "UX Designer",
-  },
-];
-
-const recruiterTestimonials = [
-  {
-    quote: "As a recruiter, this saves me hours. The batch screening is incredibly accurate and fair.",
-    name: "Marcus Rodriguez",
-    title: "Head of Talent at Nexus",
-  },
-  {
-    quote: "We processed 500 applicants in one afternoon. The ranking system is a game changer for our small team.",
-    name: "Jennifer Wu",
-    title: "HR Director at StartUp Inc",
-  },
-  {
-    quote: "It doesn't just look for keywords. It actually understands seniority and relevant experience. Highly impressed.",
-    name: "Robert Fox",
-    title: "Senior Technical Recruiter",
-  },
-  {
-    quote: "The auto-delete privacy feature was a must for our compliance team. Glad Pathwise takes security seriously.",
-    name: "Amanda Lowery",
-    title: "People Ops Manager",
-  },
-  {
-    quote: "I can finally focus on interviewing the right candidates instead of drowning in PDF resumes.",
-    name: "Thomas Wright",
-    title: "Talent Acquisition Lead",
-  },
-];
+const NOISE_TEXT = Array(200)
+  .fill(null)
+  .map(() => [
+    'John Doe',
+    'Senior Developer',
+    'React · Node.js · AWS',
+    '2019–2024',
+    'Led cross-functional team of 5',
+    'Increased conversion by 40%',
+    'BS Computer Science',
+    'San Francisco, CA',
+    'Agile · Scrum · Kanban',
+    'Docker · Kubernetes · CI/CD',
+  ][Math.floor(Math.random() * 10)])
+  .join(' · ');
 
 export default function LandingPage() {
-  const [activeRole, setActiveRole] = useState<"seeker" | "recruiter">("seeker");
-  const { user } = useAuth();
-  const { t } = useLanguage();
+  const router = useRouter();
+  const heroRef = useRef<HTMLDivElement>(null);
+  const [scanPos, setScanPos] = useState(0);
+  const [isDark, setIsDark] = useState(false);
+  const animRef = useRef<number | null>(null);
+  const dirRef = useRef(1);
+  const posRef = useRef(0);
 
-  const getDashboardPath = () => {
-    if (typeof window !== "undefined") {
-      const role = localStorage.getItem("user_role");
-      return role === "recruiter" ? "/dashboard/recruiter" : "/dashboard";
-    }
-    return "/dashboard";
+  // Check dark mode
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains('dark'));
+  }, []);
+
+  // Smooth scanning line via rAF
+  useEffect(() => {
+    const tick = () => {
+      posRef.current += dirRef.current * 0.4;
+      if (posRef.current >= 88) dirRef.current = -1;
+      if (posRef.current <= 0) dirRef.current = 1;
+      setScanPos(posRef.current);
+      animRef.current = requestAnimationFrame(tick);
+    };
+    animRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+    };
+  }, []);
+
+  const onDrop = useCallback(
+    (acceptedFiles: File[]) => {
+      if (!acceptedFiles[0]) return;
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('pendingCVName', acceptedFiles[0].name);
+      }
+      router.push('/onboarding');
+    },
+    [router]
+  );
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: { 'application/pdf': ['.pdf'] },
+    maxFiles: 1,
+    onDrop,
+  });
+
+  const toggleDark = () => {
+    document.documentElement.classList.toggle('dark');
+    setIsDark((d) => !d);
   };
-  const ctaHref = user ? getDashboardPath() : "/auth/sign-in";
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-accent selection:text-white overflow-x-hidden relative">
-
-      {/* ── HEADER ── */}
-      <header className="fixed top-0 left-0 right-0 z-[100] bg-background/95 backdrop-blur-xl border-b border-border">
-        <div className="container mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="font-serif text-3xl font-bold tracking-tight text-primary select-none cursor-default">Pathwise</div>
-          <div className="flex items-center gap-3">
-            <LanguageSwitcher />
-            <ThemeToggle />
-            {user ? (
-              <Link
-                href={getDashboardPath()}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {t.nav.dashboard}
-              </Link>
-            ) : (
-              <Link href="/auth/sign-in" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                {t.nav.signIn}
-              </Link>
-            )}
-            <Link
-              href={ctaHref}
-              className={`relative group px-6 py-2.5 rounded-full overflow-hidden font-medium shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 text-white ${
-                activeRole === 'seeker' ? 'bg-seeker' : 'bg-recruiter'
-              }`}
-            >
-              <span className="relative z-10">{t.nav.getStarted}</span>
-              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-            </Link>
-          </div>
+    <main className="relative w-screen h-screen overflow-hidden bg-paper dark:bg-void bg-grid dark:bg-grid flex flex-col items-center justify-center">
+      {/* Top bar */}
+      <header className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 h-12 border-b border-ink/10 dark:border-luminous z-30">
+        <div className="font-mono text-xs font-black tracking-widest text-ink dark:text-platinum">
+          PATHWISE
+        </div>
+        <div className="flex items-center gap-6 font-mono text-xs text-ink/40 dark:text-platinum/30">
+          <button onClick={toggleDark} className="hover:text-ink dark:hover:text-platinum transition-colors">
+            {isDark ? '[ LIGHT ]' : '[ DARK ]'}
+          </button>
+          <a href="/auth/login" className="hover:text-ink dark:hover:text-platinum transition-colors">
+            SIGN IN
+          </a>
         </div>
       </header>
 
-      <main className="pt-32 pb-20 relative">
-
-        {/* ── HERO ── */}
-        <section className="container mx-auto px-6 mb-20 relative">
-          <div className="max-w-5xl mx-auto text-center">
-
-            {/* Role Toggle */}
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="inline-flex bg-surface-elevated backdrop-blur-sm p-1.5 rounded-full shadow-craft mb-12 border border-border"
-            >
-              <button
-                onClick={() => setActiveRole("seeker")}
-                className={`px-8 py-3 rounded-full text-sm font-bold transition-all duration-300 ${
-                  activeRole === 'seeker'
-                    ? 'bg-seeker text-white shadow-md'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-                }`}
-              >
-                {t.hero.roleSeeker}
-              </button>
-              <button
-                onClick={() => setActiveRole("recruiter")}
-                className={`px-8 py-3 rounded-full text-sm font-bold transition-all duration-300 ${
-                  activeRole === 'recruiter'
-                    ? 'bg-recruiter text-white shadow-md'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-                }`}
-              >
-                {t.hero.roleRecruiter}
-              </button>
-            </motion.div>
-
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeRole}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.05 }}
-                transition={{ duration: 0.4, ease: "circOut" }}
-                className="space-y-8"
-              >
-                <h1 className="font-serif text-6xl md:text-8xl leading-[1] tracking-tight text-primary">
-                  {activeRole === "seeker" ? (
-                    <>
-                      {t.hero.headlineSeeker.split(t.hero.gradientSeeker)[0]}<br />
-                      <span className={`text-transparent bg-clip-text italic inline-block py-2 px-1 pr-4 ${
-                        activeRole === 'seeker'
-                          ? 'bg-gradient-to-r from-seeker to-blue-400'
-                          : 'bg-gradient-to-r from-recruiter to-orange-400'
-                      }`}>{t.hero.gradientSeeker}</span>
-                    </>
-                  ) : (
-                    <>
-                      {t.hero.headlineRecruiterLine1} <br />
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-recruiter to-orange-400 italic inline-block py-2 px-1 pr-4">{t.hero.gradientRecruiter}</span>
-                    </>
-                  )}
-                </h1>
-
-                <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto leading-relaxed font-medium">
-                  {activeRole === "seeker" ? t.hero.subSeeker : t.hero.subRecruiter}
-                </p>
-
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
-                  <Link
-                    href={ctaHref}
-                    className={`px-8 py-4 rounded-full text-lg font-bold text-white shadow-glow hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ${
-                      activeRole === 'seeker' ? 'bg-seeker' : 'bg-recruiter'
-                    }`}
-                  >
-                    {activeRole === "seeker" ? t.hero.ctaSeeker : t.hero.ctaRecruiter}
-                  </Link>
-                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <Check className="w-4 h-4 text-green-500" />
-                    <span>{t.hero.freeChecks}</span>
-                  </div>
-                </div>
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </section>
-
-        {/* ── JOB SEEKER TESTIMONIALS ── */}
-        <section className="mb-32 overflow-hidden py-10 relative">
-          <div className="container mx-auto px-6 mb-8 text-center">
-            <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">{t.testimonials.trustedSeekers}</p>
-          </div>
-          <InfiniteMovingCards items={jobSeekerTestimonials} direction="right" speed="slow" />
-        </section>
-
-        {/* ── BENTO GRID FEATURES ── */}
-        <section className="container mx-auto px-6 mb-32 relative">
-          <div className="text-center mb-16">
-            <motion.h2
-              {...clipAnimation}
-              className="font-serif text-4xl md:text-5xl mb-6 text-primary"
-            >
-              {t.features.whyTitle}
-            </motion.h2>
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-              className="text-xl text-muted-foreground"
-            >
-              {t.features.whySub}
-            </motion.p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
-
-            {/* Large Card: Deep Match Analysis */}
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
-              className={`md:col-span-2 p-10 rounded-[2.5rem] border shadow-craft hover:shadow-card-hover hover:-translate-y-1 transition-all duration-150 group relative overflow-hidden ${
-                activeRole === 'seeker'
-                  ? 'bg-seeker-soft border-seeker-soft-border'
-                  : 'bg-recruiter-soft border-recruiter-soft-border'
-              }`}
-            >
-              <div className="absolute top-0 right-0 w-96 h-96 bg-card/40 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-
-              <div className="relative z-10 grid md:grid-cols-2 gap-12 items-center h-full">
-                <div className="space-y-6">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm bg-card ${
-                    activeRole === 'seeker' ? 'text-seeker' : 'text-recruiter'
-                  }`}>
-                    <Search className="w-7 h-7" />
-                  </div>
-                  <h3 className="font-serif text-3xl text-primary">
-                    {activeRole === "seeker" ? t.features.matchTitleSeeker : t.features.matchTitleRecruiter}
-                  </h3>
-                  <p className="text-lg text-muted-foreground leading-relaxed">
-                    {activeRole === "seeker" ? t.features.matchDescSeeker : t.features.matchDescRecruiter}
-                  </p>
-                  <ul className="space-y-3">
-                    <li className="flex items-center gap-3 text-sm font-medium text-foreground">
-                      <div className={`w-1.5 h-1.5 rounded-full ${
-                        activeRole === 'seeker' ? 'bg-seeker' : 'bg-recruiter'
-                      }`}></div>
-                      {activeRole === "seeker" ? t.features.matchBullet1Seeker : t.features.matchBullet1Recruiter}
-                    </li>
-                    <li className="flex items-center gap-3 text-sm font-medium text-foreground">
-                      <div className={`w-1.5 h-1.5 rounded-full ${
-                        activeRole === 'seeker' ? 'bg-seeker' : 'bg-recruiter'
-                      }`}></div>
-                      {activeRole === "seeker" ? t.features.matchBullet2Seeker : t.features.matchBullet2Recruiter}
-                    </li>
-                  </ul>
-                </div>
-
-                {/* Nested Card: Mock UI */}
-                <motion.div
-                  className="bg-card backdrop-blur rounded-3xl p-6 shadow-xl border border-border transform rotate-2 group-hover:rotate-0 group-hover:scale-[1.02] transition-all duration-150"
-                >
-                  <div className="flex justify-between items-center mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center font-serif font-bold text-muted-foreground">JD</div>
-                      <div>
-                        <div className="text-xs font-bold uppercase text-muted-foreground">{t.features.targetRole}</div>
-                        <div className="text-sm font-bold text-primary">Senior Frontend Dev</div>
-                      </div>
-                    </div>
-                    <div className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      activeRole === 'seeker'
-                        ? 'bg-[var(--feedback-green-bg)] text-[var(--feedback-green-text)]'
-                        : 'bg-recruiter-soft text-recruiter'
-                    }`}>
-                      85% Match
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="p-3 rounded-xl border flex items-start gap-3 bg-[var(--feedback-red-bg)] border-[var(--feedback-red-border)]">
-                      <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 bg-[var(--feedback-red-bg)]">
-                        <span className="text-[var(--feedback-red-sub)] text-xs font-bold">!</span>
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold mb-1 text-[var(--feedback-red-text)]">{t.features.missingSkill}</div>
-                        <div className="text-xs text-[var(--feedback-red-sub)]">{t.features.missingSkillDesc}</div>
-                      </div>
-                    </div>
-                    <div className="p-3 rounded-xl border flex items-start gap-3 bg-[var(--feedback-green-bg)] border-[var(--feedback-green-border)]">
-                      <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 bg-[var(--feedback-green-bg)]">
-                        <Check className="w-3 h-3 text-[var(--feedback-green-sub)]" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold mb-1 text-[var(--feedback-green-text)]">{t.features.strongMatch}</div>
-                        <div className="text-xs text-[var(--feedback-green-sub)]">{t.features.strongMatchDesc}</div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              </div>
-            </motion.div>
-
-            {/* Tall Card: Privacy */}
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              whileHover={{ scale: 1.02 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="md:row-span-2 bg-primary text-primary-foreground p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden group flex flex-col"
-            >
-              <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-white/10 transition-colors duration-500"></div>
-              <div className="absolute bottom-0 left-0 w-60 h-60 bg-accent/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
-
-              <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center mb-8 backdrop-blur-sm border border-white/10">
-                <Shield className="w-7 h-7 text-white" />
-              </div>
-
-              <h3 className="font-serif text-3xl mb-4 relative z-10 text-primary-foreground">
-                {activeRole === "seeker" ? t.features.privacyTitleSeeker : t.features.privacyTitleRecruiter}
-              </h3>
-              <p className="text-lg text-primary-foreground/70 leading-relaxed mb-12 relative z-10">
-                {activeRole === "seeker" ? t.features.privacyDescSeeker : t.features.privacyDescRecruiter}
-              </p>
-
-              {/* Nested Card: Privacy Toggle */}
-              <div className="mt-auto bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/15 relative z-10 group-hover:bg-white/15 transition-colors">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <Lock className="w-5 h-5 text-primary-foreground/80" />
-                    <span className="font-medium text-primary-foreground">{t.features.autoDelete}</span>
-                  </div>
-                  <div className="w-10 h-6 rounded-full bg-green-500 relative shadow-inner">
-                    <div className="absolute right-1 top-1 w-4 h-4 rounded-full bg-white shadow-sm"></div>
-                  </div>
-                </div>
-                <p className="text-xs text-primary-foreground/50">{t.features.autoDeleteDesc}</p>
-              </div>
-            </motion.div>
-
-            {/* Medium Card: Actionable Feedback */}
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              whileHover={{ scale: 1.02 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-card p-10 rounded-[2.5rem] border border-border shadow-craft hover:shadow-card-hover transition-all duration-500 group relative overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-[var(--icon-purple-bg)]/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
-              <div className="relative z-10">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-sm bg-[var(--icon-purple-bg)]">
-                  <Sparkles className="w-7 h-7 text-[var(--icon-purple-text)]" />
-                </div>
-                <h3 className="font-serif text-2xl mb-3 text-primary">
-                  {activeRole === "seeker" ? t.features.feedbackTitleSeeker : t.features.feedbackTitleRecruiter}
-                </h3>
-                <p className="text-muted-foreground mb-6">
-                  {activeRole === "seeker" ? t.features.feedbackDescSeeker : t.features.feedbackDescRecruiter}
-                </p>
-
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3 p-2 rounded-lg bg-surface-elevated border border-border hover:bg-secondary transition-colors">
-                    <div className="w-6 h-6 rounded-full bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] flex items-center justify-center text-xs font-bold">1</div>
-                    <span className="text-sm font-medium text-foreground">
-                      {activeRole === "seeker" ? t.features.feedbackItem1Seeker : t.features.feedbackItem1Recruiter}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 p-2 rounded-lg bg-surface-elevated border border-border hover:bg-secondary transition-colors">
-                    <div className="w-6 h-6 rounded-full bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] flex items-center justify-center text-xs font-bold">2</div>
-                    <span className="text-sm font-medium text-foreground">
-                      {activeRole === "seeker" ? t.features.feedbackItem2Seeker : t.features.feedbackItem2Recruiter}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Medium Card: Team/Speed */}
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              whileHover={{ scale: 1.02 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-card p-10 rounded-[2.5rem] border border-border shadow-craft hover:shadow-card-hover transition-all duration-500 group relative overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-[var(--icon-blue-bg)]/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
-              <div className="relative z-10">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-sm bg-[var(--icon-blue-bg)]">
-                  <Clock className="w-7 h-7 text-[var(--icon-blue-text)]" />
-                </div>
-                <h3 className="font-serif text-2xl mb-3 text-primary">
-                  {activeRole === "seeker" ? t.features.speedTitleSeeker : t.features.speedTitleRecruiter}
-                </h3>
-                <p className="text-muted-foreground mb-6">
-                  {activeRole === "seeker" ? t.features.speedDescSeeker : t.features.speedDescRecruiter}
-                </p>
-                <div className="flex items-end gap-2">
-                  <span className="text-4xl font-serif font-bold text-primary">
-                    {activeRole === "seeker" ? "10s" : "10x"}
-                  </span>
-                  <span className="text-sm font-medium text-muted-foreground mb-1.5">
-                    {activeRole === "seeker" ? t.features.speedSuffixSeeker : t.features.speedSuffixRecruiter}
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </section>
-
-        {/* ── WORKFLOW ── */}
-        <section className="py-32 bg-surface-elevated border-y border-border relative">
-          <div className="container mx-auto px-6">
-            <div className="text-center mb-20">
-              <h2 className="font-serif text-5xl mb-6 text-primary">{t.howItWorks.title}</h2>
-            </div>
-
-            <div className="max-w-5xl mx-auto">
-              <div className="grid md:grid-cols-3 gap-12 relative">
-                <div className="hidden md:block absolute top-8 left-[15%] right-[15%] h-0.5 bg-border"></div>
-
-                {[
-                  {
-                    icon: Upload,
-                    title: activeRole === "seeker" ? t.howItWorks.step1TitleSeeker : t.howItWorks.step1TitleRecruiter,
-                    desc: activeRole === "seeker" ? t.howItWorks.step1DescSeeker : t.howItWorks.step1DescRecruiter
-                  },
-                  {
-                    icon: activeRole === "seeker" ? Sparkles : Search,
-                    title: activeRole === "seeker" ? t.howItWorks.step2TitleSeeker : t.howItWorks.step2TitleRecruiter,
-                    desc: activeRole === "seeker" ? t.howItWorks.step2DescSeeker : t.howItWorks.step2DescRecruiter
-                  },
-                  {
-                    icon: activeRole === "seeker" ? MessageCircle : ListChecks,
-                    title: activeRole === "seeker" ? t.howItWorks.step3TitleSeeker : t.howItWorks.step3TitleRecruiter,
-                    desc: activeRole === "seeker" ? t.howItWorks.step3DescSeeker : t.howItWorks.step3DescRecruiter
-                  }
-                ].map((item, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: i * 0.2 }}
-                    className="relative flex flex-col items-center text-center group"
-                  >
-                    <div className={`w-16 h-16 rounded-full bg-card border-4 border-[var(--step-circle-border)] shadow-xl flex items-center justify-center mb-8 z-10 group-hover:scale-110 transition-transform duration-300 ${
-                      activeRole === 'seeker' ? 'text-seeker' : 'text-recruiter'
-                    }`}>
-                      <item.icon className="w-7 h-7" />
-                    </div>
-                    <h3 className="text-2xl font-serif font-bold mb-3 text-primary">{item.title}</h3>
-                    <p className="text-muted-foreground leading-relaxed px-4">{item.desc}</p>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ── RECRUITER TESTIMONIALS ── */}
-        <section className="mb-32 overflow-hidden py-10 relative">
-          <div className="container mx-auto px-6 mb-8 text-center">
-            <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">{t.testimonials.trustedHiring}</p>
-          </div>
-          <InfiniteMovingCards items={recruiterTestimonials} direction="left" speed="slow" />
-        </section>
-
-        {/* ── PRICING ── */}
-        <section className="container mx-auto px-6 pb-32 relative">
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-primary rounded-[3rem] p-12 md:p-20 text-center text-primary-foreground relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-                <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-white/5 rounded-full blur-3xl"></div>
-                <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-accent/20 rounded-full blur-3xl"></div>
-              </div>
-
-              <div className="relative z-10">
-                <h2 className="font-serif text-4xl md:text-5xl mb-6 text-primary-foreground">{t.pricing.title}</h2>
-                <p className="text-xl text-primary-foreground/80 mb-12 max-w-2xl mx-auto">{t.pricing.sub}</p>
-
-                <div className="flex flex-col sm:flex-row justify-center gap-6">
-                  {/* Free Plan */}
-                  <motion.div
-                    whileHover={{ y: -10 }}
-                    className="bg-card text-card-foreground p-8 rounded-3xl flex-1 max-w-sm mx-auto shadow-xl transition-all duration-300 relative group border border-border"
-                  >
-                    <div className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-2">{t.pricing.starterLabel}</div>
-                    <div className="text-5xl font-serif font-bold mb-4 text-primary">$0</div>
-                    <ul className="text-left space-y-4 mb-8">
-                      <li className="flex items-center gap-3 text-sm font-medium text-foreground">
-                        <div className="w-5 h-5 rounded-full bg-[var(--feedback-green-bg)] text-[var(--feedback-green-sub)] flex items-center justify-center"><Check size={12} /></div>
-                        {t.pricing.starterChecks}
-                      </li>
-                      <li className="flex items-center gap-3 text-sm font-medium text-foreground">
-                        <div className="w-5 h-5 rounded-full bg-[var(--feedback-green-bg)] text-[var(--feedback-green-sub)] flex items-center justify-center"><Check size={12} /></div>
-                        {t.pricing.starterScore}
-                      </li>
-                      <li className="flex items-center gap-3 text-sm font-medium text-foreground">
-                        <div className="w-5 h-5 rounded-full bg-[var(--feedback-green-bg)] text-[var(--feedback-green-sub)] flex items-center justify-center"><Check size={12} /></div>
-                        {t.pricing.starterSession}
-                      </li>
-                    </ul>
-                    <Link href={ctaHref} className="block w-full py-4 rounded-2xl bg-secondary text-secondary-foreground font-bold hover:bg-muted transition-colors">
-                      {t.pricing.getStarted}
-                    </Link>
-                  </motion.div>
-
-                  {/* Pro Plan */}
-                  <motion.div
-                    whileHover={{ y: -10 }}
-                    className="bg-gradient-to-br from-accent to-orange-600 text-white p-8 rounded-3xl flex-1 max-w-sm mx-auto shadow-xl transition-all duration-300 border border-white/20 relative overflow-hidden"
-                  >
-                    <div className="absolute top-0 right-0 bg-white/20 px-4 py-1 rounded-bl-2xl text-xs font-bold backdrop-blur-sm">{t.pricing.popular}</div>
-                    <div className="text-sm font-bold uppercase tracking-wider text-white/80 mb-2">{t.pricing.proLabel}</div>
-                    <div className="text-5xl font-serif font-bold mb-4">$12</div>
-                    <ul className="text-left space-y-4 mb-8">
-                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center"><Check size={12} /></div> {t.pricing.proChecks}</li>
-                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center"><Check size={12} /></div> {t.pricing.proFeedback}</li>
-                      <li className="flex items-center gap-3 text-sm font-medium"><div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center"><Check size={12} /></div> {t.pricing.proSupport}</li>
-                    </ul>
-                    <Link href="/pricing" className="block w-full py-4 rounded-2xl bg-white text-accent font-bold hover:bg-gray-50 transition-colors shadow-lg">
-                      {t.pricing.upgradePro}
-                    </Link>
-                  </motion.div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-      </main>
-
-      {/* ── FOOTER ── */}
-      <footer className="bg-card border-t border-border py-16 relative">
-        <div className="container mx-auto px-6">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-8">
-            <div className="text-center md:text-left">
-              <div className="font-serif text-2xl font-bold text-primary mb-2">Pathwise</div>
-              <p className="text-muted-foreground">{t.footer.tagline}</p>
-            </div>
-            <div className="flex gap-8 text-sm font-medium text-muted-foreground">
-              <Link href="#" className="hover:text-primary transition-colors">{t.footer.privacy}</Link>
-              <Link href="#" className="hover:text-primary transition-colors">{t.footer.terms}</Link>
-              <Link href="#" className="hover:text-primary transition-colors">{t.footer.twitter}</Link>
-            </div>
-          </div>
-          <div className="mt-12 text-center text-xs text-muted-foreground/50">
-            &copy; {new Date().getFullYear()} Pathwise AI. {t.footer.rights}
-          </div>
+      {/* Hero */}
+      <div ref={heroRef} className="relative w-full max-w-5xl px-8 text-center">
+        {/* Blueprint noise background */}
+        <div
+          className="blueprint-bg"
+          aria-hidden="true"
+          style={{
+            maskImage: `linear-gradient(to bottom, transparent ${Math.max(0, scanPos - 8)}%, black ${scanPos}%, black ${scanPos + 2}%, transparent ${scanPos + 12}%)`,
+            WebkitMaskImage: `linear-gradient(to bottom, transparent ${Math.max(0, scanPos - 8)}%, black ${scanPos}%, black ${scanPos + 2}%, transparent ${scanPos + 12}%)`,
+          }}
+        >
+          {NOISE_TEXT}
         </div>
-      </footer>
-    </div>
+
+        {/* Scanning line */}
+        <div
+          className="scanning-line"
+          style={{ top: `${scanPos}%` }}
+          aria-hidden="true"
+        />
+
+        {/* Corner accents */}
+        <div className="absolute -top-4 -left-4 w-6 h-6 border-t-2 border-l-2 border-ink/30 dark:border-neon/40" />
+        <div className="absolute -top-4 -right-4 w-6 h-6 border-t-2 border-r-2 border-ink/30 dark:border-neon/40" />
+        <div className="absolute -bottom-4 -left-4 w-6 h-6 border-b-2 border-l-2 border-ink/30 dark:border-neon/40" />
+        <div className="absolute -bottom-4 -right-4 w-6 h-6 border-b-2 border-r-2 border-ink/30 dark:border-neon/40" />
+
+        {/* Headline */}
+        <motion.h1
+          className="relative z-10 text-[clamp(2.8rem,7.5vw,6.5rem)] font-black leading-[0.92] tracking-tight text-ink dark:text-platinum"
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...SPRING, delay: 0.1 }}
+        >
+          Your Career,
+          <br />
+          <span
+            style={{
+              background: 'linear-gradient(90deg, #00f0ff, #0080ff)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}
+          >
+            Precision-Mapped.
+          </span>
+        </motion.h1>
+
+        <motion.p
+          className="relative z-10 mt-5 font-mono text-sm text-ink/50 dark:text-platinum/40 tracking-widest uppercase"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+        >
+          AI-powered CV analysis &nbsp;·&nbsp; Real-time job matching &nbsp;·&nbsp; Zero noise
+        </motion.p>
+
+        {/* Precision input CTA */}
+        <motion.div
+          {...getRootProps()}
+          className={[
+            'relative z-10 mt-10 mx-auto max-w-lg',
+            'border border-ink/30 dark:border-white/10',
+            'p-5 cursor-pointer transition-all duration-150',
+            isDragActive
+              ? 'border-neon bg-neon/5 dark:bg-neon/5'
+              : 'hover:border-ink dark:hover:border-white/25 hover:bg-ink/3',
+          ].join(' ')}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...SPRING, delay: 0.55 }}
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
+        >
+          <input {...getInputProps()} />
+          <div className="flex items-center gap-3 font-mono text-sm text-ink/60 dark:text-platinum/50">
+            <svg width="14" height="16" viewBox="0 0 14 16" fill="none" stroke="currentColor" strokeWidth="1">
+              <rect x="1" y="1" width="10" height="13" rx="0.5" />
+              <path d="M3 5h7M3 8h7M3 11h4" />
+            </svg>
+            <span>{isDragActive ? 'Release to scan...' : 'Drop your CV to begin scanning.'}</span>
+          </div>
+          <div className="mt-2 font-mono text-xs text-ink/25 dark:text-platinum/20">
+            .PDF accepted &nbsp;·&nbsp; Parsed locally &nbsp;·&nbsp; Never stored without permission
+          </div>
+        </motion.div>
+
+        <motion.p
+          className="relative z-10 mt-4 font-mono text-xs text-ink/30 dark:text-platinum/20"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+        >
+          or{' '}
+          <a href="/auth/login" className="underline underline-offset-2 hover:text-ink dark:hover:text-platinum transition-colors">
+            sign in to your workspace
+          </a>
+        </motion.p>
+      </div>
+
+      {/* Bottom meta */}
+      <div className="absolute bottom-4 left-5 font-mono text-[10px] text-ink/20 dark:text-platinum/15">
+        PATHWISE v2.0 · INDUSTRIAL EDITION
+      </div>
+      <div className="absolute bottom-4 right-5 font-mono text-[10px] text-neon/40">
+        [ SCAN ACTIVE ]
+      </div>
+    </main>
   );
 }

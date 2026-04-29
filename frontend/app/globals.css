@@ -1,281 +1,343 @@
-@import "./index.css";
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    /* ── Surface layers ── */
-    --background: #f4f4f0;
-    --foreground: #1c1c1c;
-    --card: #ffffff;
-    --card-foreground: #1c1c1c;
-    --popover: #ffffff;
-    --popover-foreground: #1c1c1c;
+/* ============================================
+   PATHWISE — INDUSTRIAL DESIGN SYSTEM v2.0
+   ============================================ */
 
-    /* ── Brand ── */
-    --primary: #2c3e50;
-    --primary-foreground: #ffffff;
-    --accent: #e07a5f;
-    --accent-foreground: #ffffff;
-
-    /* ── Muted / supporting text ── */
-    --secondary: #e2e2df;
-    --secondary-foreground: #1c1c1c;
-    --muted: #e8e8e4;
-    --muted-foreground: #64748b;
-
-    /* ── Semantic aliases used across components ── */
-    --brand: var(--primary);
-    --brand-contrast: var(--primary-foreground);
-    --muted-2: #9ca3af;
-
-    /* ── Status ── */
-    --destructive: #dc2626;
-    --destructive-foreground: #ffffff;
-
-    /* ── Chrome ── */
-    --border: #d1d1cf;
-    --input: #d1d1cf;
-    --ring: #2c3e50;
-
-    /* ── Elevated surfaces ── */
-    --surface-elevated: #ecece7;
-    --surface-tinted: #e4e4de;
-    --progress-track: #dadad4;
-
-    /* ── Shadows — layered for depth ── */
-    --shadow-soft:
-      0 1px 3px rgba(15, 23, 42, 0.06),
-      0 8px 24px rgba(15, 23, 42, 0.08);
-    --shadow-card-hover:
-      0 2px 6px rgba(15, 23, 42, 0.08),
-      0 12px 32px rgba(15, 23, 42, 0.10);
-    --shadow-ring: 0 0 0 1px rgba(148, 163, 184, 0.40);
-
-    --radius: 0.75rem;
-
-    /* ── Role-specific accent colours ── */
-    --seeker:              #2563eb;
-    --seeker-foreground:   #ffffff;
-    --seeker-soft:         #eff6ff;
-    --seeker-soft-border:  #bfdbfe;
-
-    --recruiter:           #ea580c;
-    --recruiter-foreground: #ffffff;
-    --recruiter-soft:      #fff7ed;
-    --recruiter-soft-border: #fed7aa;
-
-    /* ── Feedback cards ── */
-    --feedback-red-bg:     #fef2f2;
-    --feedback-red-border: #fecaca;
-    --feedback-red-text:   #991b1b;
-    --feedback-red-sub:    #dc2626;
-    --feedback-green-bg:   #f0fdf4;
-    --feedback-green-border: #bbf7d0;
-    --feedback-green-text: #14532d;
-    --feedback-green-sub:  #16a34a;
-
-    /* ── Feature icon colours ── */
-    --icon-purple-bg:   #f3e8ff;
-    --icon-purple-text: #7c3aed;
-    --icon-blue-bg:     #dbeafe;
-    --icon-blue-text:   #1d4ed8;
-
-    /* ── Misc ── */
-    --step-circle-border: #ffffff;
-  }
-
-  /* ─────────────────────────────────────────
-     DARK MODE
-     ───────────────────────────────────────── */
-  .dark {
-    /* ── Surface layers — 5 distinct steps ── */
-    --background: #0f1117;
-    --foreground: #e2e4e9;
-    --card: #181b22;
-    --card-foreground: #e2e4e9;
-    --popover: #1e2130;
-    --popover-foreground: #e2e4e9;
-
-    /* ── Brand ── */
-    --primary: #7aaccc;
-    --primary-foreground: #0f1117;
-    --accent: #e07a5f;
-    --accent-foreground: #0f1117;
-
-    /* ── Muted / supporting text ── */
-    --secondary: #252836;
-    --secondary-foreground: #e2e4e9;
-    --muted: #252836;
-    --muted-foreground: #8b90a0;
-
-    /* ── Semantic aliases ── */
-    --brand: var(--primary);
-    --brand-contrast: var(--primary-foreground);
-    --muted-2: #5a5f70;
-
-    /* ── Status ── */
-    --destructive: #f87171;
-    --destructive-foreground: #0f1117;
-
-    /* ── Chrome ── */
-    --border: #2a2d3a;
-    --input: #2a2d3a;
-    --ring: #7aaccc;
-
-    /* ── Elevated surfaces ── */
-    --surface-elevated: #1e2130;
-    --surface-tinted: #232638;
-    --progress-track: #2e3244;
-
-    /* ── Shadows — stronger in dark mode ── */
-    --shadow-soft:
-      0 1px 4px rgba(0, 0, 0, 0.30),
-      0 8px 24px rgba(0, 0, 0, 0.22);
-    --shadow-card-hover:
-      0 2px 8px rgba(0, 0, 0, 0.40),
-      0 12px 36px rgba(0, 0, 0, 0.30);
-    --shadow-ring: 0 0 0 1px rgba(255, 255, 255, 0.06);
-
-    /* ── Role colours — dark hue-tinted ── */
-    --seeker:              #60a5fa;
-    --seeker-foreground:   #0f1117;
-    --seeker-soft:         #0d1f3c;
-    --seeker-soft-border:  #1e3a6e;
-
-    --recruiter:           #fb923c;
-    --recruiter-foreground: #0f1117;
-    --recruiter-soft:      #251507;
-    --recruiter-soft-border: #7c3412;
-
-    /* ── Feedback cards — dark variants ── */
-    --feedback-red-bg:     #2a1212;
-    --feedback-red-border: #6b1c1c;
-    --feedback-red-text:   #fca5a5;
-    --feedback-red-sub:    #f87171;
-    --feedback-green-bg:   #0d2318;
-    --feedback-green-border: #1a4a2e;
-    --feedback-green-text: #86efac;
-    --feedback-green-sub:  #4ade80;
-
-    /* ── Feature icon colours ── */
-    --icon-purple-bg:   #1e1040;
-    --icon-purple-text: #c084fc;
-    --icon-blue-bg:     #0d1f3c;
-    --icon-blue-text:   #60a5fa;
-
-    /* ── Misc ── */
-    --step-circle-border: #2a2d3a;
-  }
+:root {
+  --background: #fbfbf9;
+  --foreground: #111111;
+  --card: #f5f5f2;
+  --card-foreground: #111111;
+  --primary: #111111;
+  --primary-foreground: #fbfbf9;
+  --secondary: #f0f0ec;
+  --secondary-foreground: #111111;
+  --muted: #f0f0ec;
+  --muted-foreground: #666666;
+  --accent: #00f0ff;
+  --accent-foreground: #111111;
+  --destructive: #ff4d4d;
+  --destructive-foreground: #ffffff;
+  --border: rgba(17,17,17,0.12);
+  --input: rgba(17,17,17,0.08);
+  --ring: #111111;
+  --surface-elevated: #f5f5f2;
+  --surface-tinted: #f0f0ec;
+  --positive: #00c853;
+  --progress-track: rgba(17,17,17,0.08);
+  --seeker-soft: rgba(59,130,246,0.08);
+  --seeker-soft-border: rgba(59,130,246,0.2);
+  --recruiter-soft: rgba(249,115,22,0.08);
+  --recruiter-soft-border: rgba(249,115,22,0.2);
+  --shadow-soft: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-ring: 0 0 0 3px rgba(17,17,17,0.1);
+  --font-sans: 'Inter', sans-serif;
+  --font-serif: Georgia, serif;
 }
 
-@layer base {
-  *, *::before, *::after {
-    @apply border-border box-border;
-  }
-
-  html {
-    scroll-behavior: smooth;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-    scroll-padding-top: 5rem;
-  }
-
-  body {
-    @apply bg-background text-foreground;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
-  }
-
-  .dark body {
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.07'/%3E%3C/svg%3E");
-  }
-
-  /* Consistent focus ring across the app */
-  :focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 3px;
-    border-radius: 0.375rem;
-  }
-
-  /* Selection colour */
-  ::selection {
-    background-color: color-mix(in srgb, var(--primary) 20%, transparent);
-    color: var(--foreground);
-  }
+.dark {
+  /* Elevation by saturation — NOT by lightness */
+  --background: #050505;   /* Layer 0 — Pure Void */
+  --foreground: #e5e5e5;   /* Platinum */
+  --card: #0d0e12;         /* Layer 1 — Panes */
+  --card-foreground: #e5e5e5;
+  --primary: #e5e5e5;
+  --primary-foreground: #050505;
+  --secondary: #16181d;    /* Layer 2 — Modals */
+  --secondary-foreground: #e5e5e5;
+  --muted: #16181d;
+  --muted-foreground: #888888;
+  --accent: #00f0ff;
+  --accent-foreground: #050505;
+  --destructive: #ff4d4d;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255,255,255,0.08);  /* Luminous borders */
+  --input: rgba(255,255,255,0.06);
+  --ring: rgba(0,240,255,0.3);
+  --surface-elevated: #0d0e12;
+  --surface-tinted: #16181d;
+  --positive: #00c853;
+  --progress-track: rgba(255,255,255,0.08);
+  --seeker-soft: rgba(59,130,246,0.12);
+  --seeker-soft-border: rgba(59,130,246,0.25);
+  --recruiter-soft: rgba(249,115,22,0.12);
+  --recruiter-soft-border: rgba(249,115,22,0.25);
+  --shadow-soft: 0 2px 12px rgba(0,0,0,0.4);
+  --shadow-ring: 0 0 0 3px rgba(0,240,255,0.15);
 }
 
-/* ── Reusable component utilities ── */
-@layer components {
-  .glass-button {
-    @apply bg-white/60 dark:bg-white/10 backdrop-blur-md border border-white/80 dark:border-white/10
-    text-foreground rounded-full transition-all duration-200
-    hover:bg-white/80 dark:hover:bg-white/15 hover:-translate-y-px hover:shadow-lg;
-  }
-
-  /* Inline form field — consistent across all pages */
-  .field-input {
-    @apply w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm
-    placeholder:text-muted-foreground/60
-    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
-    transition-colors duration-150;
-  }
-
-  /* Utility: visually-hidden but keyboard-accessible */
-  .sr-only {
-    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0;
-  }
+/* ============ BASE RESET ============ */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* ── Animations ── */
-@keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0);     }
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', var(--font-sans), sans-serif;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .animate-in-up {
-    animation: fade-in-up 480ms ease-out both;
-  }
-  .animate-in-up-delay {
-    animation: fade-in-up 640ms ease-out 120ms both;
-  }
-}
-
-.clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
+/* Dashboard/IDE pages — no scroll */
+.ide-layout {
   overflow: hidden;
+  height: 100vh;
+  width: 100vw;
 }
 
-.clamp-3 {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  -webkit-box-orient: vertical;
+/* ============ GRID BACKGROUND ============ */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(17,17,17,0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(17,17,17,0.06) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+.dark .bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(0,240,255,0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0,240,255,0.05) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* ============ SCANNING LINE ============ */
+.scanning-line {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, rgba(0,240,255,0.8) 50%, transparent 100%);
+  animation: scan 4s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 20;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+}
+
+/* ============ BLUEPRINT TEXT REVEAL ============ */
+.blueprint-bg {
+  position: absolute;
+  inset: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  color: rgba(17,17,17,0.07);
   overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  padding: 1rem;
+  word-break: break-all;
+  transition: color 0.4s ease;
 }
 
-@keyframes scroll-left {
-  0%   { transform: translateX(0);    }
-  100% { transform: translateX(-50%); }
+.dark .blueprint-bg {
+  color: rgba(0, 240, 255, 0.06);
 }
 
-@keyframes scroll-right {
-  0%   { transform: translateX(-50%); }
-  100% { transform: translateX(0);    }
+.scanning-line-above ~ .blueprint-bg .word,
+.blueprint-bg .word.revealed {
+  color: rgba(17,17,17,0.18);
+  transition: color 0.2s ease;
 }
 
-@keyframes progress-stripe {
-  from { background-position: 1rem 0; }
-  to   { background-position: 0 0;    }
+.dark .blueprint-bg .word.revealed {
+  color: rgba(0,240,255,0.2);
 }
 
-.hover\:pause-animation:hover {
-  animation-play-state: paused !important;
+/* ============ FLICKER ANIMATION ============ */
+.flicker {
+  animation: flicker 0.35s steps(1) forwards;
+}
+
+/* ============ GHOST/TRANSMISSION STREAM ============ */
+.ghost-stream {
+  animation: ghost-in 0.4s ease forwards;
+}
+
+/* ============ LUMINOUS BORDER ============ */
+.border-luminous {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ============ DIFF VISUALIZATION ============ */
+.diff-weak {
+  text-decoration: underline wavy #ff4d4d;
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
+.diff-tooltip {
+  position: absolute;
+  background: #0d0e12;
+  border: 1px solid #00c853;
+  color: #00c853;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 8px 12px;
+  white-space: nowrap;
+  z-index: 100;
+  box-shadow: 0 0 20px rgba(0, 200, 83, 0.15);
+  pointer-events: none;
+}
+
+.diff-tooltip::before {
+  content: '> SUGGEST: ';
+  color: rgba(0, 200, 83, 0.5);
+}
+
+/* ============ VIEWFINDER BRACKETS ============ */
+.viewfinder {
+  position: relative;
+}
+
+.viewfinder::before,
+.viewfinder::after {
+  content: '';
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-color: #111;
+  border-style: solid;
+}
+
+.dark .viewfinder::before,
+.dark .viewfinder::after {
+  border-color: rgba(0, 240, 255, 0.5);
+}
+
+.viewfinder::before {
+  top: -4px;
+  left: -4px;
+  border-width: 2px 0 0 2px;
+}
+
+.viewfinder::after {
+  bottom: -4px;
+  right: -4px;
+  border-width: 0 2px 2px 0;
+}
+
+/* ============ IDE PANE LAYOUT ============ */
+.ide-grid {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 320px;
+  height: calc(100vh - 40px); /* minus header */
+  overflow: hidden;
+  transition: grid-template-columns 0.4s cubic-bezier(0.32, 0, 0, 1);
+}
+
+.ide-grid.left-closed {
+  grid-template-columns: 0px minmax(0, 1fr) 320px;
+}
+
+.ide-grid.right-closed {
+  grid-template-columns: 240px minmax(0, 1fr) 0px;
+}
+
+/* ============ CUSTOM SCROLLBAR ============ */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(17,17,17,0.15);
+  border-radius: 0;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.08);
+}
+
+/* ============ STATUS INDICATORS ============ */
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.status-dot.optimized { background: #00c853; }
+.status-dot.draft     { background: #888888; }
+.status-dot.matched   { background: #00f0ff; }
+.status-dot.pending   { background: #f59e0b; }
+
+/* ============ PRECISION INPUT ============ */
+.precision-input {
+  border: 1px solid #111;
+  background: transparent;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  padding: 14px 18px;
+  width: 100%;
+  color: var(--foreground);
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.precision-input:focus {
+  border-color: #00f0ff;
+  background: rgba(0,240,255,0.03);
+}
+
+.dark .precision-input {
+  border-color: rgba(255,255,255,0.12);
+}
+
+.dark .precision-input:focus {
+  border-color: #00f0ff;
+}
+
+/* ============ TERMINAL BUTTON ============ */
+.btn-terminal {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  border: 1px solid currentColor;
+  padding: 8px 16px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.btn-terminal:hover {
+  background: currentColor;
+  color: var(--background);
+}
+
+/* ============ AI PULSE ANIMATION ============ */
+@keyframes pulse-highlight {
+  0%, 100% { background: transparent; }
+  50%       { background: rgba(0, 240, 255, 0.12); }
+}
+
+.ai-pulse {
+  animation: pulse-highlight 1.2s ease-in-out 3;
+}
+
+/* ============ SVG HAIRLINES ============ */
+.hairline-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 10;
+  overflow: visible;
+}
+
+.hairline-svg line {
+  stroke: rgba(0, 240, 255, 0.3);
+  stroke-width: 0.75;
+  stroke-dasharray: 4 4;
 }
