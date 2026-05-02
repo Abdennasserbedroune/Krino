@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Icon } from "@iconify/react";
 import {
   FileText, CheckCircle2, XCircle, AlertTriangle,
   Lightbulb, Loader2, RotateCcw, MessageSquare,
   Upload, Trash2, TrendingUp, Shield, Sparkles,
+  BarChart2, ArrowRight, ArrowUp, Lock, Unlock,
+  Headphones, Smile, ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/client";
 import { useToast } from "@/hooks/use-toast";
@@ -74,21 +75,16 @@ function parseGapSeverity(prefix: string): { severity: "BLOCKING" | "IMPORTANT" 
 function KanbanCard({ children, accent, style }: { children: React.ReactNode; accent?: string; style?: React.CSSProperties }) {
   return (
     <div style={{
-      padding: 1,
-      borderRadius: 20,
+      padding: 1, borderRadius: 20,
       background: accent
         ? `linear-gradient(135deg, ${accent}33 0%, rgba(17,24,39,0.08) 100%)`
         : "linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(17,24,39,0.06) 100%)",
       ...style,
     }}>
       <div style={{
-        borderRadius: 19,
-        background: TOKEN.glass,
-        backdropFilter: TOKEN.blur,
-        WebkitBackdropFilter: TOKEN.blur,
-        boxShadow: TOKEN.cardShadow,
-        padding: "20px 24px",
-        height: "100%",
+        borderRadius: 19, background: TOKEN.glass,
+        backdropFilter: TOKEN.blur, WebkitBackdropFilter: TOKEN.blur,
+        boxShadow: TOKEN.cardShadow, padding: "20px 24px", height: "100%",
       }}>
         {children}
       </div>
@@ -112,8 +108,7 @@ function PillBtn({ active, onClick, children }: { active?: boolean; onClick: () 
   return (
     <button onClick={onClick} style={{
       padding: "6px 16px", borderRadius: 9999, border: "none", cursor: "pointer",
-      fontSize: 13, fontWeight: 500, letterSpacing: "0.35px",
-      fontFamily: "Inter, sans-serif",
+      fontSize: 13, fontWeight: 500, letterSpacing: "0.35px", fontFamily: "Inter, sans-serif",
       transition: "all 150ms ease",
       background: active ? "#111827" : "rgba(255,255,255,0.7)",
       color: active ? "#fff" : "#6B7280",
@@ -164,7 +159,7 @@ function StrengthCard({ raw }: { raw: string }) {
   return (
     <div style={{ borderRadius: 14, border: "1px solid #a7f3d0", background: "#ecfdf5", padding: "14px 16px", marginBottom: 8 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: prose ? 6 : 0 }}>
-        <Icon icon="solar:shield-check-linear" width={16} style={{ color: "#059669", flexShrink: 0 }} />
+        <ShieldCheck style={{ width: 16, height: 16, color: "#059669", flexShrink: 0 }} />
         <span style={{ fontSize: 13, fontWeight: 600, color: "#065f46" }}>{skill}</span>
       </div>
       {prose && <p style={{ fontSize: 13, color: "#047857", lineHeight: 1.6, margin: 0, paddingLeft: 24 }}>{prose}</p>}
@@ -222,10 +217,10 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
   const severityLabels = { BLOCKING: t.ext.severityBlocking, IMPORTANT: t.ext.severityImportant, MINOR: t.ext.severityMinor };
 
   function verdictLabel(s: number): { label: string; color: string } {
-    if (s >= 75) return { label: t.ext.verdictStrong,    color: "#059669" };
-    if (s >= 60) return { label: t.ext.verdictGood,      color: "#2563eb" };
-    if (s >= 45) return { label: t.ext.verdictBorderline,color: "#d97706" };
-    return              { label: t.ext.verdictTough,     color: "#dc2626" };
+    if (s >= 75) return { label: t.ext.verdictStrong,     color: "#059669" };
+    if (s >= 60) return { label: t.ext.verdictGood,       color: "#2563eb" };
+    if (s >= 45) return { label: t.ext.verdictBorderline, color: "#d97706" };
+    return              { label: t.ext.verdictTough,      color: "#dc2626" };
   }
 
   const tabLabels: Record<"overview"|"gaps"|"strengths"|"roadmap", string> = {
@@ -311,14 +306,12 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
 
   const handleReset = () => { setResult(null); setError(""); setCategory(""); setJobTitle(""); setExpLevel(""); setSkills(""); setDescription(""); setSelectedCv(null); setActiveTab("overview"); };
 
-  // ── shared input style ──
   const inputStyle: React.CSSProperties = {
     width: "100%", boxSizing: "border-box",
-    border: "1px solid rgba(17,24,39,0.12)",
-    borderRadius: 12, background: "rgba(255,255,255,0.9)",
-    padding: "10px 14px", fontSize: 13, fontFamily: "Inter, sans-serif",
-    color: "#111827", outline: "none",
-    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+    border: "1px solid rgba(17,24,39,0.12)", borderRadius: 12,
+    background: "rgba(255,255,255,0.9)", padding: "10px 14px",
+    fontSize: 13, fontFamily: "Inter, sans-serif", color: "#111827",
+    outline: "none", boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
   };
   const labelStyle: React.CSSProperties = {
     display: "block", fontSize: 12, fontWeight: 600,
@@ -328,10 +321,10 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
   return (
     <div style={{ fontFamily: "Inter, sans-serif" }}>
 
-      {/* ── Page intro ── */}
+      {/* Page intro */}
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <Icon icon="solar:chart-square-linear" width={22} style={{ color: "#111827" }} />
+          <BarChart2 style={{ width: 22, height: 22, color: "#111827" }} />
           <h2 style={{ margin: 0, fontSize: 22, fontWeight: 500, letterSpacing: "-0.025em", color: "#111827" }}>
             {t.ext.checkFitTitle}
           </h2>
@@ -339,18 +332,11 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
         <p style={{ margin: 0, fontSize: 14, fontWeight: 300, color: "#6B7280", lineHeight: 1.7 }}>{t.ext.checkFitSub}</p>
       </div>
 
-      {/* ═══════════════ KANBAN GRID ═══════════════ */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-        gap: 16,
-        alignItems: "start",
-      }}>
+      {/* KANBAN GRID */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, alignItems: "start" }}>
 
-        {/* ── COLUMN 1: Job Details ── */}
+        {/* COL 1: Job Details */}
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-
-          {/* Column header */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 4 }}>
             <StepBadge n={1} />
             <div>
@@ -359,7 +345,6 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             </div>
           </div>
 
-          {/* Category card */}
           <KanbanCard accent="#E0E7FF">
             <p style={labelStyle}>{t.careerMatch.jobCategory} <span style={{ color: "#ef4444" }}>*</span></p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -371,7 +356,6 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             </div>
           </KanbanCard>
 
-          {/* Title + Level */}
           <KanbanCard>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <div>
@@ -388,7 +372,6 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             </div>
           </KanbanCard>
 
-          {/* Skills */}
           <KanbanCard accent="#FFEDD5">
             <label style={labelStyle}>
               {t.careerMatch.skillsRequired}{" "}
@@ -397,7 +380,6 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             <input style={inputStyle} type="text" value={skills} onChange={e => setSkills(e.target.value)} placeholder="e.g. Python, SQL, Power BI, Spark" />
           </KanbanCard>
 
-          {/* Description */}
           <KanbanCard>
             <label style={labelStyle}>{t.careerMatch.jobDescription} <span style={{ color: "#ef4444" }}>*</span></label>
             <textarea
@@ -414,9 +396,8 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
           </KanbanCard>
         </div>
 
-        {/* ── COLUMN 2: CV ── */}
+        {/* COL 2: CV */}
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-
           <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 4 }}>
             <StepBadge n={2} />
             <div>
@@ -425,18 +406,14 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             </div>
           </div>
 
-          {/* Upload zone */}
           <KanbanCard accent="#FFEDD5">
             <div
               onClick={() => !uploading && fileInputRef.current?.click()}
               style={{
-                borderRadius: 14,
-                border: "1.5px dashed rgba(17,24,39,0.15)",
-                padding: "24px 16px",
-                display: "flex", flexDirection: "column", alignItems: "center",
-                gap: 10, cursor: "pointer", textAlign: "center",
-                background: "rgba(255,255,255,0.5)",
-                transition: "border-color 150ms ease",
+                borderRadius: 14, border: "1.5px dashed rgba(17,24,39,0.15)",
+                padding: "24px 16px", display: "flex", flexDirection: "column",
+                alignItems: "center", gap: 10, cursor: "pointer", textAlign: "center",
+                background: "rgba(255,255,255,0.5)", transition: "border-color 150ms ease",
               }}
             >
               <div style={{
@@ -444,7 +421,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                 background: "#111827", display: "flex", alignItems: "center", justifyContent: "center",
                 boxShadow: TOKEN.btnShadow,
               }}>
-                <Icon icon="solar:arrow-up-linear" width={20} style={{ color: "#fff" }} />
+                <ArrowUp style={{ width: 20, height: 20, color: "#fff" }} />
               </div>
               <div>
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#111827" }}>{uploading ? uploadStage : t.ext.uploadPrompt}</p>
@@ -462,7 +439,6 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.txt" style={{ display: "none" }} onChange={handleFileChange} />
           </KanbanCard>
 
-          {/* CV list */}
           {loadingCvs && (
             <KanbanCard>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -482,8 +458,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                     onClick={() => setSelectedCv(cv.id)}
                     style={{
                       display: "flex", alignItems: "center", gap: 12,
-                      borderRadius: 14, cursor: "pointer",
-                      padding: "12px 14px",
+                      borderRadius: 14, cursor: "pointer", padding: "12px 14px",
                       border: selectedCv === cv.id ? "2px solid #111827" : "1px solid rgba(17,24,39,0.1)",
                       background: selectedCv === cv.id ? "rgba(17,24,39,0.04)" : "rgba(255,255,255,0.8)",
                       transition: "all 150ms ease",
@@ -494,7 +469,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                       display: "flex", alignItems: "center", justifyContent: "center",
                       background: selectedCv === cv.id ? "#111827" : "rgba(17,24,39,0.06)",
                     }}>
-                      <Icon icon="solar:graph-up-linear" width={18} style={{ color: selectedCv === cv.id ? "#fff" : "#6B7280" }} />
+                      <FileText style={{ width: 18, height: 18, color: selectedCv === cv.id ? "#fff" : "#6B7280" }} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cv.original_filename}</p>
@@ -504,9 +479,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                       </p>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                      {selectedCv === cv.id && (
-                        <Icon icon="solar:shield-check-linear" width={18} style={{ color: "#111827" }} />
-                      )}
+                      {selectedCv === cv.id && <CheckCircle2 style={{ width: 18, height: 18, color: "#111827" }} />}
                       <button
                         onClick={e => { e.stopPropagation(); setDeleteId(cv.id); }}
                         style={{ border: "none", background: "transparent", cursor: "pointer", padding: 4, borderRadius: 8 }}
@@ -554,7 +527,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
               >
                 {analysing
                   ? <><Loader2 style={{ width: 16, height: 16, animation: "spin 1s linear infinite" }} /> {t.ext.analysingWait}</>
-                  : <><Icon icon="solar:arrow-right-linear" width={16} /> {t.ext.analyzeChances}</>}
+                  : <><ArrowRight style={{ width: 16, height: 16 }} /> {t.ext.analyzeChances}</>}
               </button>
               {gateMessage && !analysing && (
                 <span style={{ fontSize: 12, color: "#9ca3af" }}>← {gateMessage} {t.ext.gateNext}</span>
@@ -564,14 +537,11 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
         </div>
       </div>
 
-      {/* ════ RESULTS SECTION ════ */}
+      {/* RESULTS */}
       {result && (
         <div ref={resultRef} style={{ marginTop: 40 }}>
-
-          {/* Divider */}
           <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(17,24,39,0.12), transparent)", marginBottom: 28 }} />
 
-          {/* Result header */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <StepBadge n={3} />
@@ -580,27 +550,14 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                 <p style={{ margin: 0, fontSize: 11, color: "#6B7280" }}>{t.ext.yourResultSub}</p>
               </div>
             </div>
-            <span style={{
-              display: "inline-flex", alignItems: "center", gap: 6,
-              padding: "4px 12px", borderRadius: 9999,
-              background: "#E0E7FF", color: "#4338ca",
-              fontSize: 12, fontWeight: 600,
-              border: "1px solid rgba(99,102,241,0.2)",
-            }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 9999, background: "#E0E7FF", color: "#4338ca", fontSize: 12, fontWeight: 600, border: "1px solid rgba(99,102,241,0.2)" }}>
               <Sparkles style={{ width: 12, height: 12 }} /> {t.ext.poweredByAI}
             </span>
           </div>
 
-          {/* Score hero card */}
+          {/* Score hero */}
           <div style={{ padding: 1, borderRadius: 24, background: "linear-gradient(135deg, rgba(17,24,39,0.08) 0%, rgba(224,231,255,0.6) 100%)", marginBottom: 16 }}>
-            <div style={{
-              borderRadius: 23, background: TOKEN.glass,
-              backdropFilter: TOKEN.blur, WebkitBackdropFilter: TOKEN.blur,
-              boxShadow: TOKEN.cardShadow,
-              padding: "24px 28px",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              flexWrap: "wrap", gap: 16,
-            }}>
+            <div style={{ borderRadius: 23, background: TOKEN.glass, backdropFilter: TOKEN.blur, WebkitBackdropFilter: TOKEN.blur, boxShadow: TOKEN.cardShadow, padding: "24px 28px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
               <div>
                 <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#6B7280" }}>{t.careerMatch.matchScore}</p>
                 <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
@@ -610,14 +567,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                 <p style={{ margin: "6px 0 0", fontSize: 15, fontWeight: 600, color: verdictLabel(result.match_score).color }}>{verdictLabel(result.match_score).label}</p>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{
-                  display: "inline-flex", alignItems: "center", gap: 6,
-                  padding: "8px 18px", borderRadius: 9999,
-                  border: result.application_ready ? "1px solid #a7f3d0" : "1px solid #fde68a",
-                  background: result.application_ready ? "#ecfdf5" : "#fffbeb",
-                  color: result.application_ready ? "#059669" : "#d97706",
-                  fontSize: 13, fontWeight: 600,
-                }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", borderRadius: 9999, border: result.application_ready ? "1px solid #a7f3d0" : "1px solid #fde68a", background: result.application_ready ? "#ecfdf5" : "#fffbeb", color: result.application_ready ? "#059669" : "#d97706", fontSize: 13, fontWeight: 600 }}>
                   {result.application_ready
                     ? <><CheckCircle2 style={{ width: 14, height: 14 }} /> {t.ext.readyToApply}</>
                     : <><AlertTriangle style={{ width: 14, height: 14 }} /> {t.ext.fixGapsFirst}</>}
@@ -627,7 +577,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             </div>
           </div>
 
-          {/* Score bars + verdict — 2 col */}
+          {/* Score bars + verdict */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12, marginBottom: 16 }}>
             <KanbanCard>
               <p style={{ ...labelStyle, marginBottom: 14 }}>{t.ext.scoreBreakdown}</p>
@@ -675,7 +625,6 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             ))}
           </div>
 
-          {/* Tab panels */}
           {activeTab === "overview" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {result.gaps.filter(g => g.startsWith("[BLOCKING]")).length > 0 && (
@@ -752,20 +701,13 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             </KanbanCard>
           )}
 
-          {/* Bottom actions */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 24 }}>
             {onSwitchToChat && (
-              <button
-                onClick={onSwitchToChat}
-                style={{ display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 9999, border: "none", cursor: "pointer", padding: "12px 24px", fontSize: 14, fontWeight: 500, color: "#fff", background: "#111827", boxShadow: TOKEN.btnShadow, fontFamily: "Inter, sans-serif" }}
-              >
+              <button onClick={onSwitchToChat} style={{ display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 9999, border: "none", cursor: "pointer", padding: "12px 24px", fontSize: 14, fontWeight: 500, color: "#fff", background: "#111827", boxShadow: TOKEN.btnShadow, fontFamily: "Inter, sans-serif" }}>
                 <MessageSquare style={{ width: 16, height: 16 }} /> {t.ext.discussCoach}
               </button>
             )}
-            <button
-              onClick={handleReset}
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 9999, cursor: "pointer", padding: "12px 24px", fontSize: 14, fontWeight: 500, color: "#6B7280", background: "transparent", border: "1px solid rgba(17,24,39,0.12)", fontFamily: "Inter, sans-serif" }}
-            >
+            <button onClick={handleReset} style={{ display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 9999, cursor: "pointer", padding: "12px 24px", fontSize: 14, fontWeight: 500, color: "#6B7280", background: "transparent", border: "1px solid rgba(17,24,39,0.12)", fontFamily: "Inter, sans-serif" }}>
               <RotateCcw style={{ width: 16, height: 16 }} /> {t.ext.tryAnotherJob}
             </button>
           </div>
