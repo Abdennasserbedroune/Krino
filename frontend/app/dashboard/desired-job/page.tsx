@@ -1,139 +1,159 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { Icon } from "@iconify/react";
 import {
-  Target, FileText, CheckCircle2, XCircle, AlertTriangle,
-  Lightbulb, Loader2, RotateCcw, MessageSquare, Upload,
-  Trash2, TrendingUp, Shield, Sparkles,
+  FileText, CheckCircle2, XCircle, AlertTriangle,
+  Lightbulb, Loader2, RotateCcw, MessageSquare,
+  Upload, Trash2, TrendingUp, Shield, Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/client";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-
+// ─── Types ───────────────────────────────────────────────────────────────────
 interface CvItem {
-  id: number;
-  original_filename: string;
-  file_type: string;
-  file_size: number;
-  score: number | null;
-  analyzed_at: string | null;
+  id: number; original_filename: string; file_type: string;
+  file_size: number; score: number | null; analyzed_at: string | null;
 }
-
 interface MatchResult {
-  cv_id: number;
-  file_name: string;
-  match_score: number;
-  skills_match_score: number;
-  experience_score: number;
-  cv_quality_score: number;
-  overall_verdict: string;
-  hire_probability: string;
-  overall_reason: string;
-  strengths: string[];
-  gaps: string[];
-  actionable_advice: string[];
-  roadmap: string[];
+  cv_id: number; file_name: string; match_score: number;
+  skills_match_score: number; experience_score: number; cv_quality_score: number;
+  overall_verdict: string; hire_probability: string; overall_reason: string;
+  strengths: string[]; gaps: string[]; actionable_advice: string[]; roadmap: string[];
   application_ready: boolean;
-  job_requirements?: {
-    required_skills?: string[];
-    nice_to_have?: string[];
-    seniority_level?: string;
-    experience_years?: string;
-    key_responsibilities?: string[];
-  };
+  job_requirements?: { required_skills?: string[]; nice_to_have?: string[]; seniority_level?: string; experience_years?: string; key_responsibilities?: string[]; };
 }
-
 interface Props { onSwitchToChat?: () => void; }
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
+// ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORIES = [
-  { label: "AI & Data",            value: "ai & data"           },
+  { label: "AI & Data", value: "ai & data" },
   { label: "Software Engineering", value: "software engineering" },
-  { label: "Product Management",   value: "product management"  },
-  { label: "Design & UX",          value: "design & ux"         },
-  { label: "Marketing & Growth",   value: "marketing & growth"  },
-  { label: "Finance & Banking",    value: "finance & banking"   },
-  { label: "Other",                value: "other"               },
+  { label: "Product Management", value: "product management" },
+  { label: "Design & UX", value: "design & ux" },
+  { label: "Marketing & Growth", value: "marketing & growth" },
+  { label: "Finance & Banking", value: "finance & banking" },
+  { label: "Other", value: "other" },
 ];
-
 const EXPERIENCE_LEVELS = [
-  { label: "Entry  (0–1 yr)",    value: "0-1 years" },
-  { label: "Junior (1–3 yrs)",   value: "1-3 years" },
-  { label: "Mid    (3–5 yrs)",   value: "3-5 years" },
-  { label: "Senior (5–8 yrs)",   value: "5-8 years" },
-  { label: "Lead / Expert (8+)", value: "8+ years"  },
+  { label: "Entry (0–1 yr)", value: "0-1 years" },
+  { label: "Junior (1–3 yrs)", value: "1-3 years" },
+  { label: "Mid (3–5 yrs)", value: "3-5 years" },
+  { label: "Senior (5–8 yrs)", value: "5-8 years" },
+  { label: "Lead / Expert (8+)", value: "8+ years" },
 ];
-
 const MAX_DESC = 5000;
 
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const TOKEN = {
+  cardShadow: "0 0 0 1px rgba(0,0,0,0.06),0 1px 1px -0.5px rgba(0,0,0,0.06),0 3px 3px -1.5px rgba(0,0,0,0.06),0 6px 6px -3px rgba(0,0,0,0.06),0 12px 12px -6px rgba(0,0,0,0.06),0 24px 24px -12px rgba(0,0,0,0.06)",
+  btnShadow: "rgba(0,0,0,0.4) 0px 12px 24px -6px,rgba(255,255,255,0.15) 0px 1px 1px 0px inset,rgba(0,0,0,0.5) 0px -2px 3px 0px inset,rgba(0,0,0,0.1) 0px 0px 0px 1px",
+  glass: "rgba(255,255,255,0.82)",
+  blur: "blur(12px)",
+};
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
 function scoreColor(s: number) {
-  if (s >= 70) return { bar: "bg-emerald-500", text: "text-emerald-600", border: "border-emerald-200", bg: "bg-emerald-50" };
-  if (s >= 50) return { bar: "bg-amber-400",   text: "text-amber-600",   border: "border-amber-200",   bg: "bg-amber-50"   };
-  return              { bar: "bg-red-400",     text: "text-red-600",     border: "border-red-200",     bg: "bg-red-50"     };
+  if (s >= 70) return { bar: "#10b981", text: "#059669", bg: "#ecfdf5", border: "#a7f3d0" };
+  if (s >= 50) return { bar: "#f59e0b", text: "#d97706", bg: "#fffbeb", border: "#fde68a" };
+  return              { bar: "#ef4444", text: "#dc2626", bg: "#fef2f2", border: "#fecaca" };
 }
-
-function parsePipeItem(raw: string): { prefix: string; prose: string } {
+function parsePipeItem(raw: string) {
   const idx = raw.indexOf(" | ");
-  if (idx === -1) return { prefix: raw, prose: "" };
-  return { prefix: raw.slice(0, idx).trim(), prose: raw.slice(idx + 3).trim() };
+  return idx === -1 ? { prefix: raw, prose: "" } : { prefix: raw.slice(0, idx).trim(), prose: raw.slice(idx + 3).trim() };
 }
-
 function parseGapSeverity(prefix: string): { severity: "BLOCKING" | "IMPORTANT" | "MINOR" | null; skill: string } {
-  const match = prefix.match(/^\[(BLOCKING|IMPORTANT|MINOR)\]\s*(.+)$/);
-  if (match) return { severity: match[1] as "BLOCKING" | "IMPORTANT" | "MINOR", skill: match[2].trim() };
+  const m = prefix.match(/^\[(BLOCKING|IMPORTANT|MINOR)\]\s*(.+)$/);
+  if (m) return { severity: m[1] as "BLOCKING" | "IMPORTANT" | "MINOR", skill: m[2].trim() };
   return { severity: null, skill: prefix };
 }
 
-function ScoreBar({ label, value }: { label: string; value: number }) {
-  const c = scoreColor(value);
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function KanbanCard({ children, accent, style }: { children: React.ReactNode; accent?: string; style?: React.CSSProperties }) {
   return (
-    <div className="space-y-1.5">
-      <div className="flex justify-between text-sm font-medium">
-        <span className="text-muted-foreground">{label}</span>
-        <span className={c.text}>{value}%</span>
-      </div>
-      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-        <div className={`h-full rounded-full transition-all duration-700 ${c.bar}`} style={{ width: `${value}%` }} />
+    <div style={{
+      padding: 1,
+      borderRadius: 20,
+      background: accent
+        ? `linear-gradient(135deg, ${accent}33 0%, rgba(17,24,39,0.08) 100%)`
+        : "linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(17,24,39,0.06) 100%)",
+      ...style,
+    }}>
+      <div style={{
+        borderRadius: 19,
+        background: TOKEN.glass,
+        backdropFilter: TOKEN.blur,
+        WebkitBackdropFilter: TOKEN.blur,
+        boxShadow: TOKEN.cardShadow,
+        padding: "20px 24px",
+        height: "100%",
+      }}>
+        {children}
       </div>
     </div>
   );
 }
 
-function SectionLabel({ number, title, subtitle }: { number: number; title: string; subtitle: string }) {
+function StepBadge({ n }: { n: number }) {
   return (
-    <div className="flex items-start gap-4 mb-6">
-      <div className="flex-shrink-0 h-9 w-9 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold">{number}</div>
-      <div>
-        <h3 className="text-base font-bold text-foreground">{title}</h3>
-        <p className="text-sm text-muted-foreground">{subtitle}</p>
+    <span style={{
+      display: "inline-flex", alignItems: "center", justifyContent: "center",
+      width: 28, height: 28, borderRadius: 9999,
+      background: "#111827", color: "#fff",
+      fontSize: 13, fontWeight: 600, flexShrink: 0,
+      boxShadow: TOKEN.btnShadow,
+    }}>{n}</span>
+  );
+}
+
+function PillBtn({ active, onClick, children }: { active?: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button onClick={onClick} style={{
+      padding: "6px 16px", borderRadius: 9999, border: "none", cursor: "pointer",
+      fontSize: 13, fontWeight: 500, letterSpacing: "0.35px",
+      fontFamily: "Inter, sans-serif",
+      transition: "all 150ms ease",
+      background: active ? "#111827" : "rgba(255,255,255,0.7)",
+      color: active ? "#fff" : "#6B7280",
+      boxShadow: active ? TOKEN.btnShadow : "0 0 0 1px rgba(17,24,39,0.1)",
+    }}>{children}</button>
+  );
+}
+
+function ScoreBar({ label, value }: { label: string; value: number }) {
+  const c = scoreColor(value);
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+        <span style={{ fontSize: 12, color: "#6B7280", fontWeight: 500 }}>{label}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: c.text }}>{value}%</span>
+      </div>
+      <div style={{ height: 6, borderRadius: 9999, background: "rgba(17,24,39,0.08)", overflow: "hidden" }}>
+        <div style={{ height: "100%", borderRadius: 9999, background: c.bar, width: `${value}%`, transition: "width 700ms ease" }} />
       </div>
     </div>
   );
 }
 
 function GapCard({ raw, severityLabels }: { raw: string; severityLabels: { BLOCKING: string; IMPORTANT: string; MINOR: string } }) {
-  const SEVERITY_STYLE = {
-    BLOCKING:  { badge: "bg-red-100 text-red-700 border border-red-300",       card: "border-red-200 bg-red-50",     dot: "bg-red-500"    },
-    IMPORTANT: { badge: "bg-amber-100 text-amber-700 border border-amber-300", card: "border-amber-200 bg-amber-50", dot: "bg-amber-500"  },
-    MINOR:     { badge: "bg-slate-100 text-slate-600 border border-slate-300", card: "border-slate-200 bg-slate-50", dot: "bg-slate-400"  },
+  const SEV = {
+    BLOCKING:  { badge: { background: "#fee2e2", color: "#b91c1c", border: "1px solid #fca5a5" }, card: { background: "#fef2f2", borderColor: "#fecaca" } },
+    IMPORTANT: { badge: { background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a" }, card: { background: "#fffbeb", borderColor: "#fde68a" } },
+    MINOR:     { badge: { background: "#f1f5f9", color: "#475569", border: "1px solid #cbd5e1" }, card: { background: "#f8fafc", borderColor: "#e2e8f0" } },
   };
   const { prefix, prose } = parsePipeItem(raw);
   const { severity, skill } = parseGapSeverity(prefix);
   const key = severity ?? "MINOR";
-  const style = SEVERITY_STYLE[key];
-  const label = severityLabels[key];
+  const s = SEV[key];
   return (
-    <div className={`rounded-xl border p-4 space-y-2.5 ${style.card}`}>
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${style.badge}`}>{label}</span>
-        <span className="text-sm font-bold text-foreground">{skill}</span>
+    <div style={{ borderRadius: 14, border: `1px solid ${s.card.borderColor}`, background: s.card.background, padding: "14px 16px", marginBottom: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: prose ? 6 : 0 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 9999, ...s.badge }}>{severityLabels[key]}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>{skill}</span>
       </div>
-      {prose && <p className="text-sm leading-relaxed text-slate-700">{prose}</p>}
+      {prose && <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.6, margin: 0 }}>{prose}</p>}
     </div>
   );
 }
@@ -142,12 +162,12 @@ function StrengthCard({ raw }: { raw: string }) {
   const clean = raw.startsWith("✅ ") ? raw.slice(2) : raw;
   const { prefix: skill, prose } = parsePipeItem(clean);
   return (
-    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-2">
-      <div className="flex items-center gap-2">
-        <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-        <span className="text-sm font-bold text-emerald-900">{skill}</span>
+    <div style={{ borderRadius: 14, border: "1px solid #a7f3d0", background: "#ecfdf5", padding: "14px 16px", marginBottom: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: prose ? 6 : 0 }}>
+        <Icon icon="solar:shield-check-linear" width={16} style={{ color: "#059669", flexShrink: 0 }} />
+        <span style={{ fontSize: 13, fontWeight: 600, color: "#065f46" }}>{skill}</span>
       </div>
-      {prose && <p className="text-sm leading-relaxed text-emerald-800 pl-6">{prose}</p>}
+      {prose && <p style={{ fontSize: 13, color: "#047857", lineHeight: 1.6, margin: 0, paddingLeft: 24 }}>{prose}</p>}
     </div>
   );
 }
@@ -156,24 +176,23 @@ function RoadmapItem({ text, index, isLast }: { text: string; index: number; isL
   const colonIdx = text.indexOf(":");
   const label   = colonIdx > -1 ? text.slice(0, colonIdx).trim() : `Step ${index + 1}`;
   const content = colonIdx > -1 ? text.slice(colonIdx + 1).trim() : text;
-  const colors  = ["bg-red-500", "bg-amber-500", "bg-blue-500", "bg-emerald-500"];
-  const dot     = colors[index] ?? "bg-slate-400";
+  const colors  = ["#ef4444", "#f59e0b", "#3b82f6", "#10b981"];
+  const dot     = colors[index] ?? "#94a3b8";
   return (
-    <div className="flex gap-4">
-      <div className="flex flex-col items-center">
-        <div className={`h-7 w-7 rounded-full ${dot} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>{index + 1}</div>
-        {!isLast && <div className="w-0.5 flex-1 bg-slate-200 mt-1" />}
+    <div style={{ display: "flex", gap: 16 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div style={{ width: 28, height: 28, borderRadius: 9999, background: dot, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{index + 1}</div>
+        {!isLast && <div style={{ width: 2, flex: 1, background: "rgba(17,24,39,0.1)", marginTop: 4 }} />}
       </div>
-      <div className="pb-6 flex-1 min-w-0">
-        <p className="text-sm font-bold text-foreground">{label}</p>
-        <p className="text-sm text-slate-600 mt-0.5 leading-relaxed">{content}</p>
+      <div style={{ paddingBottom: 24, flex: 1 }}>
+        <p style={{ fontSize: 13, fontWeight: 700, color: "#111827", margin: 0 }}>{label}</p>
+        <p style={{ fontSize: 13, color: "#6B7280", marginTop: 2, lineHeight: 1.6 }}>{content}</p>
       </div>
     </div>
   );
 }
 
-// ─── Main Component ──────────────────────────────────────────────────────────
-
+// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function DesiredJobPage({ onSwitchToChat }: Props) {
   const { user } = useAuth();
   const { toast: showToast } = useToast();
@@ -198,41 +217,28 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
   const [result,    setResult]    = useState<MatchResult | null>(null);
   const [analysing, setAnalysing] = useState(false);
   const [error,     setError]     = useState("");
-  const [activeTab, setActiveTab] = useState<"overview" | "gaps" | "strengths" | "roadmap">("overview");
+  const [activeTab, setActiveTab] = useState<"overview"|"gaps"|"strengths"|"roadmap">("overview");
 
-  // Severity badge labels driven by translations
-  const severityLabels = {
-    BLOCKING:  t.ext.severityBlocking,
-    IMPORTANT: t.ext.severityImportant,
-    MINOR:     t.ext.severityMinor,
-  };
+  const severityLabels = { BLOCKING: t.ext.severityBlocking, IMPORTANT: t.ext.severityImportant, MINOR: t.ext.severityMinor };
 
-  // Verdict label driven by translations
   function verdictLabel(s: number): { label: string; color: string } {
-    if (s >= 75) return { label: t.ext.verdictStrong,    color: "text-emerald-600" };
-    if (s >= 60) return { label: t.ext.verdictGood,      color: "text-blue-600"   };
-    if (s >= 45) return { label: t.ext.verdictBorderline, color: "text-amber-600"  };
-    return              { label: t.ext.verdictTough,     color: "text-red-600"    };
+    if (s >= 75) return { label: t.ext.verdictStrong,    color: "#059669" };
+    if (s >= 60) return { label: t.ext.verdictGood,      color: "#2563eb" };
+    if (s >= 45) return { label: t.ext.verdictBorderline,color: "#d97706" };
+    return              { label: t.ext.verdictTough,     color: "#dc2626" };
   }
 
-  // Tab labels driven by translations
-  const tabLabels: Record<"overview" | "gaps" | "strengths" | "roadmap", string> = {
-    overview:  t.ext.tabOverview,
-    gaps:      t.ext.tabGaps,
-    strengths: t.ext.tabStrengths,
-    roadmap:   t.ext.tabRoadmap,
+  const tabLabels: Record<"overview"|"gaps"|"strengths"|"roadmap", string> = {
+    overview: t.ext.tabOverview, gaps: t.ext.tabGaps,
+    strengths: t.ext.tabStrengths, roadmap: t.ext.tabRoadmap,
   };
 
   useEffect(() => {
     if (!user) return;
     (async () => {
       setLoadingCvs(true);
-      try {
-        const res = await fetch("/api/v1/cv/mine", { credentials: "include" });
-        if (!res.ok) throw new Error();
-        setCvs(await res.json());
-      } catch { setCvs([]); }
-      finally { setLoadingCvs(false); }
+      try { const r = await fetch("/api/v1/cv/mine", { credentials: "include" }); if (!r.ok) throw new Error(); setCvs(await r.json()); }
+      catch { setCvs([]); } finally { setLoadingCvs(false); }
     })();
   }, [user]);
 
@@ -243,11 +249,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-    if (cvs.length >= 3) {
-      showToast({ variant: "destructive", title: "Limit reached", description: "Max 3 CVs on the free plan." });
-      if (e.target) e.target.value = "";
-      return;
-    }
+    if (cvs.length >= 3) { showToast({ variant: "destructive", title: "Limit reached", description: "Max 3 CVs on the free plan." }); if (e.target) e.target.value = ""; return; }
     setUploading(true); setUploadPct(0); setUploadStage("Uploading file...");
     const interval = setInterval(() => {
       setUploadPct(p => {
@@ -258,15 +260,13 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
       });
     }, 200);
     try {
-      const form = new FormData();
-      form.append("file", file);
+      const form = new FormData(); form.append("file", file);
       const res = await fetch("/api/v1/cv/upload", { method: "POST", credentials: "include", body: form });
       if (!res.ok) { const d = await res.json().catch(() => null); throw new Error((d as any)?.detail ?? "Upload failed"); }
       setUploadPct(100); setUploadStage("Complete!");
       const created: CvItem = await res.json();
       setTimeout(() => {
-        setCvs(prev => [created, ...prev]);
-        setSelectedCv(created.id);
+        setCvs(prev => [created, ...prev]); setSelectedCv(created.id);
         window.dispatchEvent(new CustomEvent("cv:uploaded", { detail: created }));
         setUploading(false); setUploadPct(0); setUploadStage("");
         showToast({ title: "CV uploaded", description: "Uploaded and processed successfully." });
@@ -274,19 +274,12 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
     } catch (err: any) {
       showToast({ variant: "destructive", title: "Upload failed", description: err?.message ?? "Something went wrong." });
       setUploading(false); setUploadPct(0);
-    } finally {
-      clearInterval(interval);
-      if (e.target) e.target.value = "";
-    }
+    } finally { clearInterval(interval); if (e.target) e.target.value = ""; }
   };
 
   const handleDelete = async (cvId: number) => {
     try {
-      const res = await fetch("/api/v1/cv/delete", {
-        method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: cvId }),
-      });
+      const res = await fetch("/api/v1/cv/delete", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: cvId }) });
       if (!res.ok) throw new Error();
       setCvs(p => p.filter(c => c.id !== cvId));
       if (selectedCv === cvId) setSelectedCv(null);
@@ -297,22 +290,9 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
   };
 
   const canAnalyse = !!(category && jobTitle.trim() && expLevel && description.trim().length >= 50 && selectedCv && !analysing);
-
-  // Gate messages — all via t() keys
-  const gateMessage = !category            ? t.ext.gateSelectCategory
-    : !jobTitle.trim()                      ? t.ext.gateJobTitle
-    : !expLevel                             ? t.ext.gateExpLevel
-    : description.trim().length < 50        ? t.ext.gateJobDesc
-    : !selectedCv                           ? t.ext.gateSelectCv
-    : null;
-
-  // Char counter hint — all via t() keys
+  const gateMessage = !category ? t.ext.gateSelectCategory : !jobTitle.trim() ? t.ext.gateJobTitle : !expLevel ? t.ext.gateExpLevel : description.trim().length < 50 ? t.ext.gateJobDesc : !selectedCv ? t.ext.gateSelectCv : null;
   const remaining = 50 - description.trim().length;
-  const charHint = description.trim().length < 50
-    ? `${remaining} ${t.ext.charCounterMore}`
-    : description.trim().length < 300
-    ? t.ext.charCounterShort
-    : t.ext.charCounterGood;
+  const charHint = description.trim().length < 50 ? `${remaining} ${t.ext.charCounterMore}` : description.trim().length < 300 ? t.ext.charCounterShort : t.ext.charCounterGood;
 
   const handleAnalyse = async () => {
     if (!canAnalyse) return;
@@ -321,10 +301,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
       const res = await fetch("/api/v1/cv/match-to-job", {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cv_id: selectedCv, job_category: category, job_title: jobTitle,
-          job_description: description, experience_required: expLevel, skills_required: skills,
-        }),
+        body: JSON.stringify({ cv_id: selectedCv, job_category: category, job_title: jobTitle, job_description: description, experience_required: expLevel, skills_required: skills }),
       });
       if (!res.ok) { const d = await res.json().catch(() => null); throw new Error((d as any)?.detail ?? "Analysis failed"); }
       setResult(await res.json());
@@ -332,375 +309,464 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
     finally { setAnalysing(false); }
   };
 
-  const handleReset = () => {
-    setResult(null); setError(""); setCategory(""); setJobTitle("");
-    setExpLevel(""); setSkills(""); setDescription(""); setSelectedCv(null); setActiveTab("overview");
+  const handleReset = () => { setResult(null); setError(""); setCategory(""); setJobTitle(""); setExpLevel(""); setSkills(""); setDescription(""); setSelectedCv(null); setActiveTab("overview"); };
+
+  // ── shared input style ──
+  const inputStyle: React.CSSProperties = {
+    width: "100%", boxSizing: "border-box",
+    border: "1px solid rgba(17,24,39,0.12)",
+    borderRadius: 12, background: "rgba(255,255,255,0.9)",
+    padding: "10px 14px", fontSize: 13, fontFamily: "Inter, sans-serif",
+    color: "#111827", outline: "none",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+  };
+  const labelStyle: React.CSSProperties = {
+    display: "block", fontSize: 12, fontWeight: 600,
+    letterSpacing: "0.04em", color: "#374151", marginBottom: 6,
   };
 
   return (
-    <div className="space-y-10 max-w-3xl mx-auto">
+    <div style={{ fontFamily: "Inter, sans-serif" }}>
 
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <Target className="h-6 w-6 text-blue-600" />
-          <h2 className="font-serif text-2xl md:text-3xl font-bold tracking-tight">
+      {/* ── Page intro ── */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <Icon icon="solar:chart-square-linear" width={22} style={{ color: "#111827" }} />
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 500, letterSpacing: "-0.025em", color: "#111827" }}>
             {t.ext.checkFitTitle}
           </h2>
         </div>
-        <p className="text-muted-foreground text-sm">{t.ext.checkFitSub}</p>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 300, color: "#6B7280", lineHeight: 1.7 }}>{t.ext.checkFitSub}</p>
       </div>
 
-      <div className="border-t border-border/40" />
+      {/* ═══════════════ KANBAN GRID ═══════════════ */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+        gap: 16,
+        alignItems: "start",
+      }}>
 
-      {/* ── SECTION 1: Job Details ── */}
-      <div className="space-y-6">
-        <SectionLabel number={1} title={t.ext.theJob} subtitle={t.ext.theJobSub} />
+        {/* ── COLUMN 1: Job Details ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-        <div>
-          <label className="block text-sm font-semibold mb-3">
-            {t.careerMatch.jobCategory} <span className="text-red-500">*</span>
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {CATEGORIES.map(c => (
-              <button key={c.value} onClick={() => setCategory(c.value)}
-                className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
-                  category === c.value
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-700"
-                }`}>
-                {c.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-semibold mb-1.5">
-              {t.careerMatch.jobTitle} <span className="text-red-500">*</span>
-            </label>
-            <input type="text" value={jobTitle} onChange={e => setJobTitle(e.target.value)}
-              placeholder="e.g. Senior Data Analyst"
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold mb-1.5">
-              {t.careerMatch.experienceRequired} <span className="text-red-500">*</span>
-            </label>
-            <select value={expLevel} onChange={e => setExpLevel(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">{t.ext.selectLevel}</option>
-              {EXPERIENCE_LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold mb-1.5">
-            {t.careerMatch.skillsRequired} <span className="text-slate-400 font-normal">({t.ui.filter})</span>
-          </label>
-          <input type="text" value={skills} onChange={e => setSkills(e.target.value)}
-            placeholder="e.g. Python, SQL, Power BI, Spark"
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold mb-1.5">
-            {t.careerMatch.jobDescription} <span className="text-red-500">*</span>
-          </label>
-          <textarea value={description} onChange={e => setDescription(e.target.value.slice(0, MAX_DESC))}
-            placeholder="Paste the complete job posting — responsibilities, requirements, tech stack, nice-to-haves. The fuller this is, the more precise the analysis."
-            rows={10}
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed" />
-          <div className="flex justify-between mt-1.5">
-            {/* ── Char counter — now fully driven by t() keys ── */}
-            <p className="text-xs text-muted-foreground">{charHint}</p>
-            <span className={`text-xs font-medium flex-shrink-0 ml-4 ${ description.length > MAX_DESC * 0.9 ? "text-amber-500" : "text-muted-foreground" }`}>
-              {description.length.toLocaleString()} / {MAX_DESC.toLocaleString()}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="border-t border-border/40" />
-
-      {/* ── SECTION 2: CV ── */}
-      <div className="space-y-5">
-        <SectionLabel number={2} title={t.ext.yourCv} subtitle={t.ext.yourCvSub} />
-
-        <div
-          className="border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center gap-4 text-center hover:border-blue-300 transition-colors cursor-pointer bg-slate-50/50"
-          onClick={() => !uploading && fileInputRef.current?.click()}>
-          <div className="h-14 w-14 rounded-full bg-white border border-slate-200 flex items-center justify-center">
-            <Upload className="h-6 w-6 text-blue-500" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-foreground">{uploading ? uploadStage : t.ext.uploadPrompt}</p>
-            <p className="text-xs text-muted-foreground mt-1">{t.ext.uploadLimit}</p>
-          </div>
-          {uploading && (
-            <div className="w-full max-w-xs space-y-1">
-              <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 rounded-full transition-all duration-300" style={{ width: `${uploadPct}%` }} />
-              </div>
-              <p className="text-xs text-muted-foreground text-center">{Math.round(uploadPct)}%</p>
+          {/* Column header */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 4 }}>
+            <StepBadge n={1} />
+            <div>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#111827" }}>{t.ext.theJob}</p>
+              <p style={{ margin: 0, fontSize: 11, color: "#6B7280" }}>{t.ext.theJobSub}</p>
             </div>
-          )}
-        </div>
-        <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.txt" className="hidden" onChange={handleFileChange} />
-
-        {loadingCvs ? (
-          <div className="flex items-center gap-2 py-4">
-            <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-            <span className="text-sm text-muted-foreground">{t.ext.loadingCvs}</span>
           </div>
-        ) : cvs.length > 0 ? (
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t.ext.selectExisting}</p>
-            <div className="grid gap-2">
-              {cvs.map(cv => (
-                <div key={cv.id}
-                  className={`flex items-center gap-3 rounded-2xl border-2 p-4 cursor-pointer transition-all ${
-                    selectedCv === cv.id ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-blue-300"
-                  }`}
-                  onClick={() => setSelectedCv(cv.id)}>
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                    selectedCv === cv.id ? "bg-blue-600" : "bg-slate-100"
-                  }`}>
-                    <FileText className={`h-5 w-5 ${selectedCv === cv.id ? "text-white" : "text-slate-400"}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">{cv.original_filename}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {cv.file_type.toUpperCase()} · {(cv.file_size / 1024).toFixed(1)} KB{cv.score !== null ? ` · ${t.ext.quality}: ${cv.score}/100` : ""}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {selectedCv === cv.id && <CheckCircle2 className="h-5 w-5 text-blue-600" />}
-                    <button onClick={e => { e.stopPropagation(); setDeleteId(cv.id); }}
-                      className="h-8 w-8 flex items-center justify-center rounded-full text-muted-foreground hover:bg-red-50 hover:text-red-500 transition-colors">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
+
+          {/* Category card */}
+          <KanbanCard accent="#E0E7FF">
+            <p style={labelStyle}>{t.careerMatch.jobCategory} <span style={{ color: "#ef4444" }}>*</span></p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {CATEGORIES.map(c => (
+                <PillBtn key={c.value} active={category === c.value} onClick={() => setCategory(c.value)}>
+                  {c.label}
+                </PillBtn>
               ))}
             </div>
-          </div>
-        ) : null}
+          </KanbanCard>
 
-        {deleteId !== null && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-3">
-            <p className="text-sm font-semibold text-red-800">{t.ext.deletePrompt} &ldquo;{cvs.find(c => c.id === deleteId)?.original_filename}&rdquo;</p>
-            <div className="flex gap-2">
-              <button onClick={() => handleDelete(deleteId)} className="flex-1 rounded-xl bg-red-500 py-2 text-xs font-bold text-white hover:bg-red-600 transition-colors">{t.ext.yesDelete}</button>
-              <button onClick={() => setDeleteId(null)} className="flex-1 rounded-xl border border-slate-200 bg-white py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors">{t.ext.cancel}</button>
+          {/* Title + Level */}
+          <KanbanCard>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={labelStyle}>{t.careerMatch.jobTitle} <span style={{ color: "#ef4444" }}>*</span></label>
+                <input style={inputStyle} type="text" value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="e.g. Senior Data Analyst" />
+              </div>
+              <div>
+                <label style={labelStyle}>{t.careerMatch.experienceRequired} <span style={{ color: "#ef4444" }}>*</span></label>
+                <select style={inputStyle} value={expLevel} onChange={e => setExpLevel(e.target.value)}>
+                  <option value="">{t.ext.selectLevel}</option>
+                  {EXPERIENCE_LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+                </select>
+              </div>
+            </div>
+          </KanbanCard>
+
+          {/* Skills */}
+          <KanbanCard accent="#FFEDD5">
+            <label style={labelStyle}>
+              {t.careerMatch.skillsRequired}{" "}
+              <span style={{ color: "#9ca3af", fontWeight: 400 }}>({t.ui.filter})</span>
+            </label>
+            <input style={inputStyle} type="text" value={skills} onChange={e => setSkills(e.target.value)} placeholder="e.g. Python, SQL, Power BI, Spark" />
+          </KanbanCard>
+
+          {/* Description */}
+          <KanbanCard>
+            <label style={labelStyle}>{t.careerMatch.jobDescription} <span style={{ color: "#ef4444" }}>*</span></label>
+            <textarea
+              style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6, minHeight: 140 }}
+              value={description}
+              onChange={e => setDescription(e.target.value.slice(0, MAX_DESC))}
+              placeholder="Paste the complete job posting — responsibilities, requirements, tech stack, nice-to-haves."
+              rows={7}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+              <span style={{ fontSize: 11, color: description.trim().length < 50 ? "#ef4444" : "#6B7280" }}>{charHint}</span>
+              <span style={{ fontSize: 11, color: description.length > MAX_DESC * 0.9 ? "#f59e0b" : "#9ca3af" }}>{description.length.toLocaleString()} / {MAX_DESC.toLocaleString()}</span>
+            </div>
+          </KanbanCard>
+        </div>
+
+        {/* ── COLUMN 2: CV ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 4 }}>
+            <StepBadge n={2} />
+            <div>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#111827" }}>{t.ext.yourCv}</p>
+              <p style={{ margin: 0, fontSize: 11, color: "#6B7280" }}>{t.ext.yourCvSub}</p>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* CTA */}
-      <div className="border-t border-border/40 pt-6">
-        {error && (
-          <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
-        )}
-        <div className="flex flex-wrap items-center gap-3">
-          <button disabled={!canAnalyse} onClick={handleAnalyse}
-            className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-200 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
-            {analysing
-              ? <><Loader2 className="h-4 w-4 animate-spin" /> {t.ext.analysingWait}</>
-              : <><Target className="h-4 w-4" /> {t.ext.analyzeChances}</>}
-          </button>
-          {/* ── Gate message — fully via t() keys ── */}
-          {gateMessage && !analysing && (
-            <span className="text-xs text-muted-foreground">← {gateMessage} {t.ext.gateNext}</span>
+          {/* Upload zone */}
+          <KanbanCard accent="#FFEDD5">
+            <div
+              onClick={() => !uploading && fileInputRef.current?.click()}
+              style={{
+                borderRadius: 14,
+                border: "1.5px dashed rgba(17,24,39,0.15)",
+                padding: "24px 16px",
+                display: "flex", flexDirection: "column", alignItems: "center",
+                gap: 10, cursor: "pointer", textAlign: "center",
+                background: "rgba(255,255,255,0.5)",
+                transition: "border-color 150ms ease",
+              }}
+            >
+              <div style={{
+                width: 44, height: 44, borderRadius: 9999,
+                background: "#111827", display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: TOKEN.btnShadow,
+              }}>
+                <Icon icon="solar:arrow-up-linear" width={20} style={{ color: "#fff" }} />
+              </div>
+              <div>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#111827" }}>{uploading ? uploadStage : t.ext.uploadPrompt}</p>
+                <p style={{ margin: "4px 0 0", fontSize: 11, color: "#6B7280" }}>{t.ext.uploadLimit}</p>
+              </div>
+              {uploading && (
+                <div style={{ width: "80%" }}>
+                  <div style={{ height: 4, borderRadius: 9999, background: "rgba(17,24,39,0.08)", overflow: "hidden" }}>
+                    <div style={{ height: "100%", background: "#111827", width: `${uploadPct}%`, borderRadius: 9999, transition: "width 300ms ease" }} />
+                  </div>
+                  <p style={{ fontSize: 11, color: "#6B7280", marginTop: 4, textAlign: "center" }}>{Math.round(uploadPct)}%</p>
+                </div>
+              )}
+            </div>
+            <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.txt" style={{ display: "none" }} onChange={handleFileChange} />
+          </KanbanCard>
+
+          {/* CV list */}
+          {loadingCvs && (
+            <KanbanCard>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Loader2 style={{ width: 16, height: 16, color: "#6B7280", animation: "spin 1s linear infinite" }} />
+                <span style={{ fontSize: 13, color: "#6B7280" }}>{t.ext.loadingCvs}</span>
+              </div>
+            </KanbanCard>
           )}
+
+          {!loadingCvs && cvs.length > 0 && (
+            <KanbanCard>
+              <p style={{ ...labelStyle, marginBottom: 10 }}>{t.ext.selectExisting}</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {cvs.map(cv => (
+                  <div
+                    key={cv.id}
+                    onClick={() => setSelectedCv(cv.id)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      borderRadius: 14, cursor: "pointer",
+                      padding: "12px 14px",
+                      border: selectedCv === cv.id ? "2px solid #111827" : "1px solid rgba(17,24,39,0.1)",
+                      background: selectedCv === cv.id ? "rgba(17,24,39,0.04)" : "rgba(255,255,255,0.8)",
+                      transition: "all 150ms ease",
+                    }}
+                  >
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      background: selectedCv === cv.id ? "#111827" : "rgba(17,24,39,0.06)",
+                    }}>
+                      <Icon icon="solar:graph-up-linear" width={18} style={{ color: selectedCv === cv.id ? "#fff" : "#6B7280" }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cv.original_filename}</p>
+                      <p style={{ margin: "2px 0 0", fontSize: 11, color: "#6B7280" }}>
+                        {cv.file_type.toUpperCase()} · {(cv.file_size / 1024).toFixed(1)} KB
+                        {cv.score !== null ? ` · ${t.ext.quality}: ${cv.score}/100` : ""}
+                      </p>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                      {selectedCv === cv.id && (
+                        <Icon icon="solar:shield-check-linear" width={18} style={{ color: "#111827" }} />
+                      )}
+                      <button
+                        onClick={e => { e.stopPropagation(); setDeleteId(cv.id); }}
+                        style={{ border: "none", background: "transparent", cursor: "pointer", padding: 4, borderRadius: 8 }}
+                      >
+                        <Trash2 style={{ width: 14, height: 14, color: "#9ca3af" }} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </KanbanCard>
+          )}
+
+          {deleteId !== null && (
+            <KanbanCard accent="#fee2e2">
+              <p style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 600, color: "#b91c1c" }}>
+                {t.ext.deletePrompt} &ldquo;{cvs.find(c => c.id === deleteId)?.original_filename}&rdquo;
+              </p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => handleDelete(deleteId)} style={{ flex: 1, padding: "8px 0", borderRadius: 9999, border: "none", background: "#111827", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: TOKEN.btnShadow }}>{t.ext.yesDelete}</button>
+                <button onClick={() => setDeleteId(null)} style={{ flex: 1, padding: "8px 0", borderRadius: 9999, border: "1px solid rgba(17,24,39,0.12)", background: "transparent", color: "#6B7280", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>{t.ext.cancel}</button>
+              </div>
+            </KanbanCard>
+          )}
+
+          {/* CTA */}
+          <div style={{ paddingTop: 4 }}>
+            {error && (
+              <div style={{ marginBottom: 12, borderRadius: 12, background: "#fef2f2", border: "1px solid #fecaca", padding: "10px 14px", fontSize: 13, color: "#dc2626" }}>{error}</div>
+            )}
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+              <button
+                disabled={!canAnalyse}
+                onClick={handleAnalyse}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  borderRadius: 9999, border: "none", cursor: canAnalyse ? "pointer" : "not-allowed",
+                  padding: "12px 28px", fontSize: 14, fontWeight: 500,
+                  letterSpacing: "0.35px", fontFamily: "Inter, sans-serif",
+                  color: "#fff", background: "#111827",
+                  boxShadow: canAnalyse ? TOKEN.btnShadow : "none",
+                  opacity: canAnalyse ? 1 : 0.4,
+                  transition: "all 150ms ease",
+                }}
+              >
+                {analysing
+                  ? <><Loader2 style={{ width: 16, height: 16, animation: "spin 1s linear infinite" }} /> {t.ext.analysingWait}</>
+                  : <><Icon icon="solar:arrow-right-linear" width={16} /> {t.ext.analyzeChances}</>}
+              </button>
+              {gateMessage && !analysing && (
+                <span style={{ fontSize: 12, color: "#9ca3af" }}>← {gateMessage} {t.ext.gateNext}</span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* ── SECTION 3: Result ── */}
+      {/* ════ RESULTS SECTION ════ */}
       {result && (
-        <div ref={resultRef} className="space-y-6 pt-2">
-          <div className="border-t border-border/40" />
+        <div ref={resultRef} style={{ marginTop: 40 }}>
 
-          <div className="flex items-start justify-between gap-4">
-            <SectionLabel number={3} title={t.ext.yourResult} subtitle={t.ext.yourResultSub} />
-            {/* ── "Powered by AI" badge — via t() key ── */}
-            <span className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full bg-violet-50 border border-violet-200 px-3 py-1 text-xs font-semibold text-violet-700">
-              <Sparkles className="h-3 w-3" /> {t.ext.poweredByAI}
+          {/* Divider */}
+          <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(17,24,39,0.12), transparent)", marginBottom: 28 }} />
+
+          {/* Result header */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <StepBadge n={3} />
+              <div>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#111827" }}>{t.ext.yourResult}</p>
+                <p style={{ margin: 0, fontSize: 11, color: "#6B7280" }}>{t.ext.yourResultSub}</p>
+              </div>
+            </div>
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "4px 12px", borderRadius: 9999,
+              background: "#E0E7FF", color: "#4338ca",
+              fontSize: 12, fontWeight: 600,
+              border: "1px solid rgba(99,102,241,0.2)",
+            }}>
+              <Sparkles style={{ width: 12, height: 12 }} /> {t.ext.poweredByAI}
             </span>
           </div>
 
-          <div className={`rounded-2xl border-2 p-6 ${ result.application_ready ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50" }`}>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          {/* Score hero card */}
+          <div style={{ padding: 1, borderRadius: 24, background: "linear-gradient(135deg, rgba(17,24,39,0.08) 0%, rgba(224,231,255,0.6) 100%)", marginBottom: 16 }}>
+            <div style={{
+              borderRadius: 23, background: TOKEN.glass,
+              backdropFilter: TOKEN.blur, WebkitBackdropFilter: TOKEN.blur,
+              boxShadow: TOKEN.cardShadow,
+              padding: "24px 28px",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              flexWrap: "wrap", gap: 16,
+            }}>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">{t.careerMatch.matchScore}</p>
-                <div className="flex items-end gap-2">
-                  <span className={`font-serif text-6xl font-bold ${scoreColor(result.match_score).text}`}>{result.match_score}</span>
-                  <span className="text-2xl text-muted-foreground mb-1">/100</span>
+                <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#6B7280" }}>{t.careerMatch.matchScore}</p>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
+                  <span style={{ fontSize: 64, fontWeight: 700, lineHeight: 1, color: scoreColor(result.match_score).text }}>{result.match_score}</span>
+                  <span style={{ fontSize: 24, color: "#9ca3af", marginBottom: 6 }}>/100</span>
                 </div>
-                {/* ── Verdict label — now via verdictLabel() which uses t() ── */}
-                <p className={`text-base font-bold mt-1 ${verdictLabel(result.match_score).color}`}>{verdictLabel(result.match_score).label}</p>
+                <p style={{ margin: "6px 0 0", fontSize: 15, fontWeight: 600, color: verdictLabel(result.match_score).color }}>{verdictLabel(result.match_score).label}</p>
               </div>
-              <div className="text-right space-y-2">
-                <span className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-semibold ${
-                  result.application_ready
-                    ? "border-emerald-300 bg-white text-emerald-700"
-                    : "border-amber-300 bg-white text-amber-700"
-                }`}>
+              <div style={{ textAlign: "right" }}>
+                <div style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "8px 18px", borderRadius: 9999,
+                  border: result.application_ready ? "1px solid #a7f3d0" : "1px solid #fde68a",
+                  background: result.application_ready ? "#ecfdf5" : "#fffbeb",
+                  color: result.application_ready ? "#059669" : "#d97706",
+                  fontSize: 13, fontWeight: 600,
+                }}>
                   {result.application_ready
-                    ? <><CheckCircle2 className="h-4 w-4" /> {t.ext.readyToApply}</>
-                    : <><AlertTriangle className="h-4 w-4" /> {t.ext.fixGapsFirst}</>}
-                </span>
-                <p className="text-xs font-semibold text-muted-foreground">{result.hire_probability}</p>
+                    ? <><CheckCircle2 style={{ width: 14, height: 14 }} /> {t.ext.readyToApply}</>
+                    : <><AlertTriangle style={{ width: 14, height: 14 }} /> {t.ext.fixGapsFirst}</>}
+                </div>
+                <p style={{ margin: "8px 0 0", fontSize: 12, color: "#6B7280", fontWeight: 500 }}>{result.hire_probability}</p>
               </div>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t.careerMatch.overallVerdict}</p>
-            <p className="text-sm font-semibold leading-relaxed text-slate-800">{result.overall_verdict}</p>
-            <p className="text-sm leading-relaxed text-slate-500">{result.overall_reason}</p>
+          {/* Score bars + verdict — 2 col */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12, marginBottom: 16 }}>
+            <KanbanCard>
+              <p style={{ ...labelStyle, marginBottom: 14 }}>{t.ext.scoreBreakdown}</p>
+              <ScoreBar label={t.careerMatch.skillsMatch}     value={result.skills_match_score} />
+              <ScoreBar label={t.careerMatch.experienceMatch} value={result.experience_score}    />
+              <ScoreBar label={t.careerMatch.cvQuality}       value={result.cv_quality_score}   />
+            </KanbanCard>
+            <KanbanCard>
+              <p style={{ ...labelStyle, marginBottom: 10 }}>{t.careerMatch.overallVerdict}</p>
+              <p style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 600, color: "#111827", lineHeight: 1.5 }}>{result.overall_verdict}</p>
+              <p style={{ margin: 0, fontSize: 13, color: "#6B7280", lineHeight: 1.6 }}>{result.overall_reason}</p>
+            </KanbanCard>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t.ext.scoreBreakdown}</p>
-            <ScoreBar label={t.careerMatch.skillsMatch}     value={result.skills_match_score} />
-            <ScoreBar label={t.careerMatch.experienceMatch} value={result.experience_score}    />
-            <ScoreBar label={t.careerMatch.cvQuality}       value={result.cv_quality_score}   />
-          </div>
-
+          {/* Required skills */}
           {result.job_requirements?.required_skills && result.job_requirements.required_skills.length > 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-5">
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">{t.ext.whatRoleRequires}</p>
-              <div className="flex flex-wrap gap-2">
+            <KanbanCard accent="#E0E7FF" style={{ marginBottom: 16 }}>
+              <p style={{ ...labelStyle, marginBottom: 10 }}>{t.ext.whatRoleRequires}</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: result.job_requirements.nice_to_have?.length ? 12 : 0 }}>
                 {result.job_requirements.required_skills.map((s, i) => (
-                  <span key={i} className="rounded-full bg-slate-100 border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700">{s}</span>
+                  <span key={i} style={{ padding: "4px 12px", borderRadius: 9999, background: "#111827", color: "#fff", fontSize: 12, fontWeight: 500 }}>{s}</span>
                 ))}
               </div>
               {result.job_requirements.nice_to_have && result.job_requirements.nice_to_have.length > 0 && (
                 <>
-                  {/* ── "Nice to Have" — now via t() key ── */}
-                  <p className="text-xs font-semibold text-muted-foreground mt-3 mb-2">{t.ext.niceToHave}</p>
-                  <div className="flex flex-wrap gap-2">
+                  <p style={{ ...labelStyle, marginBottom: 8, marginTop: 0 }}>{t.ext.niceToHave}</p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {result.job_requirements.nice_to_have.map((s, i) => (
-                      <span key={i} className="rounded-full bg-white border border-dashed border-slate-300 px-3 py-1 text-xs font-medium text-slate-500">{s}</span>
+                      <span key={i} style={{ padding: "4px 12px", borderRadius: 9999, border: "1.5px dashed rgba(17,24,39,0.15)", background: "transparent", color: "#6B7280", fontSize: 12, fontWeight: 500 }}>{s}</span>
                     ))}
                   </div>
                 </>
               )}
-            </div>
+            </KanbanCard>
           )}
 
-          {/* ── Tabs — labels fully via tabLabels map ── */}
-          <div className="border-b border-slate-200">
-            <div className="flex gap-1 overflow-x-auto">
-              {(["overview", "gaps", "strengths", "roadmap"] as const).map(tab => (
-                <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`whitespace-nowrap px-4 py-2.5 text-sm font-semibold capitalize transition-colors border-b-2 -mb-px ${
-                    activeTab === tab ? "border-blue-600 text-blue-600" : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}>
-                  {tab === "gaps"       ? `${tabLabels.gaps} (${result.gaps.length})`
+          {/* Tabs */}
+          <div style={{ display: "flex", gap: 4, marginBottom: 16, flexWrap: "wrap" }}>
+            {(["overview", "gaps", "strengths", "roadmap"] as const).map(tab => (
+              <PillBtn key={tab} active={activeTab === tab} onClick={() => setActiveTab(tab)}>
+                {tab === "gaps" ? `${tabLabels.gaps} (${result.gaps.length})`
                   : tab === "strengths" ? `${tabLabels.strengths} (${result.strengths.length})`
                   : tabLabels[tab]}
-                </button>
-              ))}
-            </div>
+              </PillBtn>
+            ))}
           </div>
 
+          {/* Tab panels */}
           {activeTab === "overview" && (
-            <div className="space-y-4">
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {result.gaps.filter(g => g.startsWith("[BLOCKING]")).length > 0 && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Shield className="h-4 w-4 text-red-600" />
-                    <p className="text-sm font-bold text-red-800">{t.ext.blockingGapsTitle}</p>
+                <KanbanCard accent="#fee2e2">
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <Shield style={{ width: 16, height: 16, color: "#dc2626" }} />
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#b91c1c" }}>{t.ext.blockingGapsTitle}</p>
                   </div>
-                  <div className="space-y-3">
-                    {result.gaps.filter(g => g.startsWith("[BLOCKING]")).map((g, i) => (
-                      <GapCard key={i} raw={g} severityLabels={severityLabels} />
-                    ))}
-                  </div>
-                </div>
+                  {result.gaps.filter(g => g.startsWith("[BLOCKING]")).map((g, i) => <GapCard key={i} raw={g} severityLabels={severityLabels} />)}
+                </KanbanCard>
               )}
               {result.actionable_advice.length > 0 && (
-                <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Lightbulb className="h-4 w-4 text-blue-600" />
-                    <p className="text-sm font-bold text-blue-800">{t.ext.concreteStepsTitle}</p>
+                <KanbanCard accent="#E0E7FF">
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <Lightbulb style={{ width: 16, height: 16, color: "#2563eb" }} />
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#1e40af" }}>{t.ext.concreteStepsTitle}</p>
                   </div>
-                  <ol className="space-y-3 list-decimal list-inside">
+                  <ol style={{ margin: 0, padding: "0 0 0 18px" }}>
                     {result.actionable_advice.map((tip, i) => (
-                      <li key={i} className="text-sm leading-relaxed text-blue-900">{tip}</li>
+                      <li key={i} style={{ fontSize: 13, color: "#1e3a8a", lineHeight: 1.6, marginBottom: 6 }}>{tip}</li>
                     ))}
                   </ol>
-                </div>
+                </KanbanCard>
               )}
               {result.gaps.filter(g => g.startsWith("[BLOCKING]")).length === 0 && result.actionable_advice.length === 0 && (
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-center">
-                  <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-emerald-800">{t.ext.noBlockingIssues}</p>
-                </div>
+                <KanbanCard accent="#a7f3d0">
+                  <div style={{ textAlign: "center", padding: "16px 0" }}>
+                    <CheckCircle2 style={{ width: 32, height: 32, color: "#059669", margin: "0 auto 8px" }} />
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#065f46" }}>{t.ext.noBlockingIssues}</p>
+                  </div>
+                </KanbanCard>
               )}
             </div>
           )}
 
           {activeTab === "gaps" && (
-            <div className="space-y-3">
+            <div>
               {result.gaps.length === 0 ? (
-                <div className="py-10 text-center">
-                  <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">{t.ext.noGaps}</p>
-                </div>
-              ) : result.gaps.map((g, i) => (
-                <GapCard key={i} raw={g} severityLabels={severityLabels} />
-              ))}
+                <KanbanCard>
+                  <div style={{ textAlign: "center", padding: "24px 0" }}>
+                    <CheckCircle2 style={{ width: 28, height: 28, color: "#10b981", margin: "0 auto 8px" }} />
+                    <p style={{ margin: 0, fontSize: 13, color: "#6B7280" }}>{t.ext.noGaps}</p>
+                  </div>
+                </KanbanCard>
+              ) : result.gaps.map((g, i) => <GapCard key={i} raw={g} severityLabels={severityLabels} />)}
             </div>
           )}
 
           {activeTab === "strengths" && (
-            <div className="space-y-3">
+            <div>
               {result.strengths.length === 0 ? (
-                <div className="py-10 text-center">
-                  <XCircle className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">{t.ext.noStrengths}</p>
-                </div>
+                <KanbanCard>
+                  <div style={{ textAlign: "center", padding: "24px 0" }}>
+                    <XCircle style={{ width: 28, height: 28, color: "#d1d5db", margin: "0 auto 8px" }} />
+                    <p style={{ margin: 0, fontSize: 13, color: "#6B7280" }}>{t.ext.noStrengths}</p>
+                  </div>
+                </KanbanCard>
               ) : result.strengths.map((s, i) => <StrengthCard key={i} raw={s} />)}
             </div>
           )}
 
           {activeTab === "roadmap" && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-6">
-              <div className="flex items-center gap-2 mb-6">
-                <TrendingUp className="h-5 w-5 text-blue-600" />
+            <KanbanCard accent="#FFEDD5">
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+                <TrendingUp style={{ width: 16, height: 16, color: "#ea580c" }} />
                 <div>
-                  <p className="text-sm font-bold text-slate-800">{t.ext.roadmapPersonalised}</p>
-                  <p className="text-xs text-muted-foreground">{t.ext.roadmapBased}</p>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#111827" }}>{t.ext.roadmapPersonalised}</p>
+                  <p style={{ margin: 0, fontSize: 11, color: "#6B7280" }}>{t.ext.roadmapBased}</p>
                 </div>
               </div>
-              {result.roadmap.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t.ext.noRoadmap}</p>
-              ) : (
-                <div>
-                  {result.roadmap.map((step, i) => (
-                    <RoadmapItem key={i} text={step} index={i} isLast={i === result.roadmap.length - 1} />
-                  ))}
-                </div>
-              )}
-            </div>
+              {result.roadmap.length === 0
+                ? <p style={{ margin: 0, fontSize: 13, color: "#6B7280" }}>{t.ext.noRoadmap}</p>
+                : result.roadmap.map((step, i) => <RoadmapItem key={i} text={step} index={i} isLast={i === result.roadmap.length - 1} />)}
+            </KanbanCard>
           )}
 
-          <div className="flex flex-wrap gap-3 pt-2">
+          {/* Bottom actions */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 24 }}>
             {onSwitchToChat && (
-              <button onClick={onSwitchToChat}
-                className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-blue-700 transition-all">
-                <MessageSquare className="h-4 w-4" /> {t.ext.discussCoach}
+              <button
+                onClick={onSwitchToChat}
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 9999, border: "none", cursor: "pointer", padding: "12px 24px", fontSize: 14, fontWeight: 500, color: "#fff", background: "#111827", boxShadow: TOKEN.btnShadow, fontFamily: "Inter, sans-serif" }}
+              >
+                <MessageSquare style={{ width: 16, height: 16 }} /> {t.ext.discussCoach}
               </button>
             )}
-            <button onClick={handleReset}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all">
-              <RotateCcw className="h-4 w-4" /> {t.ext.tryAnotherJob}
+            <button
+              onClick={handleReset}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 9999, cursor: "pointer", padding: "12px 24px", fontSize: 14, fontWeight: 500, color: "#6B7280", background: "transparent", border: "1px solid rgba(17,24,39,0.12)", fontFamily: "Inter, sans-serif" }}
+            >
+              <RotateCcw style={{ width: 16, height: 16 }} /> {t.ext.tryAnotherJob}
             </button>
           </div>
         </div>
