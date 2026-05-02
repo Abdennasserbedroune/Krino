@@ -5,22 +5,22 @@ import type { NextRequest } from 'next/server'
 // Routes that require a valid session
 const PROTECTED_PREFIXES = ['/dashboard']
 
-// Role → allowed path prefix
-const ROLE_PATHS: Record<string, string> = {
-  seeker: '/dashboard/seeker',
+// Role → home page after login
+const ROLE_HOME: Record<string, string> = {
+  seeker:    '/dashboard',
   recruiter: '/dashboard/recruiter',
 }
 
-// Supabase dashboard root (no sub-path) redirects
-const ROLE_HOME: Record<string, string> = {
-  seeker: '/dashboard/seeker',
+// Role → allowed path prefix (used to prevent cross-role access)
+const ROLE_PATHS: Record<string, string> = {
+  seeker:    '/dashboard',
   recruiter: '/dashboard/recruiter',
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // ── 1. Pass-through: static assets, api routes, auth routes ─────────────
+  // 1. Pass-through: static assets, api routes, auth routes
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
@@ -31,14 +31,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // ── 2. Only protect dashboard routes ────────────────────────────────────
+  // 2. Only protect dashboard routes
   const isProtected = PROTECTED_PREFIXES.some(p => pathname.startsWith(p))
   if (!isProtected) return NextResponse.next()
 
-  // ── 3. Build a response we can attach refreshed cookies to ──────────────
+  // 3. Build response we can attach refreshed cookies to
   let response = NextResponse.next({ request: { headers: request.headers } })
 
-  // ── 4. Create server-side Supabase client (reads session from cookies) ──
+  // 4. Create server-side Supabase client
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -60,17 +60,17 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // ── 5. Get session — never trust client-side state ──────────────────────
+  // 5. Verify session server-side
   const { data: { user } } = await supabase.auth.getUser()
 
-  // ── 6. No session → kick to login ───────────────────────────────────────
+  // 6. No session → redirect to login
   if (!user) {
     const loginUrl = new URL('/auth/login', request.url)
     loginUrl.searchParams.set('next', pathname)
     return NextResponse.redirect(loginUrl)
   }
 
-  // ── 7. Fetch role from DB (source of truth, not user_metadata) ──────────
+  // 7. Fetch role from DB
   const { data: profile } = await supabase
     .from('users')
     .select('role')
@@ -78,18 +78,22 @@ export async function middleware(request: NextRequest) {
     .single()
 
   const role: string = profile?.role ?? 'seeker'
+  const home = ROLE_HOME[role] ?? '/dashboard'
 
-  // ── 8. /dashboard (bare) → redirect to role home ────────────────────────
-  if (pathname === '/dashboard' || pathname === '/dashboard/') {
-    return NextResponse.redirect(new URL(ROLE_HOME[role] ?? '/dashboard/seeker', request.url))
+  // 8. /dashboard (bare) with recruiter role → send to recruiter home
+  //    Seeker stays on /dashboard — that IS their home, no redirect needed
+  if ((pathname === '/dashboard' || pathname === '/dashboard/') && role === 'recruiter') {
+    return NextResponse.redirect(new URL(home, request.url))
   }
 
-  // ── 9. Role-based path enforcement ──────────────────────────────────────
-  //   A seeker trying /dashboard/recruiter/* → redirect to their home
-  //   A recruiter trying /dashboard/seeker/* → redirect to their home
-  const allowedPrefix = ROLE_PATHS[role]
-  if (allowedPrefix && !pathname.startsWith(allowedPrefix)) {
-    return NextResponse.redirect(new URL(ROLE_HOME[role] ?? '/', request.url))
+  // 9. Recruiter trying to access /dashboard (seeker area) → redirect to recruiter home
+  if (role === 'recruiter' && !pathname.startsWith('/dashboard/recruiter')) {
+    return NextResponse.redirect(new URL(home, request.url))
+  }
+
+  // 10. Seeker trying to access /dashboard/recruiter → redirect to seeker home
+  if (role === 'seeker' && pathname.startsWith('/dashboard/recruiter')) {
+    return NextResponse.redirect(new URL(home, request.url))
   }
 
   return response
@@ -97,13 +101,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all paths EXCEPT:
-     * - _next/static  (static files)
-     * - _next/image   (image optimisation)
-     * - favicon.ico
-     * - public folder files with extensions
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
