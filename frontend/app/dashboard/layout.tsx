@@ -50,9 +50,10 @@ const IconTracker = ({ active }: { active: boolean }) => (
   </svg>
 );
 
-const IconAnalysis = ({ active }: { active: boolean }) => (
+const IconCvBuilder = ({ active }: { active: boolean }) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-    <path d="M4 20L8 14l4 3 4-7 4 4" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+    <rect x="4" y="2" width="16" height="20" rx="2" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6"/>
+    <path d="M8 7h8M8 11h8M8 15h5" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6" strokeLinecap="round"/>
   </svg>
 );
 
@@ -77,12 +78,12 @@ const IconX = () => (
 
 // ─── Nav items ────────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { href: "/dashboard",              label: "Career Match",    Icon: IconTarget   },
-  { href: "/dashboard/chat",         label: "AI Career Chat",  Icon: IconChat     },
-  { href: "/dashboard/jobs",         label: "Browse Jobs",     Icon: IconBriefcase },
-  { href: "/dashboard/upload",       label: "Upload Resume",   Icon: IconUpload   },
-  { href: "/dashboard/analysis",     label: "Analysis",        Icon: IconAnalysis },
-  { href: "/dashboard/tracker",      label: "Applications",    Icon: IconTracker  },
+  { href: "/dashboard",              label: "Career Match",    Icon: IconTarget     },
+  { href: "/dashboard/chat",         label: "AI Career Chat",  Icon: IconChat       },
+  { href: "/dashboard/jobs",         label: "Browse Jobs",     Icon: IconBriefcase  },
+  { href: "/dashboard/upload",       label: "Upload Resume",   Icon: IconUpload     },
+  { href: "/dashboard/cv-builder",   label: "CV Builder",      Icon: IconCvBuilder  },
+  { href: "/dashboard/tracker",      label: "Applications",    Icon: IconTracker    },
 ];
 
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
@@ -180,9 +181,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
                   fontWeight: active ? 500 : 400,
                   letterSpacing: "0.35px",
                   color: active ? "#FFFFFF" : "#6B7280",
-                  background: active
-                    ? "#111827"
-                    : "transparent",
+                  background: active ? "#111827" : "transparent",
                   boxShadow: active
                     ? "rgba(0,0,0,0.4) 0px 12px 24px -6px, rgba(255,255,255,0.15) 0px 1px 1px 0px inset, rgba(0,0,0,0.5) 0px -2px 3px 0px inset, rgba(0,0,0,0.10) 0px 0px 0px 1px"
                     : "none",
