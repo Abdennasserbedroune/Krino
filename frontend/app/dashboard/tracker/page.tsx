@@ -3,52 +3,156 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
+import {
+  Briefcase, ExternalLink, ChevronRight, X,
+  Plus, LayoutGrid, List, FileText,
+} from 'lucide-react';
 
-const SPRING = { type: 'spring' as const, stiffness: 300, damping: 30 };
+const SPRING = { type: 'spring' as const, stiffness: 320, damping: 28 };
 
+// ─ Ember Studio design tokens ────────────────────────────────────────────────
+const E = {
+  bg:       '#FAFAF9',
+  surface:  '#F5F5F4',
+  raised:   '#E7E5E4',
+  border:   '#D6D3D1',
+  text:     '#1C1917',
+  muted:    '#57534E',
+  neutral:  '#78716C',
+  primary:  '#C2410C',
+  primaryH: '#9A3412',
+  accent:   '#F59E0B',
+  success:  '#16A34A',
+  warning:  '#D97706',
+  error:    '#DC2626',
+};
+
+// Stage config — each stage has a left-stripe color (card identity)
 const STAGES = [
-  { key: 'saved',            label: 'Saved',            color: 'text-platinum/40',  dot: 'bg-platinum/30' },
-  { key: 'applied',          label: 'Applied',          color: 'text-blue-400',      dot: 'bg-blue-400' },
-  { key: 'recruiter_screen', label: 'Recruiter Screen', color: 'text-yellow-400',    dot: 'bg-yellow-400' },
-  { key: 'interview',        label: 'Interview',        color: 'text-purple-400',    dot: 'bg-purple-400' },
-  { key: 'offer',            label: 'Offer',            color: 'text-neon',          dot: 'bg-neon' },
-  { key: 'rejected',         label: 'Rejected',         color: 'text-red-400',       dot: 'bg-red-400' },
-  { key: 'archived',         label: 'Archived',         color: 'text-platinum/25',   dot: 'bg-platinum/20' },
-];
+  { key: 'saved',            label: 'Saved',            stripe: '#A8A29E', chip: { bg: '#F5F5F4', text: '#78716C', border: '#D6D3D1' } },
+  { key: 'applied',          label: 'Applied',          stripe: '#3B82F6', chip: { bg: '#EFF6FF', text: '#1D4ED8', border: '#BFDBFE' } },
+  { key: 'recruiter_screen', label: 'Recruiter',        stripe: '#F59E0B', chip: { bg: '#FFFBEB', text: '#92400E', border: '#FDE68A' } },
+  { key: 'interview',        label: 'Interview',        stripe: '#8B5CF6', chip: { bg: '#F5F3FF', text: '#6D28D9', border: '#DDD6FE' } },
+  { key: 'offer',            label: 'Offer',            stripe: '#16A34A', chip: { bg: '#F0FDF4', text: '#15803D', border: '#BBF7D0' } },
+  { key: 'rejected',         label: 'Rejected',         stripe: '#DC2626', chip: { bg: '#FEF2F2', text: '#B91C1C', border: '#FECACA' } },
+  { key: 'archived',         label: 'Archived',         stripe: '#D6D3D1', chip: { bg: '#F5F5F4', text: '#A8A29E', border: '#E7E5E4' } },
+] as const;
 
 type Stage = typeof STAGES[number]['key'];
 
 interface Application {
-  id: string;
-  company: string;
-  job_title: string;
-  job_url: string | null;
-  stage: Stage;
-  match_score: number | null;
-  notes: string | null;
-  applied_at: string | null;
-  next_action_at: string | null;
-  created_at: string;
+  id: string; company: string; job_title: string;
+  job_url: string | null; stage: Stage;
+  match_score: number | null; notes: string | null;
+  applied_at: string | null; next_action_at: string | null; created_at: string;
 }
-
 interface AddModalState {
-  open: boolean;
-  company: string;
-  job_title: string;
-  job_url: string;
-  stage: Stage;
-  notes: string;
-  match_score: string;
+  open: boolean; company: string; job_title: string; job_url: string;
+  stage: Stage; notes: string; match_score: string;
 }
-
 interface DetailState {
-  open: boolean;
-  app: Application | null;
-  newNote: string;
-  newEventType: string;
-  saving: boolean;
+  open: boolean; app: Application | null;
+  newNote: string; newEventType: string; saving: boolean;
 }
 
+// ─ Shared mini-components ────────────────────────────────────────────────────
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: E.neutral, marginBottom: 6 }}>
+      {children}
+    </div>
+  );
+}
+
+function Input({ value, onChange, placeholder, type = 'text' }: { value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      style={{
+        width: '100%', boxSizing: 'border-box',
+        border: `1px solid ${E.border}`, borderRadius: 8,
+        background: E.surface, padding: '10px 14px',
+        fontSize: 14, color: E.text, fontFamily: 'inherit', outline: 'none',
+      }}
+    />
+  );
+}
+
+function Textarea({ value, onChange, placeholder, rows = 3 }: { value: string; onChange: (v: string) => void; placeholder?: string; rows?: number }) {
+  return (
+    <textarea
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      rows={rows}
+      style={{
+        width: '100%', boxSizing: 'border-box',
+        border: `1px solid ${E.border}`, borderRadius: 8,
+        background: E.surface, padding: '10px 14px',
+        fontSize: 14, color: E.text, fontFamily: 'inherit', outline: 'none',
+        resize: 'vertical',
+      }}
+    />
+  );
+}
+
+function PrimaryBtn({ onClick, disabled, children }: { onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      display: 'inline-flex', alignItems: 'center', gap: 6,
+      background: disabled ? E.raised : E.primary, color: '#fff',
+      border: 'none', borderRadius: 8, padding: '10px 20px',
+      fontSize: 13, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer',
+      fontFamily: 'inherit', transition: 'all 150ms ease',
+      opacity: disabled ? 0.5 : 1,
+    }}>{children}</button>
+  );
+}
+
+function GhostBtn({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button onClick={onClick} style={{
+      background: 'transparent', border: `1px solid ${E.border}`,
+      borderRadius: 8, padding: '10px 16px',
+      fontSize: 13, color: E.muted, cursor: 'pointer',
+      fontFamily: 'inherit', transition: 'all 150ms ease',
+    }}>{children}</button>
+  );
+}
+
+function StageChip({ stageKey, small }: { stageKey: Stage; small?: boolean }) {
+  const s = STAGES.find(s => s.key === stageKey)!;
+  return (
+    <span style={{
+      display: 'inline-block',
+      padding: small ? '2px 8px' : '4px 12px',
+      borderRadius: 9999,
+      fontSize: small ? 11 : 12,
+      fontWeight: 600,
+      background: s.chip.bg, color: s.chip.text,
+      border: `1px solid ${s.chip.border}`,
+    }}>{s.label}</span>
+  );
+}
+
+function ScoreBadge({ score }: { score: number | null }) {
+  if (score === null) return null;
+  const color = score >= 75 ? E.success : score >= 50 ? E.warning : E.error;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center',
+      padding: '2px 8px', borderRadius: 9999,
+      fontSize: 11, fontWeight: 700,
+      background: color + '18', color, border: `1px solid ${color}40`,
+    }}>{score}<span style={{ fontWeight: 400, marginLeft: 1 }}>/100</span></span>
+  );
+}
+
+// ─ Main ───────────────────────────────────────────────────────────────────
 export default function TrackerPage() {
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,11 +176,7 @@ export default function TrackerPage() {
   const fetchApps = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
-    const { data } = await supabase
-      .from('applications')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+    const { data } = await supabase.from('applications').select('*').eq('user_id', userId).order('created_at', { ascending: false });
     setApps((data as Application[]) ?? []);
     setLoading(false);
   }, [userId]);
@@ -86,11 +186,8 @@ export default function TrackerPage() {
   const addApp = async () => {
     if (!userId || !modal.company || !modal.job_title) return;
     const { data, error } = await supabase.from('applications').insert({
-      user_id: userId,
-      company: modal.company,
-      job_title: modal.job_title,
-      job_url: modal.job_url || null,
-      stage: modal.stage,
+      user_id: userId, company: modal.company, job_title: modal.job_title,
+      job_url: modal.job_url || null, stage: modal.stage,
       notes: modal.notes || null,
       match_score: modal.match_score ? parseInt(modal.match_score) : null,
     }).select().single();
@@ -103,163 +200,176 @@ export default function TrackerPage() {
   const moveStage = async (appId: string, newStage: Stage) => {
     await supabase.from('applications').update({ stage: newStage }).eq('id', appId);
     setApps(prev => prev.map(a => a.id === appId ? { ...a, stage: newStage } : a));
-    // log event
-    await supabase.from('application_events').insert({
-      application_id: appId,
-      event_type: `stage_moved_to_${newStage}`,
-    });
+    await supabase.from('application_events').insert({ application_id: appId, event_type: `stage_moved_to_${newStage}` });
   };
 
   const saveNote = async () => {
     if (!detail.app || !detail.newNote.trim()) return;
     setDetail(d => ({ ...d, saving: true }));
-    await supabase.from('application_events').insert({
-      application_id: detail.app.id,
-      event_type: detail.newEventType,
-      notes: detail.newNote,
-    });
+    await supabase.from('application_events').insert({ application_id: detail.app.id, event_type: detail.newEventType, notes: detail.newNote });
     await supabase.from('applications').update({ notes: detail.newNote }).eq('id', detail.app.id);
     setApps(prev => prev.map(a => a.id === detail.app!.id ? { ...a, notes: detail.newNote } : a));
     setDetail(d => ({ ...d, saving: false, newNote: '' }));
   };
 
-  // --- drag handlers ---
-  const onDragStart = (e: React.DragEvent, id: string) => {
-    e.dataTransfer.setData('appId', id);
-    setDragging(id);
-  };
-  const onDragOver = (e: React.DragEvent, stage: Stage) => {
-    e.preventDefault();
-    setDragOver(stage);
-  };
-  const onDrop = (e: React.DragEvent, stage: Stage) => {
-    const id = e.dataTransfer.getData('appId');
-    if (id) moveStage(id, stage);
-    setDragging(null);
-    setDragOver(null);
-  };
+  const onDragStart = (e: React.DragEvent, id: string) => { e.dataTransfer.setData('appId', id); setDragging(id); };
+  const onDragOver  = (e: React.DragEvent, stage: Stage) => { e.preventDefault(); setDragOver(stage); };
+  const onDrop      = (e: React.DragEvent, stage: Stage) => { const id = e.dataTransfer.getData('appId'); if (id) moveStage(id, stage); setDragging(null); setDragOver(null); };
+  const byStage     = (s: Stage) => apps.filter(a => a.stage === s);
 
-  const byStage = (s: Stage) => apps.filter(a => a.stage === s);
-
-  const scoreColor = (s: number | null) => {
-    if (!s) return 'text-platinum/30';
-    if (s >= 8) return 'text-neon';
-    if (s >= 6) return 'text-yellow-400';
-    return 'text-red-400';
-  };
-
+  // ─ Render ───────────────────────────────────────────────────────────
   return (
-    <div className="ide-layout bg-paper dark:bg-void bg-grid dark:bg-grid flex flex-col h-screen">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily: 'Inter, sans-serif', background: E.bg, overflow: 'hidden' }}>
 
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 h-10 border-b border-ink/10 dark:border-luminous flex-shrink-0 font-mono text-xs">
-        <div className="flex items-center gap-4">
-          <span className="font-black text-ink dark:text-platinum">PATHWISE</span>
-          <span className="text-ink/30 dark:text-platinum/25">JOB TRACKER</span>
+      {/* ── Top bar ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 20px', height: 56, borderBottom: `1px solid ${E.border}`,
+        background: E.surface, flexShrink: 0,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Briefcase style={{ width: 18, height: 18, color: E.primary }} />
+          <span style={{ fontSize: 15, fontWeight: 600, color: E.text, letterSpacing: '-0.02em' }}>Job Tracker</span>
+          <span style={{ fontSize: 12, color: E.neutral, background: E.raised, padding: '2px 8px', borderRadius: 4 }}>
+            {apps.length} application{apps.length !== 1 ? 's' : ''}
+          </span>
         </div>
-        <div className="flex items-center gap-3">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* View toggle */}
-          <div className="flex items-center border border-ink/15 dark:border-white/10">
+          <div style={{ display: 'flex', border: `1px solid ${E.border}`, borderRadius: 8, overflow: 'hidden' }}>
             {(['kanban', 'table'] as const).map(v => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={[
-                  'px-3 py-1 font-mono text-[10px] uppercase tracking-widest transition-colors',
-                  view === v
-                    ? 'bg-neon/20 text-neon'
-                    : 'text-ink/30 dark:text-platinum/25 hover:text-ink dark:hover:text-platinum',
-                ].join(' ')}
-              >
-                {v}
+              <button key={v} onClick={() => setView(v)} style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '7px 14px', border: 'none', cursor: 'pointer',
+                fontSize: 12, fontWeight: 500, fontFamily: 'inherit',
+                background: view === v ? E.primary : 'transparent',
+                color: view === v ? '#fff' : E.muted,
+                transition: 'all 150ms ease',
+              }}>
+                {v === 'kanban' ? <LayoutGrid style={{ width: 13, height: 13 }} /> : <List style={{ width: 13, height: 13 }} />}
+                {v.charAt(0).toUpperCase() + v.slice(1)}
               </button>
             ))}
           </div>
-          <button
-            onClick={() => setModal(m => ({ ...m, open: true }))}
-            className="font-mono text-[10px] uppercase tracking-widest border border-neon/40 text-neon px-3 py-1 hover:bg-neon/10 transition-colors"
-          >
-            + ADD JOB
+          <button onClick={() => setModal(m => ({ ...m, open: true }))} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            background: E.primary, color: '#fff', border: 'none', borderRadius: 8,
+            padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            fontFamily: 'inherit', transition: 'background 150ms ease',
+          }}>
+            <Plus style={{ width: 14, height: 14 }} /> Add Job
           </button>
         </div>
-      </header>
+      </div>
 
-      {/* Stage summary bar */}
-      <div className="flex gap-0 border-b border-ink/10 dark:border-luminous flex-shrink-0 overflow-x-auto">
-        {STAGES.map(s => (
-          <div key={s.key} className="flex-1 min-w-[80px] px-3 py-2 border-r border-ink/10 dark:border-luminous last:border-r-0">
-            <div className="font-mono text-[9px] uppercase tracking-widest text-ink/30 dark:text-platinum/25 truncate">{s.label}</div>
-            <div className={`font-mono text-lg font-black mt-0.5 ${s.color}`}>{byStage(s.key as Stage).length}</div>
-          </div>
-        ))}
+      {/* ── Stage summary strip ── */}
+      <div style={{ display: 'flex', borderBottom: `1px solid ${E.border}`, flexShrink: 0, background: E.surface }}>
+        {STAGES.map(s => {
+          const count = byStage(s.key as Stage).length;
+          return (
+            <div key={s.key} style={{
+              flex: 1, padding: '8px 12px',
+              borderRight: `1px solid ${E.border}`,
+              borderLeft: `3px solid ${s.stripe}`,
+            }}>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: E.neutral }}>{s.label}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: count > 0 ? E.text : E.border, marginTop: 2 }}>{count}</div>
+            </div>
+          );
+        })}
       </div>
 
       {loading ? (
-        <div className="flex-1 flex items-center justify-center font-mono text-xs text-ink/30 dark:text-platinum/25">
-          loading...
-        </div>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: E.neutral, fontSize: 13 }}>Loading…</div>
       ) : (
         <>
-          {/* KANBAN VIEW */}
+          {/* ──── KANBAN ──── */}
           {view === 'kanban' && (
-            <div className="flex-1 overflow-x-auto overflow-y-hidden">
-              <div className="flex h-full gap-0" style={{ minWidth: `${STAGES.length * 220}px` }}>
-                {STAGES.map((stage) => (
+            <div style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden', display: 'flex' }}>
+              <div style={{ display: 'flex', height: '100%', gap: 0, minWidth: `${STAGES.length * 210}px`, width: '100%' }}>
+                {STAGES.map(stage => (
                   <div
                     key={stage.key}
-                    className={[
-                      'flex flex-col border-r border-ink/10 dark:border-luminous last:border-r-0 transition-colors',
-                      dragOver === stage.key ? 'bg-neon/5' : '',
-                    ].join(' ')}
-                    style={{ width: '220px', flexShrink: 0 }}
+                    style={{
+                      flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column',
+                      borderRight: `1px solid ${E.border}`,
+                      background: dragOver === stage.key ? `${stage.stripe}08` : 'transparent',
+                      transition: 'background 150ms ease',
+                    }}
                     onDragOver={e => onDragOver(e, stage.key as Stage)}
                     onDrop={e => onDrop(e, stage.key as Stage)}
                     onDragLeave={() => setDragOver(null)}
                   >
                     {/* Column header */}
-                    <div className="px-3 py-2 border-b border-ink/10 dark:border-luminous flex-shrink-0 flex items-center gap-2">
-                      <span className={`w-1.5 h-1.5 rounded-full ${stage.dot}`} />
-                      <span className="font-mono text-[10px] uppercase tracking-widest text-ink/50 dark:text-platinum/40">{stage.label}</span>
-                      <span className="font-mono text-[10px] text-ink/25 dark:text-platinum/20 ml-auto">{byStage(stage.key as Stage).length}</span>
+                    <div style={{
+                      padding: '12px 14px 10px',
+                      borderBottom: `1px solid ${E.border}`,
+                      borderTop: `3px solid ${stage.stripe}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      flexShrink: 0, background: E.surface,
+                    }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: E.text }}>{stage.label}</span>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, minWidth: 20, height: 20,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        borderRadius: 9999, background: stage.chip.bg,
+                        color: stage.chip.text, border: `1px solid ${stage.chip.border}`,
+                      }}>{byStage(stage.key as Stage).length}</span>
                     </div>
 
-                    {/* Cards */}
-                    <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                    {/* Card scroll area */}
+                    <div style={{ flex: 1, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <AnimatePresence>
                         {byStage(stage.key as Stage).map(app => (
                           <motion.div
                             key={app.id}
                             layout
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: dragging === app.id ? 0.4 : 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: dragging === app.id ? 0.35 : 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.96 }}
                             transition={SPRING}
                             draggable
                             onDragStart={e => onDragStart(e, app.id)}
                             onDragEnd={() => setDragging(null)}
                             onClick={() => setDetail({ open: true, app, newNote: app.notes ?? '', newEventType: 'note', saving: false })}
-                            className="p-3 border border-ink/10 dark:border-white/8 bg-paper dark:bg-pane hover:border-neon/40 cursor-pointer transition-colors group"
+                            style={{
+                              background: E.surface, cursor: 'pointer',
+                              borderRadius: 12, border: `1px solid ${E.border}`,
+                              borderLeft: `4px solid ${stage.stripe}`,
+                              padding: '12px 12px 12px 10px',
+                              transition: 'box-shadow 200ms ease, transform 200ms ease',
+                              boxShadow: '0 1px 3px rgba(28,25,23,0.04)',
+                            }}
+                            onMouseEnter={e => {
+                              (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(28,25,23,0.1)';
+                              (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)';
+                            }}
+                            onMouseLeave={e => {
+                              (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(28,25,23,0.04)';
+                              (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+                            }}
                           >
-                            <div className="font-mono text-[10px] uppercase tracking-widest text-ink/30 dark:text-platinum/25 truncate">{app.company}</div>
-                            <div className="font-sans text-xs text-ink dark:text-platinum mt-0.5 leading-snug line-clamp-2">{app.job_title}</div>
-                            <div className="flex items-center justify-between mt-2">
-                              <span className="font-mono text-[10px] text-ink/25 dark:text-platinum/20">
-                                {app.applied_at ? new Date(app.applied_at).toLocaleDateString() : 'not applied'}
+                            {/* Company */}
+                            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: E.neutral, marginBottom: 4 }}>{app.company}</div>
+                            {/* Title */}
+                            <div style={{ fontSize: 13, fontWeight: 600, color: E.text, lineHeight: 1.4, marginBottom: 8 }}>{app.job_title}</div>
+                            {/* Footer row */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: 11, color: E.neutral }}>
+                                {app.applied_at ? new Date(app.applied_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Not applied'}
                               </span>
-                              {app.match_score !== null && (
-                                <span className={`font-mono text-[11px] font-black ${scoreColor(app.match_score)}`}>
-                                  {app.match_score}/10
-                                </span>
-                              )}
+                              {app.match_score !== null && <ScoreBadge score={app.match_score} />}
                             </div>
+                            {app.notes && (
+                              <div style={{ marginTop: 8, fontSize: 11, color: E.muted, lineHeight: 1.5, borderTop: `1px solid ${E.border}`, paddingTop: 8, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                                {app.notes}
+                              </div>
+                            )}
                           </motion.div>
                         ))}
                       </AnimatePresence>
-
                       {byStage(stage.key as Stage).length === 0 && (
-                        <div className="font-mono text-[10px] text-ink/15 dark:text-platinum/15 text-center pt-6">
-                          drop here
-                        </div>
+                        <div style={{ textAlign: 'center', paddingTop: 32, fontSize: 12, color: E.border, userSelect: 'none' }}>Drop here</div>
                       )}
                     </div>
                   </div>
@@ -268,14 +378,14 @@ export default function TrackerPage() {
             </div>
           )}
 
-          {/* TABLE VIEW */}
+          {/* ──── TABLE ──── */}
           {view === 'table' && (
-            <div className="flex-1 overflow-auto p-4">
-              <table className="w-full font-mono text-xs border-collapse">
+            <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
-                  <tr className="border-b border-ink/10 dark:border-luminous">
+                  <tr style={{ borderBottom: `2px solid ${E.border}` }}>
                     {['Company', 'Role', 'Stage', 'Score', 'Applied', 'Notes'].map(h => (
-                      <th key={h} className="text-left px-3 py-2 text-ink/30 dark:text-platinum/25 uppercase tracking-widest text-[9px] font-normal">{h}</th>
+                      <th key={h} style={{ textAlign: 'left', padding: '8px 12px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: E.neutral }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -284,213 +394,176 @@ export default function TrackerPage() {
                     <tr
                       key={app.id}
                       onClick={() => setDetail({ open: true, app, newNote: app.notes ?? '', newEventType: 'note', saving: false })}
-                      className="border-b border-ink/5 dark:border-white/5 hover:bg-ink/4 dark:hover:bg-white/4 cursor-pointer transition-colors"
+                      style={{ borderBottom: `1px solid ${E.border}`, cursor: 'pointer', transition: 'background 150ms ease' }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = E.raised}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
                     >
-                      <td className="px-3 py-2 text-ink/60 dark:text-platinum/50 uppercase tracking-widest text-[10px]">{app.company}</td>
-                      <td className="px-3 py-2 text-ink dark:text-platinum">{app.job_title}</td>
-                      <td className="px-3 py-2">
-                        <span className={`uppercase tracking-widest text-[9px] ${STAGES.find(s => s.key === app.stage)?.color ?? ''}`}>
-                          {STAGES.find(s => s.key === app.stage)?.label}
-                        </span>
-                      </td>
-                      <td className={`px-3 py-2 font-black ${scoreColor(app.match_score)}`}>
-                        {app.match_score !== null ? `${app.match_score}/10` : '—'}
-                      </td>
-                      <td className="px-3 py-2 text-ink/30 dark:text-platinum/25">
-                        {app.applied_at ? new Date(app.applied_at).toLocaleDateString() : '—'}
-                      </td>
-                      <td className="px-3 py-2 text-ink/40 dark:text-platinum/35 max-w-[180px] truncate">{app.notes ?? '—'}</td>
+                      <td style={{ padding: '12px', fontWeight: 600, color: E.text }}>{app.company}</td>
+                      <td style={{ padding: '12px', color: E.muted }}>{app.job_title}</td>
+                      <td style={{ padding: '12px' }}><StageChip stageKey={app.stage} small /></td>
+                      <td style={{ padding: '12px' }}><ScoreBadge score={app.match_score} /></td>
+                      <td style={{ padding: '12px', color: E.neutral, fontSize: 12 }}>{app.applied_at ? new Date(app.applied_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
+                      <td style={{ padding: '12px', color: E.neutral, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{app.notes ?? '—'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               {apps.length === 0 && (
-                <div className="text-center pt-16 font-mono text-xs text-ink/25 dark:text-platinum/20">no applications yet — add your first job above</div>
+                <div style={{ textAlign: 'center', paddingTop: 64, color: E.neutral, fontSize: 13 }}>No applications yet — add your first job above</div>
               )}
             </div>
           )}
         </>
       )}
 
-      {/* ADD MODAL */}
+      {/* ────────────────── ADD MODAL ────────────────── */}
       <AnimatePresence>
         {modal.open && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-void/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(28,25,23,0.5)', backdropFilter: 'blur(4px)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
             onClick={e => e.target === e.currentTarget && setModal(m => ({ ...m, open: false }))}
           >
-            <motion.div
-              initial={{ opacity: 0, y: 16, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.97 }}
-              transition={SPRING}
-              className="bg-paper dark:bg-pane border border-ink/15 dark:border-white/10 w-full max-w-md p-6"
+            <motion.div initial={{ opacity: 0, y: 16, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8 }} transition={SPRING}
+              style={{ background: '#fff', borderRadius: 16, border: `1px solid ${E.border}`, boxShadow: '0 24px 48px rgba(28,25,23,0.12)', width: '100%', maxWidth: 460, padding: 28 }}
             >
-              <div className="font-mono text-[10px] uppercase tracking-widest text-ink/30 dark:text-platinum/25 mb-4">// add_application</div>
-
-              <div className="space-y-3">
-                {[
-                  { label: 'Company *', key: 'company', placeholder: 'e.g. Shopify' },
-                  { label: 'Job Title *', key: 'job_title', placeholder: 'e.g. Senior Data Analyst' },
-                  { label: 'Job URL', key: 'job_url', placeholder: 'https://...' },
-                  { label: 'Match Score (0–10)', key: 'match_score', placeholder: '7' },
-                ].map(f => (
-                  <div key={f.key}>
-                    <label className="font-mono text-[9px] uppercase tracking-widest text-ink/30 dark:text-platinum/25 block mb-1">{f.label}</label>
-                    <input
-                      type="text"
-                      placeholder={f.placeholder}
-                      value={(modal as Record<string, string>)[f.key] ?? ''}
-                      onChange={e => setModal(m => ({ ...m, [f.key]: e.target.value }))}
-                      className="w-full bg-transparent border border-ink/15 dark:border-white/10 font-mono text-xs text-ink dark:text-platinum placeholder:text-ink/20 dark:placeholder:text-platinum/20 px-3 py-2 outline-none focus:border-neon/50 transition-colors"
-                    />
-                  </div>
-                ))}
-
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
                 <div>
-                  <label className="font-mono text-[9px] uppercase tracking-widest text-ink/30 dark:text-platinum/25 block mb-1">Stage</label>
-                  <select
-                    value={modal.stage}
-                    onChange={e => setModal(m => ({ ...m, stage: e.target.value as Stage }))}
-                    className="w-full bg-paper dark:bg-pane border border-ink/15 dark:border-white/10 font-mono text-xs text-ink dark:text-platinum px-3 py-2 outline-none focus:border-neon/50 transition-colors"
-                  >
-                    {STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-                  </select>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: E.text, letterSpacing: '-0.02em' }}>Add Application</div>
+                  <div style={{ fontSize: 13, color: E.neutral, marginTop: 2 }}>Track a new job opportunity</div>
                 </div>
+                <button onClick={() => setModal(m => ({ ...m, open: false }))} style={{ background: E.raised, border: 'none', borderRadius: 9999, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <X style={{ width: 14, height: 14, color: E.muted }} />
+                </button>
+              </div>
 
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <FieldLabel>Company *</FieldLabel>
+                    <Input value={modal.company} onChange={v => setModal(m => ({ ...m, company: v }))} placeholder="e.g. Shopify" />
+                  </div>
+                  <div>
+                    <FieldLabel>Job Title *</FieldLabel>
+                    <Input value={modal.job_title} onChange={v => setModal(m => ({ ...m, job_title: v }))} placeholder="e.g. Data Analyst" />
+                  </div>
+                </div>
                 <div>
-                  <label className="font-mono text-[9px] uppercase tracking-widest text-ink/30 dark:text-platinum/25 block mb-1">Notes</label>
-                  <textarea
-                    placeholder="Initial notes..."
-                    value={modal.notes}
-                    onChange={e => setModal(m => ({ ...m, notes: e.target.value }))}
-                    rows={3}
-                    className="w-full bg-transparent border border-ink/15 dark:border-white/10 font-mono text-xs text-ink dark:text-platinum placeholder:text-ink/20 dark:placeholder:text-platinum/20 px-3 py-2 outline-none focus:border-neon/50 transition-colors resize-none"
-                  />
+                  <FieldLabel>Job URL</FieldLabel>
+                  <Input value={modal.job_url} onChange={v => setModal(m => ({ ...m, job_url: v }))} placeholder="https://..." />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <FieldLabel>Stage</FieldLabel>
+                    <select value={modal.stage} onChange={e => setModal(m => ({ ...m, stage: e.target.value as Stage }))}
+                      style={{ width: '100%', border: `1px solid ${E.border}`, borderRadius: 8, background: E.surface, padding: '10px 14px', fontSize: 14, color: E.text, fontFamily: 'inherit', outline: 'none' }}>
+                      {STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <FieldLabel>Match Score (0–100)</FieldLabel>
+                    <Input value={modal.match_score} onChange={v => setModal(m => ({ ...m, match_score: v }))} placeholder="e.g. 78" />
+                  </div>
+                </div>
+                <div>
+                  <FieldLabel>Notes</FieldLabel>
+                  <Textarea value={modal.notes} onChange={v => setModal(m => ({ ...m, notes: v }))} placeholder="Initial notes..." />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 mt-5">
-                <button
-                  onClick={() => setModal(m => ({ ...m, open: false }))}
-                  className="font-mono text-[10px] uppercase tracking-widest text-ink/30 dark:text-platinum/25 hover:text-ink dark:hover:text-platinum transition-colors"
-                >
-                  cancel
-                </button>
-                <button
-                  onClick={addApp}
-                  disabled={!modal.company || !modal.job_title}
-                  className="font-mono text-[10px] uppercase tracking-widest border border-neon/40 text-neon px-4 py-2 hover:bg-neon/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  SAVE APPLICATION
-                </button>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
+                <GhostBtn onClick={() => setModal(m => ({ ...m, open: false }))}>Cancel</GhostBtn>
+                <PrimaryBtn onClick={addApp} disabled={!modal.company || !modal.job_title}>Save Application</PrimaryBtn>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* DETAIL SIDE SHEET */}
+      {/* ────────────────── DETAIL SHEET ────────────────── */}
       <AnimatePresence>
         {detail.open && detail.app && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-void/60 backdrop-blur-sm z-50 flex justify-end"
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(28,25,23,0.4)', backdropFilter: 'blur(4px)', zIndex: 50, display: 'flex', justifyContent: 'flex-end' }}
             onClick={e => e.target === e.currentTarget && setDetail(d => ({ ...d, open: false }))}
           >
-            <motion.aside
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={SPRING}
-              className="w-full max-w-sm bg-paper dark:bg-pane border-l border-ink/15 dark:border-white/10 flex flex-col h-full overflow-hidden"
+            <motion.aside initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={SPRING}
+              style={{ width: '100%', maxWidth: 380, background: '#fff', borderLeft: `1px solid ${E.border}`, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}
             >
               {/* Sheet header */}
-              <div className="px-4 py-3 border-b border-ink/10 dark:border-luminous flex items-center justify-between flex-shrink-0">
-                <div>
-                  <div className="font-mono text-[9px] uppercase tracking-widest text-ink/30 dark:text-platinum/25">{detail.app.company}</div>
-                  <div className="font-sans text-sm text-ink dark:text-platinum mt-0.5 font-medium">{detail.app.job_title}</div>
+              <div style={{ padding: '20px 20px 16px', borderBottom: `1px solid ${E.border}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <StageChip stageKey={detail.app.stage} small />
+                    {detail.app.match_score !== null && <ScoreBadge score={detail.app.match_score} />}
+                  </div>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: E.neutral }}>{detail.app.company}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: E.text, marginTop: 2, letterSpacing: '-0.02em', lineHeight: 1.3 }}>{detail.app.job_title}</div>
+                  {detail.app.job_url && (
+                    <a href={detail.app.job_url} target="_blank" rel="noopener noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, fontSize: 12, color: E.primary, textDecoration: 'none' }}
+                      onClick={e => e.stopPropagation()}>
+                      <ExternalLink style={{ width: 11, height: 11 }} /> View Posting
+                    </a>
+                  )}
                 </div>
-                <button
-                  onClick={() => setDetail(d => ({ ...d, open: false }))}
-                  className="font-mono text-xs text-ink/30 dark:text-platinum/25 hover:text-ink dark:hover:text-platinum transition-colors"
-                >
-                  ✕
+                <button onClick={() => setDetail(d => ({ ...d, open: false }))} style={{ background: E.raised, border: 'none', borderRadius: 9999, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                  <X style={{ width: 13, height: 13, color: E.muted }} />
                 </button>
               </div>
 
-              {/* Stage selector */}
-              <div className="px-4 py-3 border-b border-ink/10 dark:border-luminous flex-shrink-0">
-                <div className="font-mono text-[9px] uppercase tracking-widest text-ink/30 dark:text-platinum/25 mb-2">Move Stage</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {STAGES.map(s => (
-                    <button
-                      key={s.key}
-                      onClick={() => {
-                        moveStage(detail.app!.id, s.key as Stage);
-                        setDetail(d => ({ ...d, app: { ...d.app!, stage: s.key as Stage } }));
-                      }}
-                      className={[
-                        'font-mono text-[9px] uppercase tracking-widest px-2 py-1 border transition-colors',
-                        detail.app.stage === s.key
-                          ? 'border-neon/50 bg-neon/10 text-neon'
-                          : 'border-ink/10 dark:border-white/10 text-ink/40 dark:text-platinum/30 hover:border-neon/30 hover:text-neon/70',
-                      ].join(' ')}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
+              {/* Stage mover */}
+              <div style={{ padding: '14px 20px', borderBottom: `1px solid ${E.border}`, flexShrink: 0 }}>
+                <FieldLabel>Move to stage</FieldLabel>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {STAGES.map(s => {
+                    const active = detail.app!.stage === s.key;
+                    return (
+                      <button key={s.key} onClick={() => { moveStage(detail.app!.id, s.key as Stage); setDetail(d => ({ ...d, app: { ...d.app!, stage: s.key as Stage } })); }}
+                        style={{
+                          padding: '4px 12px', borderRadius: 9999, border: active ? `1.5px solid ${s.stripe}` : `1px solid ${E.border}`,
+                          background: active ? s.chip.bg : 'transparent',
+                          color: active ? s.chip.text : E.muted,
+                          fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                          transition: 'all 150ms ease',
+                        }}
+                      >{s.label}</button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Note / event area */}
-              <div className="flex-1 overflow-y-auto p-4">
+              {/* Notes area */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
                 {detail.app.notes && (
-                  <div className="mb-4">
-                    <div className="font-mono text-[9px] uppercase tracking-widest text-ink/30 dark:text-platinum/25 mb-1">Latest Note</div>
-                    <p className="font-sans text-xs text-ink/60 dark:text-platinum/50 leading-relaxed">{detail.app.notes}</p>
+                  <div style={{ marginBottom: 20, padding: 14, borderRadius: 10, background: E.surface, border: `1px solid ${E.border}` }}>
+                    <FieldLabel>Latest Note</FieldLabel>
+                    <p style={{ margin: 0, fontSize: 13, color: E.muted, lineHeight: 1.6 }}>{detail.app.notes}</p>
                   </div>
                 )}
 
-                <div className="font-mono text-[9px] uppercase tracking-widest text-ink/30 dark:text-platinum/25 mb-2">Add Note / Event</div>
-                <select
-                  value={detail.newEventType}
-                  onChange={e => setDetail(d => ({ ...d, newEventType: e.target.value }))}
-                  className="w-full bg-paper dark:bg-pane border border-ink/15 dark:border-white/10 font-mono text-xs text-ink dark:text-platinum px-3 py-2 outline-none focus:border-neon/50 transition-colors mb-2"
-                >
+                <FieldLabel>Event Type</FieldLabel>
+                <select value={detail.newEventType} onChange={e => setDetail(d => ({ ...d, newEventType: e.target.value }))}
+                  style={{ width: '100%', border: `1px solid ${E.border}`, borderRadius: 8, background: E.surface, padding: '10px 14px', fontSize: 14, color: E.text, fontFamily: 'inherit', outline: 'none', marginBottom: 12 }}>
                   {['note', 'applied', 'follow_up', 'interview_scheduled', 'offer_received', 'rejected'].map(t => (
                     <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
                   ))}
                 </select>
-                <textarea
-                  rows={4}
-                  placeholder="Write a note..."
-                  value={detail.newNote}
-                  onChange={e => setDetail(d => ({ ...d, newNote: e.target.value }))}
-                  className="w-full bg-transparent border border-ink/15 dark:border-white/10 font-mono text-xs text-ink dark:text-platinum placeholder:text-ink/20 dark:placeholder:text-platinum/20 px-3 py-2 outline-none focus:border-neon/50 transition-colors resize-none"
-                />
-                <button
-                  onClick={saveNote}
-                  disabled={!detail.newNote.trim() || detail.saving}
-                  className="mt-2 font-mono text-[10px] uppercase tracking-widest border border-neon/40 text-neon px-4 py-2 hover:bg-neon/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed w-full"
-                >
-                  {detail.saving ? 'saving...' : 'SAVE NOTE'}
-                </button>
+
+                <FieldLabel>Add Note</FieldLabel>
+                <Textarea value={detail.newNote} onChange={v => setDetail(d => ({ ...d, newNote: v }))} placeholder="Write a note..." rows={4} />
+                <div style={{ marginTop: 12 }}>
+                  <PrimaryBtn onClick={saveNote} disabled={!detail.newNote.trim() || detail.saving}>
+                    {detail.saving ? 'Saving…' : 'Save Note'}
+                  </PrimaryBtn>
+                </div>
               </div>
 
-              {/* Link to interview prep */}
-              <div className="px-4 py-3 border-t border-ink/10 dark:border-luminous flex-shrink-0">
-                <a
-                  href={`/dashboard/interview-prep?company=${encodeURIComponent(detail.app.company)}&role=${encodeURIComponent(detail.app.job_title)}`}
-                  className="flex items-center justify-between font-mono text-[10px] uppercase tracking-widest text-neon/60 hover:text-neon transition-colors"
-                >
-                  <span>→ OPEN INTERVIEW PREP</span>
-                  <span>↗</span>
+              {/* Footer link */}
+              <div style={{ padding: '14px 20px', borderTop: `1px solid ${E.border}`, flexShrink: 0 }}>
+                <a href={`/dashboard/interview-prep?company=${encodeURIComponent(detail.app.company)}&role=${encodeURIComponent(detail.app.job_title)}`}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, fontWeight: 600, color: E.primary, textDecoration: 'none' }}>
+                  <span>Open Interview Prep</span>
+                  <ChevronRight style={{ width: 16, height: 16 }} />
                 </a>
               </div>
             </motion.aside>
