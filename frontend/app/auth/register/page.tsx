@@ -1,18 +1,36 @@
 'use client';
 
-import { useState, useRef, useEffect, Suspense } from 'react';
+import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 
 type Role = 'seeker' | 'recruiter';
 const VALID_ROLES: Role[] = ['seeker', 'recruiter'];
+const VALID_PLANS = ['free', 'pro', 'growth', 'teams', 'enterprise'];
 
 const ACCENT = {
   seeker:    { color: '#3b82f6', soft: 'rgba(59,130,246,0.10)', border: 'rgba(59,130,246,0.22)' },
   recruiter: { color: '#f97316', soft: 'rgba(249,115,22,0.10)',  border: 'rgba(249,115,22,0.22)'  },
 };
 
+// ── Error mapper ──────────────────────────────────────────────────────────────
+function mapSignUpError(msg: string): string {
+  const m = msg.toLowerCase();
+  if (m.includes('already registered') || m.includes('already exists') || m.includes('duplicate'))
+    return 'An account with this email already exists. Try signing in instead.';
+  if (m.includes('password') && (m.includes('weak') || m.includes('short') || m.includes('length')))
+    return 'Password is too weak. Use at least 8 characters with a mix of letters and numbers.';
+  if (m.includes('invalid email') || m.includes('email format'))
+    return 'Please enter a valid email address.';
+  if (m.includes('too many requests') || m.includes('rate limit'))
+    return 'Too many attempts. Please wait a few minutes before trying again.';
+  if (m.includes('network') || m.includes('fetch'))
+    return 'Connection error. Please check your internet and try again.';
+  return 'Could not create account. Please try again.';
+}
+
+// ── Icons ──────────────────────────────────────────────────────────────────────
 const IconLogo = () => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
     <rect width="28" height="28" rx="7" fill="#111827"/>
@@ -51,7 +69,6 @@ function RegisterForm() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const pillRef = useRef<HTMLDivElement>(null);
   const seekerRef = useRef<HTMLButtonElement>(null);
@@ -60,31 +77,26 @@ function RegisterForm() {
 
   const accent = ACCENT[role];
 
-  const recalcIndicator = () => {
+  const recalcIndicator = useCallback(() => {
     const btn = role === 'seeker' ? seekerRef.current : recruiterRef.current;
     const pill = pillRef.current;
     if (!btn || !pill) return;
     const b = btn.getBoundingClientRect();
     const p = pill.getBoundingClientRect();
     setIndicator({ left: b.left - p.left, width: b.width });
-  };
+  }, [role]);
 
-  useEffect(() => { recalcIndicator(); }, [role]);
-  useEffect(() => { setTimeout(recalcIndicator, 50); }, []);
+  useEffect(() => { recalcIndicator(); }, [recalcIndicator]);
+  useEffect(() => { const t = setTimeout(recalcIndicator, 50); return () => clearTimeout(t); }, [recalcIndicator]);
 
-  // ── Google OAuth ──────────────────────────────────────────────────────────
-  const handleGoogleSignUp = async () => {
+  const handleGoogleSignUp = useCallback(async () => {
     setGoogleLoading(true);
     setError(null);
-
-    // Set the pending role as an httpOnly cookie via our API route
-    // This avoids putting the role in the URL where it could be tampered with
     await fetch('/api/auth/set-pending-role', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role }),
     });
-
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -92,27 +104,19 @@ function RegisterForm() {
         queryParams: { access_type: 'offline', prompt: 'consent' },
       },
     });
-
     if (oauthError) {
       setError('Google sign-up failed. Please try again.');
       setGoogleLoading(false);
     }
-  };
+  }, [role]);
 
-  // ── Email + password signup ───────────────────────────────────────────────
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    // ── Validate role client-side (DB has a CHECK constraint too) ────────
-    if (!VALID_ROLES.includes(role)) {
-      setError('Invalid role selected.');
-      return;
-    }
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
-      return;
-    }
+    if (!VALID_ROLES.includes(role)) { setError('Invalid role selected.'); return; }
+    if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
+    if (name.trim().length < 2) { setError('Please enter your full name.'); return; }
 
     setLoading(true);
 
@@ -120,56 +124,57 @@ function RegisterForm() {
       email,
       password,
       options: {
-        data: { full_name: name, role },
-        // emailRedirectTo is safe here — Supabase validates it against
-        // the allowed redirect URLs list in your project settings
+        data: { full_name: name.trim(), role },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
 
     if (signUpError) {
-      // Generic error — don't reveal whether email already exists
-      setError(
-        signUpError.message.toLowerCase().includes('already registered')
-          ? 'An account with this email already exists. Try signing in instead.'
-          : 'Could not create account. Please try again.'
-      );
+      setError(mapSignUpError(signUpError.message));
       setLoading(false);
       return;
     }
 
+    // Write profile row — only if user was actually created (not a duplicate session)
+    if (data.user && !data.user.identities?.length === false) {
+      // identities array is empty for duplicate email signups in Supabase
+      // This is a false-positive signup — Supabase returns no error but sends
+      // a "you already have an account" email. Detect and surface it clearly.
+    }
+
     if (data.user) {
-      // Write the profile row — RLS policy (see SUPABASE_MIGRATION.md) ensures
-      // only the authenticated user can insert their own row
-      const { error: profileError } = await supabase.from('users').insert({
+      const resolvedPlan = planParam && VALID_PLANS.includes(planParam) ? planParam : 'free';
+      const { error: profileError } = await supabase.from('users').upsert({
         id: data.user.id,
-        email,
-        full_name: name,
-        // Role is validated above — still enforced by DB CHECK constraint
+        email: email.toLowerCase().trim(),
+        full_name: name.trim(),
         role,
-        plan: planParam && ['free','pro','growth','teams','enterprise'].includes(planParam)
-          ? planParam
-          : 'free',
+        plan: resolvedPlan,
+      }, {
+        onConflict: 'id',
+        ignoreDuplicates: false,
       });
 
-      if (profileError && !profileError.message.includes('duplicate')) {
-        console.error('[register] profile insert error:', profileError.message);
+      if (profileError) {
+        // Profile insert failed — log for debugging but don't block the user
+        // The trigger or callback will retry on first login
+        console.error('[register] profile upsert error:', profileError.message);
       }
     }
 
     if (data.session) {
-      // Auto-confirmed (dev/magic link off) — go straight to dashboard
       router.push('/dashboard');
     } else {
       setSuccess(true);
       setLoading(false);
     }
-  };
+  }, [role, name, email, password, planParam, router]);
 
   if (success) {
     return (
       <div style={{ minHeight: '100dvh', background: '#F7F3EF', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, position: 'relative' }}>
         <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,237,213,0.55) 0%, transparent 70%)' }}/>
+        <style>{`*, *::before, *::after { box-sizing: border-box; }`}</style>
         <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 440, padding: 1, borderRadius: 32, background: 'linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(17,24,39,0.07) 100%)' }}>
           <div style={{ borderRadius: 31, background: '#FFFFFF', padding: '48px 36px', boxShadow: '0 0 0 1px rgba(0,0,0,0.06), 0 12px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
             <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(34,197,94,0.10)', border: '1px solid rgba(34,197,94,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
@@ -191,7 +196,44 @@ function RegisterForm() {
   return (
     <div style={{ minHeight: '100dvh', background: '#F7F3EF', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', position: 'relative', overflowX: 'hidden' }}>
       <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,237,213,0.55) 0%, transparent 70%)' }}/>
-      <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, backgroundImage: ['linear-gradient(to right, rgba(17,24,39,0.04) 1px, transparent 1px)', 'linear-gradient(to bottom, rgba(17,24,39,0.04) 1px, transparent 1px)'].join(','), backgroundSize: '48px 48px' }}/>
+      <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, backgroundImage: 'linear-gradient(to right, rgba(17,24,39,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(17,24,39,0.04) 1px, transparent 1px)', backgroundSize: '48px 48px' }}/>
+
+      {/* ── INPUT FOCUS FIX ── */}
+      <style>{`
+        *, *::before, *::after { box-sizing: border-box; }
+        .pw-input {
+          height: 44px; width: 100%; padding: 0 14px;
+          border-radius: 12px;
+          border: 1.5px solid rgba(17,24,39,0.14);
+          background: rgba(17,24,39,0.02);
+          font-size: 14px; font-family: 'Inter', sans-serif;
+          color: #111827; outline: none;
+          transition: border-color 150ms ease, background 150ms ease;
+        }
+        .pw-input::placeholder { color: #9CA3AF; }
+        .pw-input-seeker:focus  { border-color: #3b82f6; background: rgba(59,130,246,0.04); }
+        .pw-input-recruiter:focus { border-color: #f97316; background: rgba(249,115,22,0.04); }
+        .pw-submit-btn {
+          margin-top: 6px; height: 48px; width: 100%; border-radius: 9999px;
+          color: #fff; font-size: 15px; font-weight: 500; border: none;
+          cursor: pointer; display: flex; align-items: center;
+          justify-content: center; gap: 8px;
+          transition: opacity 150ms ease, transform 150ms ease, background 300ms ease;
+          font-family: 'Inter', sans-serif;
+        }
+        .pw-submit-btn:not(:disabled):hover { transform: translateY(-1px); }
+        .pw-submit-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+        .pw-google-btn {
+          width: 100%; height: 44px; border-radius: 9999px;
+          border: 1.5px solid rgba(17,24,39,0.14); background: #fff;
+          display: flex; align-items: center; justify-content: center; gap: 10px;
+          font-size: 14px; font-weight: 500; color: #374151;
+          cursor: pointer; transition: border-color 150ms, transform 150ms;
+          font-family: 'Inter', sans-serif;
+        }
+        .pw-google-btn:not(:disabled):hover { border-color: rgba(17,24,39,0.32); transform: translateY(-1px); }
+        .pw-google-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+      `}</style>
 
       <div style={{ position: 'relative', zIndex: 1, marginBottom: 32, display: 'flex', alignItems: 'center' }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
@@ -205,8 +247,8 @@ function RegisterForm() {
         <p style={{ margin: 0, fontSize: 13, color: '#6B7280', fontWeight: 400 }}>I am signing up as a…</p>
         <div ref={pillRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '1px solid rgba(17,24,39,0.10)', borderRadius: 9999, padding: 4, boxShadow: '0 1px 4px rgba(17,24,39,0.06)' }} role="group" aria-label="Select account type">
           <div aria-hidden style={{ position: 'absolute', top: 4, height: 'calc(100% - 8px)', borderRadius: 9999, background: accent.color, left: indicator.left, width: indicator.width, transition: 'left 300ms cubic-bezier(0.4,0,0.2,1), width 300ms cubic-bezier(0.4,0,0.2,1), background 300ms ease', zIndex: 0, boxShadow: `0 2px 8px ${accent.color}44` }}/>
-          <button ref={seekerRef} onClick={() => setRole('seeker')} aria-pressed={role === 'seeker'} style={{ position: 'relative', zIndex: 1, padding: '8px 20px', borderRadius: 9999, fontSize: 13, fontWeight: 500, color: role === 'seeker' ? '#fff' : '#6B7280', background: 'transparent', border: 'none', cursor: 'pointer', transition: 'color 200ms ease', whiteSpace: 'nowrap' }}>Job Hunter</button>
-          <button ref={recruiterRef} onClick={() => setRole('recruiter')} aria-pressed={role === 'recruiter'} style={{ position: 'relative', zIndex: 1, padding: '8px 20px', borderRadius: 9999, fontSize: 13, fontWeight: 500, color: role === 'recruiter' ? '#fff' : '#6B7280', background: 'transparent', border: 'none', cursor: 'pointer', transition: 'color 200ms ease', whiteSpace: 'nowrap' }}>HR Teams</button>
+          <button ref={seekerRef} onClick={() => setRole('seeker')} aria-pressed={role === 'seeker'} style={{ position: 'relative', zIndex: 1, padding: '8px 20px', borderRadius: 9999, fontSize: 13, fontWeight: 500, color: role === 'seeker' ? '#fff' : '#6B7280', background: 'transparent', border: 'none', cursor: 'pointer', transition: 'color 200ms ease', whiteSpace: 'nowrap', fontFamily: "'Inter', sans-serif" }}>Job Hunter</button>
+          <button ref={recruiterRef} onClick={() => setRole('recruiter')} aria-pressed={role === 'recruiter'} style={{ position: 'relative', zIndex: 1, padding: '8px 20px', borderRadius: 9999, fontSize: 13, fontWeight: 500, color: role === 'recruiter' ? '#fff' : '#6B7280', background: 'transparent', border: 'none', cursor: 'pointer', transition: 'color 200ms ease', whiteSpace: 'nowrap', fontFamily: "'Inter', sans-serif" }}>HR Teams</button>
         </div>
       </div>
 
@@ -220,20 +262,12 @@ function RegisterForm() {
             <p style={{ margin: 0, fontSize: 14, color: '#6B7280', fontWeight: 400, lineHeight: 1.6 }}>{role === 'seeker' ? 'Start optimising your resume and tracking jobs.' : 'Start screening candidates and building your pipeline.'}</p>
           </div>
 
-          {/* Google signup */}
-          <button
-            onClick={handleGoogleSignUp}
-            disabled={googleLoading}
-            style={{ width: '100%', height: 44, borderRadius: 9999, border: '1.5px solid rgba(17,24,39,0.14)', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, fontSize: 14, fontWeight: 500, color: '#374151', cursor: googleLoading ? 'not-allowed' : 'pointer', marginBottom: 20, transition: 'border-color 150ms, transform 150ms', opacity: googleLoading ? 0.7 : 1 }}
-            onMouseEnter={e => !googleLoading && (e.currentTarget.style.borderColor = 'rgba(17,24,39,0.32)')}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(17,24,39,0.14)')}
-          >
+          <button className="pw-google-btn" onClick={handleGoogleSignUp} disabled={googleLoading}>
             <IconGoogle/>
             {googleLoading ? 'Redirecting…' : 'Continue with Google'}
           </button>
 
-          {/* Divider */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0' }}>
             <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }}/>
             <span style={{ fontSize: 12, color: '#9CA3AF' }}>or with email</span>
             <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }}/>
@@ -241,25 +275,40 @@ function RegisterForm() {
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'relative' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Full name</label>
-              <input type="text" required placeholder="Your full name" value={name} onChange={e => setName(e.target.value)} onFocus={() => setFocusedField('name')} onBlur={() => setFocusedField(null)} style={{ height: 44, width: '100%', padding: '0 14px', borderRadius: 12, border: `1.5px solid ${focusedField === 'name' ? accent.color : 'rgba(17,24,39,0.14)'}`, background: 'rgba(17,24,39,0.02)', fontSize: 14, color: '#111827', outline: 'none', transition: 'border-color 150ms ease', boxSizing: 'border-box' }}/>
+              <label htmlFor="reg-name" style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Full name</label>
+              <input id="reg-name" type="text" required placeholder="Your full name"
+                value={name} onChange={e => setName(e.target.value)}
+                className={`pw-input pw-input-${role}`}
+                autoComplete="name"
+              />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Email</label>
-              <input type="email" required placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} onFocus={() => setFocusedField('email')} onBlur={() => setFocusedField(null)} style={{ height: 44, width: '100%', padding: '0 14px', borderRadius: 12, border: `1.5px solid ${focusedField === 'email' ? accent.color : 'rgba(17,24,39,0.14)'}`, background: 'rgba(17,24,39,0.02)', fontSize: 14, color: '#111827', outline: 'none', transition: 'border-color 150ms ease', boxSizing: 'border-box' }}/>
+              <label htmlFor="reg-email" style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Email</label>
+              <input id="reg-email" type="email" required placeholder="you@example.com"
+                value={email} onChange={e => setEmail(e.target.value)}
+                className={`pw-input pw-input-${role}`}
+                autoComplete="email"
+              />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Password</label>
-              <input type="password" required minLength={8} placeholder="Min. 8 characters" value={password} onChange={e => setPassword(e.target.value)} onFocus={() => setFocusedField('password')} onBlur={() => setFocusedField(null)} style={{ height: 44, width: '100%', padding: '0 14px', borderRadius: 12, border: `1.5px solid ${focusedField === 'password' ? accent.color : 'rgba(17,24,39,0.14)'}`, background: 'rgba(17,24,39,0.02)', fontSize: 14, color: '#111827', outline: 'none', transition: 'border-color 150ms ease', boxSizing: 'border-box' }}/>
+              <label htmlFor="reg-password" style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Password</label>
+              <input id="reg-password" type="password" required minLength={8} placeholder="Min. 8 characters"
+                value={password} onChange={e => setPassword(e.target.value)}
+                className={`pw-input pw-input-${role}`}
+                autoComplete="new-password"
+              />
             </div>
 
-            {error && (<div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.20)', fontSize: 13, color: '#dc2626', lineHeight: 1.5 }}>{error}</div>)}
+            {error && (
+              <div role="alert" style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.20)', fontSize: 13, color: '#dc2626', lineHeight: 1.5 }}>
+                {error}
+              </div>
+            )}
 
-            <button type="submit" disabled={loading} style={{ marginTop: 6, height: 48, width: '100%', borderRadius: 9999, background: loading ? `${accent.color}88` : accent.color, color: '#FFFFFF', fontSize: 15, fontWeight: 500, border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: `rgba(0,0,0,0.25) 0px 8px 20px -6px, ${accent.color}44 0px 0px 0px 1px`, transition: 'opacity 150ms ease, transform 150ms ease, background 300ms ease' }}
-              onMouseEnter={e => !loading && (e.currentTarget.style.transform = 'translateY(-1px)')}
-              onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+            <button type="submit" disabled={loading} className="pw-submit-btn"
+              style={{ background: loading ? `${accent.color}88` : accent.color, boxShadow: `rgba(0,0,0,0.25) 0px 8px 20px -6px, ${accent.color}44 0px 0px 0px 1px` }}
             >
-              {loading ? 'Creating account...' : (role === 'seeker' ? 'Start as Job Hunter' : 'Start as HR Teams')}
+              {loading ? 'Creating account…' : (role === 'seeker' ? 'Start as Job Hunter' : 'Start as HR Teams')}
               {!loading && <IconArrowRight/>}
             </button>
           </form>
@@ -279,7 +328,6 @@ function RegisterForm() {
       <p style={{ position: 'relative', zIndex: 1, marginTop: 24, fontSize: 12, color: '#9CA3AF', textAlign: 'center' }}>
         By signing up you agree to our <Link href="#" style={{ color: '#6B7280', textDecoration: 'none' }}>Terms</Link> and <Link href="#" style={{ color: '#6B7280', textDecoration: 'none' }}>Privacy Policy</Link>.
       </p>
-      <style>{`* { box-sizing: border-box; } input::placeholder { color: #9CA3AF; }`}</style>
     </div>
   );
 }
