@@ -15,13 +15,13 @@ function isSafeNext(next: string | null): next is string {
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code        = searchParams.get('code')          // PKCE OAuth flow
-  const token_hash  = searchParams.get('token_hash')    // Email OTP/magic-link flow
+  const token_hash  = searchParams.get('token_hash')    // Email OTP / magic-link
   const type        = searchParams.get('type')          // 'signup' | 'recovery' | 'email'
   const next        = searchParams.get('next')
 
   const supabase = await createSupabaseServerClient()
 
-  // ── A. Email confirmation / magic-link (token_hash flow) ─────────────────
+  // ── A. Email confirmation / magic-link / password-recovery (token_hash) ──
   if (token_hash && type) {
     const { error } = await supabase.auth.verifyOtp({ token_hash, type: type as any })
 
@@ -30,7 +30,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${origin}/auth/login?error=confirmation_failed`)
     }
 
-    // After email confirm, get the now-active session to know the role
+    // Password-recovery token: send user to the reset page so they can set a
+    // new password. The session is now active server-side so the page will
+    // detect it via getSession() and unlock the form immediately.
+    if (type === 'recovery') {
+      return NextResponse.redirect(`${origin}/auth/reset-password`)
+    }
+
+    // Email-confirm or magic-link: route to the right dashboard
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.redirect(`${origin}/auth/login`)
 

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 
-// ── Icons ──────────────────────────────────────────────────────────────────────
+// ─── Icons ────────────────────────────────────────────────────────────────────
 const IconLogo = () => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
     <rect width="28" height="28" rx="7" fill="#111827"/>
@@ -46,7 +46,7 @@ const IconMail = () => (
   </svg>
 );
 
-// ── Error mapper ───────────────────────────────────────────────────────────────
+// ─── Error mapper ─────────────────────────────────────────────────────────────
 function mapAuthError(msg: string): string {
   const m = msg.toLowerCase();
   if (m.includes('invalid login') || m.includes('invalid credentials') || m.includes('wrong password'))
@@ -64,7 +64,7 @@ function mapAuthError(msg: string): string {
 
 type Role = 'seeker' | 'recruiter';
 
-// ── Card — defined OUTSIDE LoginPage so React never sees a new component type ──
+// ─── Card — outside LoginPage to avoid hydration mismatch ────────────────────
 function Card({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
@@ -82,7 +82,7 @@ function Card({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ── Unverified banner — no inline <style> tag, uses className added to global styles ──
+// ─── Unverified banner ────────────────────────────────────────────────────────
 function UnverifiedBanner({ email, onResend }: { email: string; onResend: () => void }) {
   const [resent, setResent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
@@ -100,7 +100,7 @@ function UnverifiedBanner({ email, onResend }: { email: string; onResend: () => 
   };
 
   return (
-    <div className="pw-banner" style={{
+    <div style={{
       position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
       zIndex: 9999, width: 'calc(100% - 32px)', maxWidth: 520,
       background: '#1c1917', borderRadius: 14,
@@ -109,9 +109,7 @@ function UnverifiedBanner({ email, onResend }: { email: string; onResend: () => 
     }}>
       <div style={{ marginTop: 2, color: '#f59e0b', flexShrink: 0 }}><IconMail /></div>
       <div style={{ flex: 1 }}>
-        <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600, color: '#f5f5f4', lineHeight: 1.4 }}>
-          Please verify your email
-        </p>
+        <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600, color: '#f5f5f4', lineHeight: 1.4 }}>Please verify your email</p>
         <p style={{ margin: '0 0 10px', fontSize: 12, color: '#a8a29e', lineHeight: 1.5 }}>
           We sent a confirmation link to <strong style={{ color: '#e7e5e4' }}>{email}</strong>.
           Unverified accounts are deleted after <strong style={{ color: '#fbbf24' }}>2 days</strong>.
@@ -137,7 +135,7 @@ function UnverifiedBanner({ email, onResend }: { email: string; onResend: () => 
   );
 }
 
-// ── Page ───────────────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function LoginPage() {
   const router = useRouter();
   const [step, setStep] = useState<'role' | 'form'>('role');
@@ -206,23 +204,21 @@ export default function LoginPage() {
       return;
     }
 
+    // ── Role check: look up the user's stored role ─────────────────────────
+    // If no profile row exists yet (race condition / first OAuth login), skip
+    // the role gate and just redirect to dashboard — middleware handles the rest.
     const { data: profile } = await supabase
       .from('users')
       .select('role')
       .eq('id', data.user!.id)
-      .single();
+      .maybeSingle();
 
-    if (!profile) {
-      setError('Account profile not found. Please re-register or contact support.');
-      await supabase.auth.signOut();
-      setLoading(false);
-      return;
-    }
-
-    if (profile.role !== selectedRole) {
+    // If profile exists AND a role was explicitly chosen, enforce the match.
+    // If no profile exists yet, let them through — the dashboard will handle setup.
+    if (profile && selectedRole && profile.role !== selectedRole) {
       await supabase.auth.signOut();
       setError(
-        `This email is registered as a ${
+        `This account is registered as a ${
           profile.role === 'recruiter' ? 'Recruiter / HR Team' : 'Job Seeker'
         }. Go back and select the correct role.`
       );
@@ -230,57 +226,23 @@ export default function LoginPage() {
       return;
     }
 
-    router.push('/dashboard');
+    const role = profile?.role ?? selectedRole ?? 'seeker';
+    router.push(`/dashboard/${role}`);
   }, [email, password, selectedRole, router]);
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#F7F3EF', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', position: 'relative', overflowX: 'hidden' }}>
+    <div style={{
+      minHeight: '100dvh',
+      background: '#F7F3EF',
+      fontFamily: "'Inter', sans-serif",
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      padding: '24px', position: 'relative', overflowX: 'hidden',
+    }}>
+      {/* backgrounds */}
       <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,237,213,0.55) 0%, transparent 70%)' }} />
       <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, backgroundImage: 'linear-gradient(to right, rgba(17,24,39,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(17,24,39,0.04) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
 
-      <style>{`
-        *, *::before, *::after { box-sizing: border-box; }
-        .pw-input {
-          height: 44px; width: 100%; padding: 0 14px; border-radius: 12px;
-          border: 1.5px solid rgba(17,24,39,0.14); background: rgba(17,24,39,0.02);
-          font-size: 14px; font-family: 'Inter', sans-serif; color: #111827; outline: none;
-          transition: border-color 150ms ease, background 150ms ease;
-        }
-        .pw-input::placeholder { color: #9CA3AF; }
-        .pw-input-seeker:focus    { border-color: #3b82f6; background: rgba(59,130,246,0.04); }
-        .pw-input-recruiter:focus { border-color: #f97316; background: rgba(249,115,22,0.04); }
-        .pw-role-btn {
-          display: flex; align-items: center; gap: 16px; padding: 18px 20px;
-          border-radius: 16px; border: 1.5px solid; cursor: pointer; text-align: left;
-          transition: border-color 150ms ease, background 150ms ease, transform 150ms ease; width: 100%;
-        }
-        .pw-role-btn:hover { transform: translateY(-1px); }
-        .pw-submit-btn {
-          margin-top: 4px; height: 48px; width: 100%; border-radius: 9999px;
-          color: #fff; font-size: 15px; font-weight: 500; border: none; cursor: pointer;
-          display: flex; align-items: center; justify-content: center; gap: 8px;
-          box-shadow: rgba(0,0,0,0.4) 0px 12px 24px -6px;
-          transition: opacity 150ms ease, transform 150ms ease;
-          font-family: 'Inter', sans-serif;
-        }
-        .pw-submit-btn:not(:disabled):hover { transform: translateY(-1px); }
-        .pw-submit-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-        .pw-google-btn {
-          width: 100%; height: 44px; border-radius: 9999px;
-          border: 1.5px solid rgba(17,24,39,0.14); background: #fff;
-          display: flex; align-items: center; justify-content: center; gap: 10px;
-          font-size: 14px; font-weight: 500; color: #374151; cursor: pointer;
-          transition: border-color 150ms, transform 150ms; font-family: 'Inter', sans-serif;
-        }
-        .pw-google-btn:not(:disabled):hover { border-color: rgba(17,24,39,0.32); transform: translateY(-1px); }
-        .pw-google-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-        @keyframes pw-slide-up {
-          from { opacity: 0; transform: translateX(-50%) translateY(16px); }
-          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
-        }
-        .pw-banner { animation: pw-slide-up 300ms cubic-bezier(0.16,1,0.3,1); }
-      `}</style>
-
+      {/* Logo */}
       <div style={{ position: 'relative', zIndex: 1, marginBottom: 40 }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
           <IconLogo />
@@ -288,6 +250,7 @@ export default function LoginPage() {
         </Link>
       </div>
 
+      {/* Step 1 — Role selection */}
       {step === 'role' && (
         <Card>
           <div style={{ marginBottom: 28 }}>
@@ -295,10 +258,18 @@ export default function LoginPage() {
             <p style={{ margin: 0, fontSize: 14, color: '#6B7280', lineHeight: 1.6 }}>How are you using Pathwise?</p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <button className="pw-role-btn" onClick={() => handleRoleSelect('seeker')}
-              style={{ borderColor: 'rgba(59,130,246,0.25)', background: 'rgba(59,130,246,0.04)' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.background = 'rgba(59,130,246,0.04)'; }}
+            {/* Seeker */}
+            <button
+              onClick={() => handleRoleSelect('seeker')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 16, padding: '18px 20px',
+                borderRadius: 16, border: '1.5px solid rgba(59,130,246,0.25)',
+                background: 'rgba(59,130,246,0.04)', cursor: 'pointer', textAlign: 'left', width: '100%',
+                transition: 'border-color 150ms, background 150ms, transform 150ms',
+                fontFamily: "'Inter', sans-serif",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.background = 'rgba(59,130,246,0.04)'; e.currentTarget.style.transform = 'translateY(0)'; }}
             >
               <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(59,130,246,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconSeeker /></div>
               <div style={{ flex: 1 }}>
@@ -307,10 +278,18 @@ export default function LoginPage() {
               </div>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
-            <button className="pw-role-btn" onClick={() => handleRoleSelect('recruiter')}
-              style={{ borderColor: 'rgba(249,115,22,0.25)', background: 'rgba(249,115,22,0.04)' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = '#f97316'; e.currentTarget.style.background = 'rgba(249,115,22,0.08)'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(249,115,22,0.25)'; e.currentTarget.style.background = 'rgba(249,115,22,0.04)'; }}
+            {/* Recruiter */}
+            <button
+              onClick={() => handleRoleSelect('recruiter')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 16, padding: '18px 20px',
+                borderRadius: 16, border: '1.5px solid rgba(249,115,22,0.25)',
+                background: 'rgba(249,115,22,0.04)', cursor: 'pointer', textAlign: 'left', width: '100%',
+                transition: 'border-color 150ms, background 150ms, transform 150ms',
+                fontFamily: "'Inter', sans-serif",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#f97316'; e.currentTarget.style.background = 'rgba(249,115,22,0.08)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(249,115,22,0.25)'; e.currentTarget.style.background = 'rgba(249,115,22,0.04)'; e.currentTarget.style.transform = 'translateY(0)'; }}
             >
               <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(249,115,22,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconRecruiter /></div>
               <div style={{ flex: 1 }}>
@@ -325,18 +304,31 @@ export default function LoginPage() {
             <span style={{ fontSize: 12, color: '#9CA3AF' }}>New to Pathwise?</span>
             <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }} />
           </div>
-          <Link href="/auth/register"
-            style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: 9999, border: '1.5px solid rgba(17,24,39,0.14)', color: '#374151', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}
+          <Link
+            href="/auth/register"
+            style={{
+              marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              height: 44, borderRadius: 9999, border: '1.5px solid rgba(17,24,39,0.14)',
+              color: '#374151', fontSize: 14, fontWeight: 500, textDecoration: 'none',
+              transition: 'border-color 150ms, color 150ms',
+            }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(17,24,39,0.32)'; (e.currentTarget as HTMLElement).style.color = '#111827'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(17,24,39,0.14)'; (e.currentTarget as HTMLElement).style.color = '#374151'; }}
           >Create an account</Link>
         </Card>
       )}
 
+      {/* Step 2 — Email/password form */}
       {step === 'form' && selectedRole && (
         <Card>
-          <button onClick={() => { setStep('role'); setError(null); setUnverifiedEmail(null); }}
-            style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#6B7280', padding: 0, fontFamily: "'Inter', sans-serif" }}
+          <button
+            onClick={() => { setStep('role'); setError(null); setUnverifiedEmail(null); }}
+            style={{
+              marginBottom: 24, display: 'flex', alignItems: 'center', gap: 6,
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 13, color: '#6B7280', padding: 0, fontFamily: "'Inter', sans-serif",
+              transition: 'color 150ms',
+            }}
             onMouseEnter={e => (e.currentTarget.style.color = '#111827')}
             onMouseLeave={e => (e.currentTarget.style.color = '#6B7280')}
           >
@@ -344,7 +336,13 @@ export default function LoginPage() {
             Back
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, background: selectedRole === 'seeker' ? 'rgba(59,130,246,0.06)' : 'rgba(249,115,22,0.06)', border: `1px solid ${selectedRole === 'seeker' ? 'rgba(59,130,246,0.20)' : 'rgba(249,115,22,0.20)'}`, marginBottom: 28 }}>
+          {/* Role badge */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12,
+            background: selectedRole === 'seeker' ? 'rgba(59,130,246,0.06)' : 'rgba(249,115,22,0.06)',
+            border: `1px solid ${selectedRole === 'seeker' ? 'rgba(59,130,246,0.20)' : 'rgba(249,115,22,0.20)'}`,
+            marginBottom: 28,
+          }}>
             {selectedRole === 'seeker' ? <IconSeeker /> : <IconRecruiter />}
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{selectedRole === 'seeker' ? 'Job Seeker' : 'Recruiter / HR Team'}</div>
@@ -357,7 +355,22 @@ export default function LoginPage() {
             <p style={{ margin: 0, fontSize: 14, color: '#6B7280' }}>Sign in to your Pathwise account</p>
           </div>
 
-          <button className="pw-google-btn" onClick={() => handleGoogleSignIn(selectedRole)} disabled={googleLoading}>
+          {/* Google */}
+          <button
+            onClick={() => handleGoogleSignIn(selectedRole)}
+            disabled={googleLoading}
+            style={{
+              width: '100%', height: 44, borderRadius: 9999,
+              border: '1.5px solid rgba(17,24,39,0.14)', background: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              fontSize: 14, fontWeight: 500, color: '#374151', cursor: 'pointer',
+              transition: 'border-color 150ms, transform 150ms',
+              fontFamily: "'Inter', sans-serif",
+              opacity: googleLoading ? 0.6 : 1,
+            }}
+            onMouseEnter={e => { if (!googleLoading) { e.currentTarget.style.borderColor = 'rgba(17,24,39,0.32)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(17,24,39,0.14)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+          >
             <IconGoogle />
             {googleLoading ? 'Redirecting…' : 'Continue with Google'}
           </button>
@@ -368,9 +381,14 @@ export default function LoginPage() {
             <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }} />
           </div>
 
+          {/* Unverified inline notice */}
           {unverifiedEmail && (
-            <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', fontSize: 13, color: '#92400e', lineHeight: 1.6, marginBottom: 16 }}>
-              📧 A confirmation email was sent to <strong>{unverifiedEmail}</strong>. Please verify your email to access all features.
+            <div style={{
+              padding: '12px 14px', borderRadius: 10,
+              background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)',
+              fontSize: 13, color: '#92400e', lineHeight: 1.6, marginBottom: 16,
+            }}>
+              📧 A confirmation email was sent to <strong>{unverifiedEmail}</strong>. Please verify your email to sign in.
               <button
                 onClick={handleResendConfirmation}
                 style={{ display: 'block', marginTop: 8, fontSize: 12, color: '#d97706', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: "'Inter', sans-serif", textDecoration: 'underline' }}
@@ -378,31 +396,73 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Email field */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <label htmlFor="login-email" style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Email</label>
-              <input id="login-email" type="email" required placeholder="you@example.com"
+              <input
+                id="login-email" type="email" required placeholder="you@example.com"
                 value={email} onChange={e => setEmail(e.target.value)}
-                className={`pw-input pw-input-${selectedRole}`} autoComplete="email" />
+                autoComplete="email"
+                style={{
+                  height: 44, width: '100%', padding: '0 14px', borderRadius: 12,
+                  border: `1.5px solid ${error ? 'rgba(239,68,68,0.40)' : 'rgba(17,24,39,0.14)'}`,
+                  background: 'rgba(17,24,39,0.02)', fontSize: 14,
+                  fontFamily: "'Inter', sans-serif", color: '#111827', outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+                onFocus={e => { e.currentTarget.style.borderColor = selectedRole === 'recruiter' ? '#f97316' : '#3b82f6'; e.currentTarget.style.background = selectedRole === 'recruiter' ? 'rgba(249,115,22,0.04)' : 'rgba(59,130,246,0.04)'; }}
+                onBlur={e => { e.currentTarget.style.borderColor = error ? 'rgba(239,68,68,0.40)' : 'rgba(17,24,39,0.14)'; e.currentTarget.style.background = 'rgba(17,24,39,0.02)'; }}
+              />
             </div>
+            {/* Password field */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <label htmlFor="login-password" style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Password</label>
-                <Link href="/auth/forgot-password" style={{ fontSize: 12, color: '#6B7280', textDecoration: 'none' }}>Forgot password?</Link>
+                <Link href="/auth/forgot-password" style={{ fontSize: 12, color: '#6B7280', textDecoration: 'none' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#111827')}
+                  onMouseLeave={e => (e.currentTarget.style.color = '#6B7280')}
+                >Forgot password?</Link>
               </div>
-              <input id="login-password" type="password" required placeholder="••••••••"
+              <input
+                id="login-password" type="password" required placeholder="••••••••"
                 value={password} onChange={e => setPassword(e.target.value)}
-                className={`pw-input pw-input-${selectedRole}`} autoComplete="current-password" />
+                autoComplete="current-password"
+                style={{
+                  height: 44, width: '100%', padding: '0 14px', borderRadius: 12,
+                  border: '1.5px solid rgba(17,24,39,0.14)',
+                  background: 'rgba(17,24,39,0.02)', fontSize: 14,
+                  fontFamily: "'Inter', sans-serif", color: '#111827', outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+                onFocus={e => { e.currentTarget.style.borderColor = selectedRole === 'recruiter' ? '#f97316' : '#3b82f6'; e.currentTarget.style.background = selectedRole === 'recruiter' ? 'rgba(249,115,22,0.04)' : 'rgba(59,130,246,0.04)'; }}
+                onBlur={e => { e.currentTarget.style.borderColor = 'rgba(17,24,39,0.14)'; e.currentTarget.style.background = 'rgba(17,24,39,0.02)'; }}
+              />
             </div>
 
+            {/* Error box */}
             {error && (
               <div role="alert" style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.20)', fontSize: 13, color: '#dc2626', lineHeight: 1.5 }}>
                 {error}
               </div>
             )}
 
-            <button type="submit" disabled={loading} className="pw-submit-btn"
-              style={{ background: loading ? 'rgba(17,24,39,0.45)' : (selectedRole === 'recruiter' ? '#f97316' : '#111827') }}
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                marginTop: 4, height: 48, width: '100%', borderRadius: 9999,
+                color: '#fff', fontSize: 15, fontWeight: 500, border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                background: loading ? 'rgba(17,24,39,0.45)' : (selectedRole === 'recruiter' ? '#f97316' : '#111827'),
+                boxShadow: 'rgba(0,0,0,0.4) 0px 12px 24px -6px',
+                transition: 'opacity 150ms, transform 150ms',
+                fontFamily: "'Inter', sans-serif",
+                opacity: loading ? 0.6 : 1,
+              }}
+              onMouseEnter={e => { if (!loading) e.currentTarget.style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; }}
             >
               {loading ? 'Signing in…' : 'Sign in'}
               {!loading && <IconArrowRight />}
@@ -411,6 +471,7 @@ export default function LoginPage() {
         </Card>
       )}
 
+      {/* Unverified floating banner */}
       {unverifiedEmail && step === 'form' && (
         <UnverifiedBanner email={unverifiedEmail} onResend={handleResendConfirmation} />
       )}
