@@ -4,169 +4,248 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ============================================
-   PATHWISE — INDUSTRIAL DESIGN SYSTEM v2.0
-   ============================================ */
+/* ============================================================
+   PATHWISE — FLOWOPS SURGICAL PRECISION DESIGN SYSTEM v3.0
+   Art direction: product dashboard → surgical, glass-layered
+   Palette: warm gray canvas, white glass surfaces, near-black accent
+   Typography: Inter only — 88px display, 18px body, 14px labels
+   Density: balanced (card-padding 8px, section-padding 24px)
+   ============================================================ */
 
 :root {
-  --background: #fbfbf9;
-  --foreground: #111111;
-  --card: #f5f5f2;
-  --card-foreground: #111111;
-  --primary: #111111;
-  --primary-foreground: #fbfbf9;
-  --secondary: #f0f0ec;
-  --secondary-foreground: #111111;
-  --muted: #f0f0ec;
-  --muted-foreground: #666666;
-  --accent: #00f0ff;
-  --accent-foreground: #111111;
-  --destructive: #ff4d4d;
-  --destructive-foreground: #ffffff;
-  --border: rgba(17,17,17,0.12);
-  --input: rgba(17,17,17,0.08);
-  --ring: #111111;
-  --surface-elevated: #f5f5f2;
-  --surface-tinted: #f0f0ec;
-  --positive: #00c853;
-  --progress-track: rgba(17,17,17,0.08);
-  --seeker-soft: rgba(59,130,246,0.08);
-  --seeker-soft-border: rgba(59,130,246,0.2);
-  --recruiter-soft: rgba(249,115,22,0.08);
-  --recruiter-soft-border: rgba(249,115,22,0.2);
-  --shadow-soft: 0 2px 8px rgba(0,0,0,0.06);
-  --shadow-ring: 0 0 0 3px rgba(17,17,17,0.1);
-  --font-sans: 'Inter', sans-serif;
-  --font-serif: Georgia, serif;
+  /* ── Core surface tokens ── */
+  --background:        #E5E7EB;
+  --foreground:        #111827;
+  --surface:           #FFFFFF;
+  --surface-glass:     rgba(255, 255, 255, 0.82);
+  --surface-elevated:  #FFFFFF;
+  --surface-tinted:    #FAFAFA;
+
+  /* ── Text hierarchy ── */
+  --text-primary:      #111827;
+  --text-body:         #6B7280;
+  --text-faint:        #9CA3AF;
+  --text-inverse:      #FFFFFF;
+
+  /* ── Border & shadow ── */
+  --border:            rgba(17, 24, 39, 0.10);
+  --border-strong:     rgba(17, 24, 39, 0.18);
+  --shadow-card:       0 0 0 1px rgba(0,0,0,0.06), 0 1px 1px -0.5px rgba(0,0,0,0.06), 0 3px 3px -1.5px rgba(0,0,0,0.06), 0 6px 6px -3px rgba(0,0,0,0.06), 0 12px 12px -6px rgba(0,0,0,0.06);
+  --shadow-soft:       0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-deep:       rgba(0, 0, 0, 0.4) 0px 12px 24px -6px, rgba(255, 255, 255, 0.15) 0px 1px 1px 0px inset;
+
+  /* ── Blur ── */
+  --blur-glass:        blur(12px);
+  --blur-sm:           blur(4px);
+
+  /* ── Radius family ── */
+  --radius-control:    6px;
+  --radius-card-inner: 24px;
+  --radius-card:       31px;
+  --radius-card-shell: 32px;
+  --radius-pill:       9999px;
+
+  /* ── Spacing (4px base) ── */
+  --sp-1:  4px;
+  --sp-2:  6px;
+  --sp-3:  8px;
+  --sp-4:  10px;
+  --sp-5:  12px;
+  --sp-6:  16px;
+  --sp-8:  24px;
+  --sp-10: 40px;
+  --sp-12: 64px;
+  --sp-16: 88px;
+
+  /* ── Mode accent tokens (seeker default) ── */
+  --accent:             #3b82f6;
+  --accent-soft:        rgba(59, 130, 246, 0.08);
+  --accent-border:      rgba(59, 130, 246, 0.20);
+  --accent-glow:        rgba(59, 130, 246, 0.30);
+
+  /* ── Seeker / Recruiter semantic tokens (preserved for dashboard use) ── */
+  --seeker:             #3b82f6;
+  --seeker-soft:        rgba(59, 130, 246, 0.08);
+  --seeker-soft-border: rgba(59, 130, 246, 0.20);
+  --recruiter:          #f97316;
+  --recruiter-soft:     rgba(249, 115, 22, 0.08);
+  --recruiter-soft-border: rgba(249, 115, 22, 0.20);
+
+  /* ── Status ── */
+  --positive:   #22c55e;
+  --negative:   #ef4444;
+  --warning:    #f59e0b;
+
+  /* ── Typography ── */
+  --font-sans:  'Inter', sans-serif;
+  --font-mono:  'JetBrains Mono', monospace;
+
+  /* ── Transition ── */
+  --t-fast:   150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --t-base:   300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --t-slow:   500ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Legacy aliases (keep for dashboard compatibility) ── */
+  --card:                  var(--surface);
+  --card-foreground:       var(--text-primary);
+  --primary:               var(--foreground);
+  --primary-foreground:    var(--surface);
+  --secondary:             #FFEDD5;
+  --secondary-foreground:  var(--foreground);
+  --muted:                 #F3F4F6;
+  --muted-foreground:      var(--text-body);
+  --input:                 rgba(17, 24, 39, 0.08);
+  --ring:                  var(--foreground);
+  --progress-track:        rgba(17, 24, 39, 0.08);
+  --shadow-ring:           0 0 0 3px rgba(17, 24, 39, 0.10);
 }
 
+/* Dark mode kept for dashboard/app pages (not used on landing in new design) */
 .dark {
-  /* Elevation by saturation — NOT by lightness */
-  --background: #050505;   /* Layer 0 — Pure Void */
-  --foreground: #e5e5e5;   /* Platinum */
-  --card: #0d0e12;         /* Layer 1 — Panes */
-  --card-foreground: #e5e5e5;
-  --primary: #e5e5e5;
+  --background:        #050505;
+  --foreground:        #e5e5e5;
+  --surface:           #0d0e12;
+  --surface-glass:     rgba(13, 14, 18, 0.85);
+  --surface-elevated:  #0d0e12;
+  --surface-tinted:    #16181d;
+  --text-primary:      #e5e5e5;
+  --text-body:         #888888;
+  --text-faint:        #555555;
+  --border:            rgba(255, 255, 255, 0.08);
+  --border-strong:     rgba(255, 255, 255, 0.14);
+  --shadow-card:       0 0 0 1px rgba(255,255,255,0.05), 0 4px 16px rgba(0,0,0,0.4);
+  --shadow-soft:       0 2px 12px rgba(0, 0, 0, 0.40);
+  --accent:            #60a5fa;
+  --accent-soft:       rgba(96, 165, 250, 0.12);
+  --accent-border:     rgba(96, 165, 250, 0.25);
+  --seeker-soft:       rgba(59, 130, 246, 0.12);
+  --seeker-soft-border: rgba(59, 130, 246, 0.25);
+  --recruiter-soft:    rgba(249, 115, 22, 0.12);
+  --recruiter-soft-border: rgba(249, 115, 22, 0.25);
+  /* legacy */
+  --card:              var(--surface);
+  --card-foreground:   var(--text-primary);
+  --primary:           var(--foreground);
   --primary-foreground: #050505;
-  --secondary: #16181d;    /* Layer 2 — Modals */
-  --secondary-foreground: #e5e5e5;
-  --muted: #16181d;
-  --muted-foreground: #888888;
-  --accent: #00f0ff;
-  --accent-foreground: #050505;
-  --destructive: #ff4d4d;
-  --destructive-foreground: #ffffff;
-  --border: rgba(255,255,255,0.08);  /* Luminous borders */
-  --input: rgba(255,255,255,0.06);
-  --ring: rgba(0,240,255,0.3);
-  --surface-elevated: #0d0e12;
-  --surface-tinted: #16181d;
-  --positive: #00c853;
-  --progress-track: rgba(255,255,255,0.08);
-  --seeker-soft: rgba(59,130,246,0.12);
-  --seeker-soft-border: rgba(59,130,246,0.25);
-  --recruiter-soft: rgba(249,115,22,0.12);
-  --recruiter-soft-border: rgba(249,115,22,0.25);
-  --shadow-soft: 0 2px 12px rgba(0,0,0,0.4);
-  --shadow-ring: 0 0 0 3px rgba(0,240,255,0.15);
+  --muted:             #16181d;
+  --muted-foreground:  #888888;
+  --input:             rgba(255, 255, 255, 0.06);
+  --ring:              rgba(0, 240, 255, 0.3);
+  --progress-track:    rgba(255, 255, 255, 0.08);
+  --shadow-ring:       0 0 0 3px rgba(0, 240, 255, 0.15);
 }
 
-/* ============ BASE RESET ============ */
+/* ── Base reset ────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
 }
 
 body {
+  margin: 0;
   background-color: var(--background);
-  color: var(--foreground);
-  font-family: 'Inter', var(--font-sans), sans-serif;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 28px;
 }
 
-/* Dashboard/IDE pages — no scroll */
+img, svg { display: block; max-width: 100%; }
+button { cursor: pointer; background: none; border: none; }
+
+/* ── Glass surface utility ─────────────────────────────── */
+.glass {
+  background: var(--surface-glass);
+  backdrop-filter: var(--blur-glass);
+  -webkit-backdrop-filter: var(--blur-glass);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+}
+
+/* ── Gradient border shell (card wrapper) ──────────────── */
+.card-shell {
+  padding: 1px;
+  border-radius: var(--radius-card-shell);
+  background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(17,24,39,0.06) 100%);
+}
+
+.card-inner {
+  border-radius: var(--radius-card);
+  padding: var(--sp-3);
+  background: var(--surface-glass);
+  backdrop-filter: var(--blur-glass);
+  -webkit-backdrop-filter: var(--blur-glass);
+  box-shadow: var(--shadow-card);
+}
+
+/* ── Scanning line ─────────────────────────────────────── */
+.scanning-line {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 1.5px;
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* ── Grid background ───────────────────────────────────── */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(17,24,39,0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(17,24,39,0.05) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+.dark .bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* ── Dashboard / IDE layout ────────────────────────────── */
 .ide-layout {
   overflow: hidden;
   height: 100vh;
   width: 100vw;
 }
 
-/* ============ GRID BACKGROUND ============ */
-.bg-grid {
-  background-image:
-    linear-gradient(to right, rgba(17,17,17,0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(17,17,17,0.06) 1px, transparent 1px);
-  background-size: 50px 50px;
-}
-
-.dark .bg-grid {
-  background-image:
-    linear-gradient(to right, rgba(0,240,255,0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0,240,255,0.05) 1px, transparent 1px);
-  background-size: 50px 50px;
-}
-
-/* ============ SCANNING LINE ============ */
-.scanning-line {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background: linear-gradient(90deg, transparent 0%, rgba(0,240,255,0.8) 50%, transparent 100%);
-  animation: scan 4s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 20;
-  box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
-}
-
-/* ============ BLUEPRINT TEXT REVEAL ============ */
-.blueprint-bg {
-  position: absolute;
-  inset: 0;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  line-height: 1.6;
-  color: rgba(17,17,17,0.07);
+.ide-grid {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 320px;
+  height: calc(100vh - 40px);
   overflow: hidden;
-  pointer-events: none;
-  user-select: none;
-  padding: 1rem;
-  word-break: break-all;
-  transition: color 0.4s ease;
+  transition: grid-template-columns var(--t-base);
 }
 
-.dark .blueprint-bg {
-  color: rgba(0, 240, 255, 0.06);
-}
+.ide-grid.left-closed  { grid-template-columns: 0px minmax(0, 1fr) 320px; }
+.ide-grid.right-closed { grid-template-columns: 240px minmax(0, 1fr) 0px; }
 
-.scanning-line-above ~ .blueprint-bg .word,
-.blueprint-bg .word.revealed {
-  color: rgba(17,17,17,0.18);
-  transition: color 0.2s ease;
-}
+/* ── Custom scrollbar ──────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(17,24,39,0.12); border-radius: 0; }
+.dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }
 
-.dark .blueprint-bg .word.revealed {
-  color: rgba(0,240,255,0.2);
+/* ── Status dots ───────────────────────────────────────── */
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
 }
+.status-dot.optimized { background: var(--positive); }
+.status-dot.draft     { background: #888888; }
+.status-dot.matched   { background: var(--accent); }
+.status-dot.pending   { background: var(--warning); }
 
-/* ============ FLICKER ANIMATION ============ */
-.flicker {
-  animation: flicker 0.35s steps(1) forwards;
-}
-
-/* ============ GHOST/TRANSMISSION STREAM ============ */
-.ghost-stream {
-  animation: ghost-in 0.4s ease forwards;
-}
-
-/* ============ LUMINOUS BORDER ============ */
-.border-luminous {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-/* ============ DIFF VISUALIZATION ============ */
+/* ── Diff visualization ────────────────────────────────── */
 .diff-weak {
-  text-decoration: underline wavy #ff4d4d;
+  text-decoration: underline wavy var(--negative);
   text-underline-offset: 3px;
   cursor: help;
 }
@@ -174,170 +253,111 @@ body {
 .diff-tooltip {
   position: absolute;
   background: #0d0e12;
-  border: 1px solid #00c853;
-  color: #00c853;
-  font-family: 'JetBrains Mono', monospace;
+  border: 1px solid var(--positive);
+  color: var(--positive);
+  font-family: var(--font-mono);
   font-size: 11px;
   padding: 8px 12px;
   white-space: nowrap;
   z-index: 100;
-  box-shadow: 0 0 20px rgba(0, 200, 83, 0.15);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.15);
   pointer-events: none;
 }
+.diff-tooltip::before { content: '> SUGGEST: '; color: rgba(34, 197, 94, 0.5); }
 
-.diff-tooltip::before {
-  content: '> SUGGEST: ';
-  color: rgba(0, 200, 83, 0.5);
+/* ── Viewfinder brackets ───────────────────────────────── */
+.viewfinder { position: relative; }
+.viewfinder::before, .viewfinder::after {
+  content: ''; position: absolute;
+  width: 24px; height: 24px;
+  border-color: var(--foreground); border-style: solid;
 }
+.viewfinder::before { top: -4px; left: -4px; border-width: 2px 0 0 2px; }
+.viewfinder::after  { bottom: -4px; right: -4px; border-width: 0 2px 2px 0; }
 
-/* ============ VIEWFINDER BRACKETS ============ */
-.viewfinder {
-  position: relative;
-}
-
-.viewfinder::before,
-.viewfinder::after {
-  content: '';
-  position: absolute;
-  width: 24px;
-  height: 24px;
-  border-color: #111;
-  border-style: solid;
-}
-
-.dark .viewfinder::before,
-.dark .viewfinder::after {
-  border-color: rgba(0, 240, 255, 0.5);
-}
-
-.viewfinder::before {
-  top: -4px;
-  left: -4px;
-  border-width: 2px 0 0 2px;
-}
-
-.viewfinder::after {
-  bottom: -4px;
-  right: -4px;
-  border-width: 0 2px 2px 0;
-}
-
-/* ============ IDE PANE LAYOUT ============ */
-.ide-grid {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr) 320px;
-  height: calc(100vh - 40px); /* minus header */
-  overflow: hidden;
-  transition: grid-template-columns 0.4s cubic-bezier(0.32, 0, 0, 1);
-}
-
-.ide-grid.left-closed {
-  grid-template-columns: 0px minmax(0, 1fr) 320px;
-}
-
-.ide-grid.right-closed {
-  grid-template-columns: 240px minmax(0, 1fr) 0px;
-}
-
-/* ============ CUSTOM SCROLLBAR ============ */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(17,17,17,0.15);
-  border-radius: 0;
-}
-
-.dark ::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.08);
-}
-
-/* ============ STATUS INDICATORS ============ */
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  display: inline-block;
-  flex-shrink: 0;
-}
-
-.status-dot.optimized { background: #00c853; }
-.status-dot.draft     { background: #888888; }
-.status-dot.matched   { background: #00f0ff; }
-.status-dot.pending   { background: #f59e0b; }
-
-/* ============ PRECISION INPUT ============ */
+/* ── Precision input ───────────────────────────────────── */
 .precision-input {
-  border: 1px solid #111;
+  border: 1px solid var(--border-strong);
   background: transparent;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   padding: 14px 18px;
   width: 100%;
-  color: var(--foreground);
+  color: var(--text-primary);
   outline: none;
-  transition: border-color 0.2s, background 0.2s;
+  border-radius: var(--radius-control);
+  transition: border-color var(--t-fast), background var(--t-fast);
 }
-
 .precision-input:focus {
-  border-color: #00f0ff;
-  background: rgba(0,240,255,0.03);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
-.dark .precision-input {
-  border-color: rgba(255,255,255,0.12);
-}
-
-.dark .precision-input:focus {
-  border-color: #00f0ff;
-}
-
-/* ============ TERMINAL BUTTON ============ */
+/* ── Terminal button ───────────────────────────────────── */
 .btn-terminal {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   border: 1px solid currentColor;
   padding: 8px 16px;
   background: transparent;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--t-fast), color var(--t-fast);
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  border-radius: var(--radius-control);
 }
+.btn-terminal:hover { background: currentColor; color: var(--background); }
 
-.btn-terminal:hover {
-  background: currentColor;
-  color: var(--background);
-}
-
-/* ============ AI PULSE ANIMATION ============ */
+/* ── AI pulse ──────────────────────────────────────────── */
 @keyframes pulse-highlight {
   0%, 100% { background: transparent; }
-  50%       { background: rgba(0, 240, 255, 0.12); }
+  50%       { background: var(--accent-soft); }
+}
+.ai-pulse { animation: pulse-highlight 1.2s ease-in-out 3; }
+
+/* ── Shimmer skeleton ──────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, rgba(17,24,39,0.05) 25%, rgba(17,24,39,0.10) 50%, rgba(17,24,39,0.05) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-control);
+}
+.dark .skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 75%);
+  background-size: 200% 100%;
 }
 
-.ai-pulse {
-  animation: pulse-highlight 1.2s ease-in-out 3;
+/* ── Luminous border (dark mode surfaces) ──────────────── */
+.border-luminous { border: 1px solid rgba(255, 255, 255, 0.08); }
+
+/* ── Focus ring ────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-control);
 }
 
-/* ============ SVG HAIRLINES ============ */
-.hairline-svg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  z-index: 10;
-  overflow: visible;
+/* ── Reduced motion ─────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
-.hairline-svg line {
-  stroke: rgba(0, 240, 255, 0.3);
-  stroke-width: 0.75;
-  stroke-dasharray: 4 4;
+/* ── Accordion (Radix) ──────────────────────────────────── */
+@keyframes accordion-down {
+  from { height: 0; }
+  to   { height: var(--radix-accordion-content-height); }
 }
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to   { height: 0; }
+}
+.animate-accordion-down { animation: accordion-down 0.2s ease-out; }
+.animate-accordion-up   { animation: accordion-up   0.2s ease-out; }
