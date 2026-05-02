@@ -43,11 +43,14 @@ export function SignUpForm({ onSuccess, role = "seeker" }: SignUpFormProps) {
         }
 
         try {
-            const result = await register(email, password);
+            // Pass role so it's saved in Supabase user_metadata
+            const result = await register(email, password, role);
 
             if (result && !result.session) {
+                // Email verification required — role is already saved in metadata
                 setNeedsVerification(true);
             } else if (result && result.session) {
+                // Immediate session (email verification disabled) — also set localStorage
                 localStorage.setItem("user_role", role);
                 setTimeout(() => {
                     onSuccess?.(role);
