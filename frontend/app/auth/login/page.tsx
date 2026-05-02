@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase/client';
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
 const IconLogo = () => (
@@ -31,6 +31,14 @@ const IconRecruiter = () => (
     <line x1="10" y1="14" x2="14" y2="14"/>
   </svg>
 );
+const IconGoogle = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+    <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+    <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+    <path d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/>
+    <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 6.294C4.672 4.169 6.656 3.58 9 3.58z" fill="#EA4335"/>
+  </svg>
+);
 
 type Role = 'seeker' | 'recruiter';
 
@@ -41,15 +49,17 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  // If user is already logged in, redirect them to the right dashboard
+  // If already logged in, let middleware handle the redirect
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session?.user) {
-        const role = data.session.user.user_metadata?.role;
-        router.replace(role === 'recruiter' ? '/dashboard/recruiter' : '/dashboard');
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        // Role-based redirect is handled by middleware;
+        // just push to /dashboard and let server sort it out
+        router.replace('/dashboard');
       }
     });
   }, [router]);
@@ -60,6 +70,40 @@ export default function LoginPage() {
     setError(null);
   };
 
+  // ── Google OAuth ─────────────────────────────────────────────────────────
+  // We store the chosen role in a server-set cookie BEFORE redirecting to
+  // Google. The callback route reads it server-side. Role never touches the URL.
+  const handleGoogleSignIn = async (role: Role) => {
+    setGoogleLoading(true);
+    setError(null);
+
+    // Store pending role via our own API endpoint which sets an httpOnly cookie
+    await fetch('/api/auth/set-pending-role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    });
+
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          // Request refresh token so session survives browser close
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    });
+
+    if (oauthError) {
+      setError('Google sign-in failed. Please try again.');
+      setGoogleLoading(false);
+    }
+    // On success Supabase redirects the browser — no further action needed
+  };
+
+  // ── Email + password login ────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -68,28 +112,48 @@ export default function LoginPage() {
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (authError) {
+      // Generic message — avoids leaking whether the email exists
+      setError('Wrong email or password. Please try again.');
+      setLoading(false);
+      return;
+    }
+
+    // ── Role isolation check ─────────────────────────────────────────────
+    // Fetch the profile for this user+role combination from the DB.
+    // If the user signed up as a seeker and is now trying to log in as a
+    // recruiter, we block them and ask them to create a separate account.
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', data.user!.id)
+      .single();
+
+    const dbRole = profile?.role as Role | undefined;
+
+    if (!dbRole) {
+      setError('Account not found. Please register.');
+      await supabase.auth.signOut();
+      setLoading(false);
+      return;
+    }
+
+    if (dbRole !== selectedRole) {
+      // Wrong role — sign them out and show a clear message
+      await supabase.auth.signOut();
       setError(
-        authError.message === 'Invalid login credentials'
-          ? 'Wrong email or password. Please try again.'
-          : authError.message
+        `This account is registered as a ${
+          dbRole === 'recruiter' ? 'Recruiter / HR Team' : 'Job Seeker'
+        }. Please go back and select the correct role, or create a new account.`
       );
       setLoading(false);
       return;
     }
 
-    // Determine final role: prefer what is stored in Supabase user_metadata,
-    // fall back to what the user selected on this screen
-    const metaRole = data.user?.user_metadata?.role as Role | undefined;
-    const finalRole: Role = metaRole ?? selectedRole ?? 'seeker';
-
-    // Keep localStorage in sync
-    localStorage.setItem('user_role', finalRole);
-
-    // Redirect to the correct dashboard
-    router.push(finalRole === 'recruiter' ? '/dashboard/recruiter' : '/dashboard');
+    // Correct role — let middleware handle the dashboard redirect
+    router.push('/dashboard');
   };
 
-  // ── Shared card wrapper ──────────────────────────────────────────────────────
+  // ── Shared card wrapper ──────────────────────────────────────────────────
   const Card = ({ children }: { children: React.ReactNode }) => (
     <div style={{
       position: 'relative', zIndex: 1,
@@ -118,12 +182,9 @@ export default function LoginPage() {
       padding: '24px',
       position: 'relative', overflowX: 'hidden',
     }}>
-      {/* Warm glow */}
       <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,237,213,0.55) 0%, transparent 70%)' }}/>
-      {/* Grid */}
       <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, backgroundImage: ['linear-gradient(to right, rgba(17,24,39,0.04) 1px, transparent 1px)', 'linear-gradient(to bottom, rgba(17,24,39,0.04) 1px, transparent 1px)'].join(','), backgroundSize: '48px 48px' }}/>
 
-      {/* Logo */}
       <div style={{ position: 'relative', zIndex: 1, marginBottom: 40 }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
           <IconLogo/>
@@ -131,7 +192,7 @@ export default function LoginPage() {
         </Link>
       </div>
 
-      {/* ── STEP 1: Role selection ── */}
+      {/* ── STEP 1: Role selection ─────────────────────────────────────── */}
       {step === 'role' && (
         <Card>
           <div style={{ marginBottom: 28 }}>
@@ -143,21 +204,11 @@ export default function LoginPage() {
             {/* Job Seeker */}
             <button
               onClick={() => handleRoleSelect('seeker')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 16,
-                padding: '18px 20px',
-                borderRadius: 16,
-                border: '1.5px solid rgba(59,130,246,0.25)',
-                background: 'rgba(59,130,246,0.04)',
-                cursor: 'pointer', textAlign: 'left',
-                transition: 'border-color 150ms ease, background 150ms ease, transform 150ms ease',
-              }}
+              style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '18px 20px', borderRadius: 16, border: '1.5px solid rgba(59,130,246,0.25)', background: 'rgba(59,130,246,0.04)', cursor: 'pointer', textAlign: 'left', transition: 'border-color 150ms ease, background 150ms ease, transform 150ms ease' }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.background = 'rgba(59,130,246,0.04)'; e.currentTarget.style.transform = 'translateY(0)'; }}
             >
-              <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(59,130,246,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <IconSeeker/>
-              </div>
+              <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(59,130,246,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconSeeker/></div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, color: '#111827', marginBottom: 3 }}>Job Seeker</div>
                 <div style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.5 }}>Analyse & optimise your resume for ATS</div>
@@ -168,21 +219,11 @@ export default function LoginPage() {
             {/* Recruiter */}
             <button
               onClick={() => handleRoleSelect('recruiter')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 16,
-                padding: '18px 20px',
-                borderRadius: 16,
-                border: '1.5px solid rgba(249,115,22,0.25)',
-                background: 'rgba(249,115,22,0.04)',
-                cursor: 'pointer', textAlign: 'left',
-                transition: 'border-color 150ms ease, background 150ms ease, transform 150ms ease',
-              }}
+              style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '18px 20px', borderRadius: 16, border: '1.5px solid rgba(249,115,22,0.25)', background: 'rgba(249,115,22,0.04)', cursor: 'pointer', textAlign: 'left', transition: 'border-color 150ms ease, background 150ms ease, transform 150ms ease' }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = '#f97316'; e.currentTarget.style.background = 'rgba(249,115,22,0.08)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(249,115,22,0.25)'; e.currentTarget.style.background = 'rgba(249,115,22,0.04)'; e.currentTarget.style.transform = 'translateY(0)'; }}
             >
-              <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(249,115,22,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <IconRecruiter/>
-              </div>
+              <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(249,115,22,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconRecruiter/></div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, color: '#111827', marginBottom: 3 }}>Recruiter / HR Team</div>
                 <div style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.5 }}>Screen and rank candidates instantly</div>
@@ -207,10 +248,9 @@ export default function LoginPage() {
         </Card>
       )}
 
-      {/* ── STEP 2: Email / password form ── */}
-      {step === 'form' && (
+      {/* ── STEP 2: Email/password + Google ────────────────────────────── */}
+      {step === 'form' && selectedRole && (
         <Card>
-          {/* Back button */}
           <button
             onClick={() => { setStep('role'); setError(null); }}
             style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#6B7280', padding: 0, transition: 'color 150ms' }}
@@ -235,54 +275,57 @@ export default function LoginPage() {
             <p style={{ margin: 0, fontSize: 14, color: '#6B7280' }}>Sign in to your Pathwise account</p>
           </div>
 
+          {/* Google OAuth button */}
+          <button
+            onClick={() => handleGoogleSignIn(selectedRole)}
+            disabled={googleLoading}
+            style={{ width: '100%', height: 44, borderRadius: 9999, border: '1.5px solid rgba(17,24,39,0.14)', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, fontSize: 14, fontWeight: 500, color: '#374151', cursor: googleLoading ? 'not-allowed' : 'pointer', marginBottom: 20, transition: 'border-color 150ms, transform 150ms', opacity: googleLoading ? 0.7 : 1 }}
+            onMouseEnter={e => !googleLoading && (e.currentTarget.style.borderColor = 'rgba(17,24,39,0.32)')}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(17,24,39,0.14)')}
+          >
+            <IconGoogle/>
+            {googleLoading ? 'Redirecting…' : 'Continue with Google'}
+          </button>
+
+          {/* Divider */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+            <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }}/>
+            <span style={{ fontSize: 12, color: '#9CA3AF' }}>or continue with email</span>
+            <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }}/>
+          </div>
+
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Email */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <label style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Email</label>
               <input
                 type="email" required placeholder="you@example.com" value={email}
                 onChange={e => setEmail(e.target.value)}
-                onFocus={() => setFocusedField('email')}
-                onBlur={() => setFocusedField(null)}
+                onFocus={() => setFocusedField('email')} onBlur={() => setFocusedField(null)}
                 style={{ height: 44, width: '100%', padding: '0 14px', borderRadius: 12, border: `1.5px solid ${focusedField === 'email' ? '#111827' : 'rgba(17,24,39,0.14)'}`, background: 'rgba(17,24,39,0.02)', fontSize: 14, color: '#111827', outline: 'none', transition: 'border-color 150ms ease', boxSizing: 'border-box' }}
               />
             </div>
-
-            {/* Password */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <label style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Password</label>
-                <Link href="#" style={{ fontSize: 12, color: '#6B7280', textDecoration: 'none' }}
-                  onMouseEnter={e => (e.target as HTMLElement).style.color = '#111827'}
-                  onMouseLeave={e => (e.target as HTMLElement).style.color = '#6B7280'}
-                >Forgot password?</Link>
+                <Link href="/auth/forgot-password" style={{ fontSize: 12, color: '#6B7280', textDecoration: 'none' }}>Forgot password?</Link>
               </div>
               <input
                 type="password" required placeholder="••••••••" value={password}
                 onChange={e => setPassword(e.target.value)}
-                onFocus={() => setFocusedField('password')}
-                onBlur={() => setFocusedField(null)}
+                onFocus={() => setFocusedField('password')} onBlur={() => setFocusedField(null)}
                 style={{ height: 44, width: '100%', padding: '0 14px', borderRadius: 12, border: `1.5px solid ${focusedField === 'password' ? '#111827' : 'rgba(17,24,39,0.14)'}`, background: 'rgba(17,24,39,0.02)', fontSize: 14, color: '#111827', outline: 'none', transition: 'border-color 150ms ease', boxSizing: 'border-box' }}
               />
             </div>
 
             {error && (
-              <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.20)', fontSize: 13, color: '#dc2626' }}>
+              <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.20)', fontSize: 13, color: '#dc2626', lineHeight: 1.5 }}>
                 {error}
               </div>
             )}
 
             <button
               type="submit" disabled={loading}
-              style={{
-                marginTop: 4, height: 48, width: '100%', borderRadius: 9999,
-                background: loading ? 'rgba(17,24,39,0.5)' : (selectedRole === 'recruiter' ? '#f97316' : '#111827'),
-                color: '#FFFFFF', fontSize: 15, fontWeight: 500, border: 'none',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                boxShadow: 'rgba(0,0,0,0.4) 0px 12px 24px -6px, rgba(255,255,255,0.15) 0px 1px 1px 0px inset, rgba(0,0,0,0.5) 0px -2px 3px 0px inset, rgba(0,0,0,0.10) 0px 0px 0px 1px',
-                transition: 'opacity 150ms ease, transform 150ms ease',
-              }}
+              style={{ marginTop: 4, height: 48, width: '100%', borderRadius: 9999, background: loading ? 'rgba(17,24,39,0.5)' : (selectedRole === 'recruiter' ? '#f97316' : '#111827'), color: '#FFFFFF', fontSize: 15, fontWeight: 500, border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: 'rgba(0,0,0,0.4) 0px 12px 24px -6px, rgba(255,255,255,0.15) 0px 1px 1px 0px inset, rgba(0,0,0,0.5) 0px -2px 3px 0px inset, rgba(0,0,0,0.10) 0px 0px 0px 1px', transition: 'opacity 150ms ease, transform 150ms ease' }}
               onMouseEnter={e => !loading && (e.currentTarget.style.transform = 'translateY(-1px)')}
               onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
             >
@@ -294,9 +337,8 @@ export default function LoginPage() {
       )}
 
       <p style={{ position: 'relative', zIndex: 1, marginTop: 28, fontSize: 12, color: '#9CA3AF', textAlign: 'center' }}>
-        Protected by Supabase Auth. No passwords stored in plain text.
+        Protected by Supabase Auth &amp; PKCE. No passwords stored in plain text.
       </p>
-
       <style>{`* { box-sizing: border-box; } input::placeholder { color: #9CA3AF; }`}</style>
     </div>
   );
