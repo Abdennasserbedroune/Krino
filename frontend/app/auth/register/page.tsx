@@ -7,21 +7,19 @@ import { supabase } from '@/lib/supabase/client';
 
 type Role = 'seeker' | 'recruiter';
 const VALID_ROLES: Role[] = ['seeker', 'recruiter'];
-const VALID_PLANS = ['free', 'pro', 'growth', 'teams', 'enterprise'];
 
 const ACCENT = {
-  seeker:    { color: '#3b82f6', soft: 'rgba(59,130,246,0.10)', border: 'rgba(59,130,246,0.22)' },
-  recruiter: { color: '#f97316', soft: 'rgba(249,115,22,0.10)',  border: 'rgba(249,115,22,0.22)'  },
+  seeker:    { color: '#3b82f6' },
+  recruiter: { color: '#f97316' },
 };
 
 function mapSignUpError(msg: string): string {
   const m = msg.toLowerCase();
   if (m.includes('already registered') || m.includes('already exists') || m.includes('duplicate') || m.includes('unique'))
     return 'An account with this email already exists. Try signing in instead.';
-  // Supabase password policy — replace the raw character-list dump with something human
   if (m.includes('password should contain at least one character of each') || m.includes('abcdefghijklmnopqrstuvwxyz'))
     return 'Your password must include an uppercase letter, a lowercase letter, a number, and a special character (e.g. Ab1@safe).';
-  if (m.includes('password') && (m.includes('weak') || m.includes('short') || m.includes('length') || m.includes('least') || m.includes('characters') || m.includes('6') || m.includes('8')))
+  if (m.includes('password') && (m.includes('weak') || m.includes('short') || m.includes('length') || m.includes('least') || m.includes('characters')))
     return 'Password is too weak. Use at least 8 characters with uppercase, lowercase, a number and a symbol.';
   if (m.includes('invalid email') || m.includes('valid email'))
     return 'Please enter a valid email address.';
@@ -59,23 +57,20 @@ const IconGoogle = () => (
   </svg>
 );
 
-// Password strength hint shown below the input
 function PasswordHint({ password }: { password: string }) {
   const checks = [
-    { label: 'Uppercase letter', ok: /[A-Z]/.test(password) },
-    { label: 'Lowercase letter', ok: /[a-z]/.test(password) },
-    { label: 'Number',           ok: /[0-9]/.test(password) },
-    { label: 'Symbol (!@#…)',    ok: /[^A-Za-z0-9]/.test(password) },
-    { label: '8+ characters',    ok: password.length >= 8 },
+    { label: 'Uppercase',     ok: /[A-Z]/.test(password) },
+    { label: 'Lowercase',     ok: /[a-z]/.test(password) },
+    { label: 'Number',        ok: /[0-9]/.test(password) },
+    { label: 'Symbol (!@#…)', ok: /[^A-Za-z0-9]/.test(password) },
+    { label: '8+ characters', ok: password.length >= 8 },
   ];
-  if (!password) return null;
-  const allOk = checks.every(c => c.ok);
-  if (allOk) return null;
+  if (!password || checks.every(c => c.ok)) return null;
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px', marginTop: 6 }}>
       {checks.map(c => (
         <span key={c.label} style={{ fontSize: 11, color: c.ok ? '#16a34a' : '#9CA3AF', display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ fontSize: 10 }}>{c.ok ? '✓' : '○'}</span> {c.label}
+          <span>{c.ok ? '✓' : '○'}</span> {c.label}
         </span>
       ))}
     </div>
@@ -85,7 +80,6 @@ function PasswordHint({ password }: { password: string }) {
 function RegisterForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const planParam = params.get('plan');
 
   const [role, setRole] = useState<Role>('seeker');
   const [name, setName] = useState('');
@@ -115,7 +109,6 @@ function RegisterForm() {
   useEffect(() => { recalcIndicator(); }, [recalcIndicator]);
   useEffect(() => { const t = setTimeout(recalcIndicator, 50); return () => clearTimeout(t); }, [recalcIndicator]);
 
-  // Client-side password validation matching Supabase policy
   const passwordValid = (p: string) =>
     p.length >= 8 && /[A-Z]/.test(p) && /[a-z]/.test(p) && /[0-9]/.test(p) && /[^A-Za-z0-9]/.test(p);
 
@@ -146,8 +139,6 @@ function RegisterForm() {
 
     if (!VALID_ROLES.includes(role)) { setError('Invalid role selected.'); return; }
     if (name.trim().length < 2)      { setError('Please enter your full name.'); return; }
-
-    // Validate password client-side BEFORE hitting Supabase
     if (!passwordValid(password)) {
       setError('Your password must include an uppercase letter, a lowercase letter, a number, and a special character (e.g. Ab1@safe).');
       return;
@@ -155,6 +146,7 @@ function RegisterForm() {
 
     setLoading(true);
 
+    // signUp — profile row is created automatically by the DB trigger
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.toLowerCase().trim(),
       password,
@@ -164,36 +156,17 @@ function RegisterForm() {
       },
     });
 
-    console.log('[register] signUp response:', JSON.stringify({ data, error: signUpError }, null, 2));
-
     if (signUpError) {
-      console.error('[register] signUpError:', signUpError.message, signUpError.status);
       setError(mapSignUpError(signUpError.message));
       setLoading(false);
       return;
     }
 
+    // Ghost signup detection (duplicate email → empty identities array)
     if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
       setError('An account with this email already exists. Try signing in instead.');
       setLoading(false);
       return;
-    }
-
-    if (data.user) {
-      const resolvedPlan = planParam && VALID_PLANS.includes(planParam) ? planParam : 'free';
-      const { error: profileError } = await supabase.from('users').upsert(
-        { id: data.user.id, email: email.toLowerCase().trim(), full_name: name.trim(), role, plan: resolvedPlan },
-        { onConflict: 'id', ignoreDuplicates: false }
-      );
-      if (profileError) {
-        console.error('[register] profile upsert error:', profileError.message, profileError.code);
-        const isDuplicate = profileError.code === '23505' || profileError.message.includes('duplicate');
-        if (!isDuplicate) {
-          setError(`Profile error: ${profileError.message} (${profileError.code})`);
-          setLoading(false);
-          return;
-        }
-      }
     }
 
     if (data.session) {
@@ -202,7 +175,7 @@ function RegisterForm() {
       setSuccess(true);
       setLoading(false);
     }
-  }, [role, name, email, password, planParam, router]);
+  }, [role, name, email, password, router]);
 
   if (success) {
     return (
@@ -236,21 +209,18 @@ function RegisterForm() {
         *, *::before, *::after { box-sizing: border-box; }
         .pw-input {
           height: 44px; width: 100%; padding: 0 14px;
-          border-radius: 12px;
-          border: 1.5px solid rgba(17,24,39,0.14);
-          background: rgba(17,24,39,0.02);
-          font-size: 14px; font-family: 'Inter', sans-serif;
-          color: #111827; outline: none;
+          border-radius: 12px; border: 1.5px solid rgba(17,24,39,0.14);
+          background: rgba(17,24,39,0.02); font-size: 14px;
+          font-family: 'Inter', sans-serif; color: #111827; outline: none;
           transition: border-color 150ms ease, background 150ms ease;
         }
         .pw-input::placeholder { color: #9CA3AF; }
-        .pw-input-seeker:focus   { border-color: #3b82f6; background: rgba(59,130,246,0.04); }
+        .pw-input-seeker:focus    { border-color: #3b82f6; background: rgba(59,130,246,0.04); }
         .pw-input-recruiter:focus { border-color: #f97316; background: rgba(249,115,22,0.04); }
         .pw-submit-btn {
           margin-top: 6px; height: 48px; width: 100%; border-radius: 9999px;
-          color: #fff; font-size: 15px; font-weight: 500; border: none;
-          cursor: pointer; display: flex; align-items: center;
-          justify-content: center; gap: 8px;
+          color: #fff; font-size: 15px; font-weight: 500; border: none; cursor: pointer;
+          display: flex; align-items: center; justify-content: center; gap: 8px;
           transition: opacity 150ms ease, transform 150ms ease, background 300ms ease;
           font-family: 'Inter', sans-serif;
         }
@@ -260,9 +230,8 @@ function RegisterForm() {
           width: 100%; height: 44px; border-radius: 9999px;
           border: 1.5px solid rgba(17,24,39,0.14); background: #fff;
           display: flex; align-items: center; justify-content: center; gap: 10px;
-          font-size: 14px; font-weight: 500; color: #374151;
-          cursor: pointer; transition: border-color 150ms, transform 150ms;
-          font-family: 'Inter', sans-serif;
+          font-size: 14px; font-weight: 500; color: #374151; cursor: pointer;
+          transition: border-color 150ms, transform 150ms; font-family: 'Inter', sans-serif;
         }
         .pw-google-btn:not(:disabled):hover { border-color: rgba(17,24,39,0.32); transform: translateY(-1px); }
         .pw-google-btn:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -324,7 +293,7 @@ function RegisterForm() {
               <input id="reg-password" type="password" required placeholder="e.g. MyPass1@"
                 value={password} onChange={e => setPassword(e.target.value)}
                 className={`pw-input pw-input-${role}`} autoComplete="new-password"/>
-              <PasswordHint password={password} />
+              <PasswordHint password={password}/>
             </div>
 
             {error && (
