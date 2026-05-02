@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 
-// ── Icons ──────────────────────────────────────────────────────────────────────
 const IconLogo = () => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
     <rect width="28" height="28" rx="7" fill="#111827"/>
@@ -39,8 +38,13 @@ const IconGoogle = () => (
     <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 6.294C4.672 4.169 6.656 3.58 9 3.58z" fill="#EA4335"/>
   </svg>
 );
+const IconMail = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="2" y="4" width="20" height="16" rx="2"/>
+    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+  </svg>
+);
 
-// ── Error mapper — never leaks whether an email exists ──────────────────────
 function mapAuthError(msg: string): string {
   const m = msg.toLowerCase();
   if (m.includes('invalid login') || m.includes('invalid credentials') || m.includes('wrong password'))
@@ -53,10 +57,72 @@ function mapAuthError(msg: string): string {
     return 'No account found with this email. Would you like to create one?';
   if (m.includes('network') || m.includes('fetch'))
     return 'Connection error. Please check your internet and try again.';
-  return 'Sign-in failed. Please try again.';
+  return `Sign-in failed: ${msg}`;
 }
 
 type Role = 'seeker' | 'recruiter';
+
+// ── Unverified email banner ───────────────────────────────────────────────────
+function UnverifiedBanner({ email, onResend }: { email: string; onResend: () => void }) {
+  const [resent, setResent] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setInterval(() => setCooldown(c => c - 1), 1000);
+    return () => clearInterval(t);
+  }, [cooldown]);
+
+  const handleResend = async () => {
+    onResend();
+    setResent(true);
+    setCooldown(60);
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+      zIndex: 9999, width: 'calc(100% - 32px)', maxWidth: 520,
+      background: '#1c1917', borderRadius: 14,
+      boxShadow: '0 4px 24px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.07)',
+      padding: '14px 18px', display: 'flex', alignItems: 'flex-start', gap: 12,
+      animation: 'slideUp 300ms cubic-bezier(0.16,1,0.3,1)',
+    }}>
+      <style>{`
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+      `}</style>
+      <div style={{ marginTop: 2, color: '#f59e0b', flexShrink: 0 }}><IconMail/></div>
+      <div style={{ flex: 1 }}>
+        <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600, color: '#f5f5f4', lineHeight: 1.4 }}>
+          Please verify your email
+        </p>
+        <p style={{ margin: '0 0 10px', fontSize: 12, color: '#a8a29e', lineHeight: 1.5 }}>
+          We sent a confirmation link to <strong style={{ color: '#e7e5e4' }}>{email}</strong>.
+          Unverified accounts are deleted after <strong style={{ color: '#fbbf24' }}>2 days</strong>.
+        </p>
+        <button
+          onClick={handleResend}
+          disabled={cooldown > 0}
+          style={{
+            fontSize: 12, fontWeight: 500, padding: '5px 12px', borderRadius: 6,
+            border: '1px solid rgba(255,255,255,0.15)',
+            background: resent ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.08)',
+            color: resent ? '#4ade80' : '#e7e5e4',
+            cursor: cooldown > 0 ? 'not-allowed' : 'pointer',
+            opacity: cooldown > 0 ? 0.6 : 1,
+            fontFamily: "'Inter', sans-serif",
+            transition: 'all 150ms',
+          }}
+        >
+          {resent && cooldown > 0 ? `Sent ✓ — resend in ${cooldown}s` : 'Resend confirmation email'}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -67,10 +133,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) router.replace('/dashboard');
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) router.replace('/dashboard');
     });
   }, [router]);
 
@@ -101,41 +168,54 @@ export default function LoginPage() {
     }
   }, []);
 
+  const handleResendConfirmation = useCallback(async () => {
+    if (!unverifiedEmail) return;
+    await supabase.auth.resend({ type: 'signup', email: unverifiedEmail });
+  }, [unverifiedEmail]);
+
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setUnverifiedEmail(null);
     setLoading(true);
 
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (authError) {
+      // Email not confirmed — let them in anyway, show the sticky banner
+      if (authError.message.toLowerCase().includes('email not confirmed')) {
+        // Supabase blocks login for unconfirmed users — we show the banner and
+        // keep them on the login page with a helpful message instead of a hard error
+        setUnverifiedEmail(email);
+        setError(null);
+        setLoading(false);
+        return;
+      }
       setError(mapAuthError(authError.message));
       setLoading(false);
       return;
     }
 
-    // Role isolation: fetch DB role and compare to what user selected
-    const { data: profile, error: profileError } = await supabase
+    // Role check
+    const { data: profile } = await supabase
       .from('users')
-      .select('role')
+      .select('role, email_confirmed_at')
       .eq('id', data.user!.id)
       .single();
 
-    if (profileError || !profile) {
-      setError('Account profile not found. Please contact support or re-register.');
+    if (!profile) {
+      setError('Account profile not found. Please re-register or contact support.');
       await supabase.auth.signOut();
       setLoading(false);
       return;
     }
 
-    const dbRole = profile.role as Role;
-
-    if (dbRole !== selectedRole) {
+    if (profile.role !== selectedRole) {
       await supabase.auth.signOut();
       setError(
         `This email is registered as a ${
-          dbRole === 'recruiter' ? 'Recruiter / HR Team' : 'Job Seeker'
-        }. Go back and select the correct role, or create a separate account.`
+          profile.role === 'recruiter' ? 'Recruiter / HR Team' : 'Job Seeker'
+        }. Go back and select the correct role.`
       );
       setLoading(false);
       return;
@@ -161,47 +241,33 @@ export default function LoginPage() {
 
   return (
     <div style={{ minHeight: '100dvh', background: '#F7F3EF', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', position: 'relative', overflowX: 'hidden' }}>
-      {/* Background layers */}
       <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,237,213,0.55) 0%, transparent 70%)' }}/>
       <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, backgroundImage: 'linear-gradient(to right, rgba(17,24,39,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(17,24,39,0.04) 1px, transparent 1px)', backgroundSize: '48px 48px' }}/>
 
-      {/* ── INPUT FOCUS FIX: CSS classes prevent re-render stealing focus ── */}
       <style>{`
         *, *::before, *::after { box-sizing: border-box; }
         .pw-input {
-          height: 44px; width: 100%; padding: 0 14px;
-          border-radius: 12px;
-          border: 1.5px solid rgba(17,24,39,0.14);
-          background: rgba(17,24,39,0.02);
-          font-size: 14px; font-family: 'Inter', sans-serif;
-          color: #111827; outline: none;
+          height: 44px; width: 100%; padding: 0 14px; border-radius: 12px;
+          border: 1.5px solid rgba(17,24,39,0.14); background: rgba(17,24,39,0.02);
+          font-size: 14px; font-family: 'Inter', sans-serif; color: #111827; outline: none;
           transition: border-color 150ms ease, background 150ms ease;
         }
         .pw-input::placeholder { color: #9CA3AF; }
-        .pw-input:focus {
-          border-color: #111827;
-          background: rgba(17,24,39,0.03);
-        }
-        .pw-input-seeker:focus  { border-color: #3b82f6; background: rgba(59,130,246,0.04); }
+        .pw-input-seeker:focus    { border-color: #3b82f6; background: rgba(59,130,246,0.04); }
         .pw-input-recruiter:focus { border-color: #f97316; background: rgba(249,115,22,0.04); }
         .pw-role-btn {
-          display: flex; align-items: center; gap: 16px;
-          padding: 18px 20px; border-radius: 16px;
-          border: 1.5px solid; cursor: pointer; text-align: left;
-          transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
-          width: 100%;
+          display: flex; align-items: center; gap: 16px; padding: 18px 20px;
+          border-radius: 16px; border: 1.5px solid; cursor: pointer; text-align: left;
+          transition: border-color 150ms ease, background 150ms ease, transform 150ms ease; width: 100%;
         }
         .pw-role-btn:hover { transform: translateY(-1px); }
         .pw-submit-btn {
           margin-top: 4px; height: 48px; width: 100%; border-radius: 9999px;
-          color: #fff; font-size: 15px; font-weight: 500; border: none;
-          cursor: pointer; display: flex; align-items: center;
-          justify-content: center; gap: 8px;
-          box-shadow: rgba(0,0,0,0.4) 0px 12px 24px -6px,
-            rgba(255,255,255,0.15) 0px 1px 1px 0px inset,
-            rgba(0,0,0,0.5) 0px -2px 3px 0px inset,
-            rgba(0,0,0,0.10) 0px 0px 0px 1px;
+          color: #fff; font-size: 15px; font-weight: 500; border: none; cursor: pointer;
+          display: flex; align-items: center; justify-content: center; gap: 8px;
+          box-shadow: rgba(0,0,0,0.4) 0px 12px 24px -6px;
           transition: opacity 150ms ease, transform 150ms ease;
+          font-family: 'Inter', sans-serif;
         }
         .pw-submit-btn:not(:disabled):hover { transform: translateY(-1px); }
         .pw-submit-btn:disabled { opacity: 0.55; cursor: not-allowed; }
@@ -209,14 +275,10 @@ export default function LoginPage() {
           width: 100%; height: 44px; border-radius: 9999px;
           border: 1.5px solid rgba(17,24,39,0.14); background: #fff;
           display: flex; align-items: center; justify-content: center; gap: 10px;
-          font-size: 14px; font-weight: 500; color: #374151;
-          cursor: pointer; transition: border-color 150ms, transform 150ms;
-          font-family: 'Inter', sans-serif;
+          font-size: 14px; font-weight: 500; color: #374151; cursor: pointer;
+          transition: border-color 150ms, transform 150ms; font-family: 'Inter', sans-serif;
         }
-        .pw-google-btn:not(:disabled):hover {
-          border-color: rgba(17,24,39,0.32);
-          transform: translateY(-1px);
-        }
+        .pw-google-btn:not(:disabled):hover { border-color: rgba(17,24,39,0.32); transform: translateY(-1px); }
         .pw-google-btn:disabled { opacity: 0.6; cursor: not-allowed; }
       `}</style>
 
@@ -227,7 +289,6 @@ export default function LoginPage() {
         </Link>
       </div>
 
-      {/* ── STEP 1: Role selection ── */}
       {step === 'role' && (
         <Card>
           <div style={{ marginBottom: 28 }}>
@@ -265,18 +326,18 @@ export default function LoginPage() {
             <span style={{ fontSize: 12, color: '#9CA3AF' }}>New to Pathwise?</span>
             <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }}/>
           </div>
-          <Link href="/auth/register" style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: 9999, border: '1.5px solid rgba(17,24,39,0.14)', color: '#374151', fontSize: 14, fontWeight: 500, textDecoration: 'none', transition: 'border-color 150ms ease, color 150ms ease' }}
+          <Link href="/auth/register"
+            style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: 9999, border: '1.5px solid rgba(17,24,39,0.14)', color: '#374151', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(17,24,39,0.32)'; (e.currentTarget as HTMLElement).style.color = '#111827'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(17,24,39,0.14)'; (e.currentTarget as HTMLElement).style.color = '#374151'; }}
           >Create an account</Link>
         </Card>
       )}
 
-      {/* ── STEP 2: Email/password + Google ── */}
       {step === 'form' && selectedRole && (
         <Card>
-          <button onClick={() => { setStep('role'); setError(null); }}
-            style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#6B7280', padding: 0, transition: 'color 150ms', fontFamily: "'Inter', sans-serif" }}
+          <button onClick={() => { setStep('role'); setError(null); setUnverifiedEmail(null); }}
+            style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#6B7280', padding: 0, fontFamily: "'Inter', sans-serif" }}
             onMouseEnter={e => (e.currentTarget.style.color = '#111827')}
             onMouseLeave={e => (e.currentTarget.style.color = '#6B7280')}
           >
@@ -284,7 +345,6 @@ export default function LoginPage() {
             Back
           </button>
 
-          {/* Role badge */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, background: selectedRole === 'seeker' ? 'rgba(59,130,246,0.06)' : 'rgba(249,115,22,0.06)', border: `1px solid ${selectedRole === 'seeker' ? 'rgba(59,130,246,0.20)' : 'rgba(249,115,22,0.20)'}`, marginBottom: 28 }}>
             {selectedRole === 'seeker' ? <IconSeeker/> : <IconRecruiter/>}
             <div>
@@ -309,29 +369,32 @@ export default function LoginPage() {
             <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }}/>
           </div>
 
+          {/* Unverified notice inline (before error box) */}
+          {unverifiedEmail && (
+            <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', fontSize: 13, color: '#92400e', lineHeight: 1.6, marginBottom: 16 }}>
+              📧 A confirmation email was sent to <strong>{unverifiedEmail}</strong>. Please verify your email to access all features.
+              <button
+                onClick={handleResendConfirmation}
+                style={{ display: 'block', marginTop: 8, fontSize: 12, color: '#d97706', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: "'Inter', sans-serif", textDecoration: 'underline' }}
+              >Resend confirmation email</button>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <label htmlFor="login-email" style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Email</label>
-              <input
-                id="login-email"
-                type="email" required placeholder="you@example.com"
+              <input id="login-email" type="email" required placeholder="you@example.com"
                 value={email} onChange={e => setEmail(e.target.value)}
-                className={`pw-input pw-input-${selectedRole}`}
-                autoComplete="email"
-              />
+                className={`pw-input pw-input-${selectedRole}`} autoComplete="email"/>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <label htmlFor="login-password" style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Password</label>
                 <Link href="/auth/forgot-password" style={{ fontSize: 12, color: '#6B7280', textDecoration: 'none' }}>Forgot password?</Link>
               </div>
-              <input
-                id="login-password"
-                type="password" required placeholder="••••••••"
+              <input id="login-password" type="password" required placeholder="••••••••"
                 value={password} onChange={e => setPassword(e.target.value)}
-                className={`pw-input pw-input-${selectedRole}`}
-                autoComplete="current-password"
-              />
+                className={`pw-input pw-input-${selectedRole}`} autoComplete="current-password"/>
             </div>
 
             {error && (
@@ -348,6 +411,11 @@ export default function LoginPage() {
             </button>
           </form>
         </Card>
+      )}
+
+      {/* Sticky bottom banner for unverified users who got past login (future: confirmed session but unverified) */}
+      {unverifiedEmail && step === 'form' && (
+        <UnverifiedBanner email={unverifiedEmail} onResend={handleResendConfirmation}/>
       )}
 
       <p style={{ position: 'relative', zIndex: 1, marginTop: 28, fontSize: 12, color: '#9CA3AF', textAlign: 'center' }}>
