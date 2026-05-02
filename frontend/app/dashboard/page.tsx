@@ -2,12 +2,8 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { useAuth } from "@/lib/auth/client";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { Target, MessageSquare, Briefcase } from "lucide-react";
-import { ProfileDropdown } from "@/components/ui/profile-dropdown";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
 import Protected from "@/components/Protected";
 
 const DesiredJobPage = dynamic(() => import("./desired-job/page"), { ssr: false });
@@ -16,104 +12,175 @@ const JobsPage       = dynamic(() => import("./jobs/page"),        { ssr: false 
 
 type TabId = "desired-job" | "chat" | "jobs";
 
+// ─── Design tokens (matching landing page system) ─────────────────────────────
+const CARD_SHADOW =
+  "0 0 0 1px rgba(0,0,0,0.06), 0 1px 1px -0.5px rgba(0,0,0,0.06), 0 3px 3px -1.5px rgba(0,0,0,0.06), 0 6px 6px -3px rgba(0,0,0,0.06), 0 12px 12px -6px rgba(0,0,0,0.06), 0 24px 24px -12px rgba(0,0,0,0.06)";
+
 export default function DashboardIndexPage() {
-  const { email } = useAuth();
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabId>("desired-job");
 
   const tabs = [
     { id: "desired-job" as TabId, label: t.careerMatch.title, icon: Target        },
-    { id: "chat"        as TabId, label: t.chatPage.title,     icon: MessageSquare },
-    { id: "jobs"        as TabId, label: t.jobs.title,         icon: Briefcase     },
+    { id: "chat"        as TabId, label: t.chatPage.title,    icon: MessageSquare  },
+    { id: "jobs"        as TabId, label: t.jobs.title,        icon: Briefcase      },
   ];
 
   return (
     <Protected>
-      <div className="min-h-screen bg-background font-sans text-foreground overflow-x-hidden">
-
-        {/* ── Navbar ── */}
-        <header className="fixed top-0 left-0 right-0 z-[60] border-b border-white/10 bg-gradient-to-r from-[#1a2744]/95 via-[#1e3a6e]/95 to-[#1a2e5a]/95 backdrop-blur-xl shadow-lg">
-          <div className="container mx-auto px-4 sm:px-6 h-16 md:h-20 flex items-center justify-between gap-3">
-
-            {/* Logo + role badge */}
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <span className="font-serif text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white select-none cursor-default">
-                Pathwise
-              </span>
-              <span className="hidden md:inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-blue-100 whitespace-nowrap">
-                {t.hero.roleSeeker}
-              </span>
-            </div>
-
-            {/* Right controls */}
-            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-              <ThemeToggle variant="icon" />
-              <LanguageSwitcher />
-              {email && (
-                <span className="hidden sm:inline-block max-w-[140px] lg:max-w-[220px] truncate text-sm font-medium text-blue-100/80">
-                  {email}
-                </span>
-              )}
-              <ProfileDropdown />
-            </div>
-          </div>
-        </header>
-
-        <div className="container mx-auto px-4 sm:px-6 pt-24 md:pt-40 pb-16 md:pb-24">
-
-          {/* Page heading */}
-          <div className="mb-8 md:mb-12">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-card border border-border px-4 py-1.5 text-sm font-semibold uppercase tracking-[0.18em] text-foreground">
-              {t.nav.dashboard}
-            </div>
-            <h1 className="font-serif text-3xl sm:text-4xl md:text-6xl text-foreground mb-3 md:mb-4 tracking-tight leading-tight">
-              {t.careerMatch.subtitle}
-            </h1>
-            <p className="text-base sm:text-xl text-muted-foreground max-w-3xl">
-              {t.hero.subSeeker}
-            </p>
-          </div>
-
-          {/* ── Tab bar ── */}
-          <div className="mb-6 md:mb-10 -mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto scrollbar-none">
-            <div className="flex gap-2 sm:gap-3 w-max sm:w-auto">
-              {tabs.map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => setActiveTab(id)}
-                  className={`inline-flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2.5 rounded-full text-sm sm:text-base font-semibold whitespace-nowrap transition-all duration-150 ${
-                    activeTab === id
-                      ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
-                      : "bg-card text-muted-foreground hover:bg-surface-elevated hover:text-foreground border border-border/80"
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* ── Main content card ── */}
-          <div
-            className={`bg-card rounded-[1.5rem] sm:rounded-[2rem] border border-border/50 min-h-[400px] sm:min-h-[560px] shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3),0_4px_24px_rgba(0,0,0,0.22)] ${
-              activeTab === "jobs" ? "hidden" : ""
-            }`}
+      {/* Page heading */}
+      <div style={{ marginBottom: 32 }}>
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "4px 14px 4px 8px",
+            borderRadius: 9999,
+            background: "rgba(255,255,255,0.82)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            border: "1px solid rgba(17,24,39,0.09)",
+            boxShadow: "0 1px 4px rgba(17,24,39,0.06)",
+            marginBottom: 16,
+          }}
+        >
+          <span
+            style={{
+              width: 18,
+              height: 18,
+              borderRadius: "50%",
+              background: "#3b82f6",
+              display: "inline-block",
+              flexShrink: 0,
+            }}
+          />
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: "#6B7280",
+            }}
           >
-            <div className="p-4 sm:p-8 md:p-12">
-              <div className={activeTab !== "desired-job" ? "hidden" : ""}>
-                <DesiredJobPage onSwitchToChat={() => setActiveTab("chat")} />
-              </div>
-              <div className={activeTab !== "chat" ? "hidden" : ""}>
-                <ChatPage />
-              </div>
-            </div>
-          </div>
+            Job Seeker · Career Dashboard
+          </span>
+        </div>
 
-          <div className={activeTab !== "jobs" ? "hidden" : "pt-2"}>
-            <JobsPage />
+        <h1
+          style={{
+            margin: 0,
+            fontSize: "clamp(28px, 4vw, 48px)",
+            fontWeight: 500,
+            lineHeight: 1.1,
+            letterSpacing: "-0.025em",
+            color: "#111827",
+          }}
+        >
+          {t.careerMatch.subtitle}
+        </h1>
+        <p
+          style={{
+            marginTop: 10,
+            fontSize: 15,
+            fontWeight: 300,
+            color: "#6B7280",
+            lineHeight: 1.7,
+            letterSpacing: "0.01em",
+            maxWidth: 560,
+          }}
+        >
+          {t.hero.subSeeker}
+        </p>
+      </div>
+
+      {/* Tab bar — pill style from landing */}
+      <div
+        style={{
+          marginBottom: 24,
+          display: "flex",
+          gap: 6,
+          overflowX: "auto",
+          scrollbarWidth: "none",
+        }}
+      >
+        {tabs.map(({ id, label, icon: Icon }) => {
+          const active = activeTab === id;
+          return (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "9px 20px",
+                borderRadius: 9999,
+                border: "none",
+                cursor: "pointer",
+                fontSize: 14,
+                fontWeight: 500,
+                letterSpacing: "0.35px",
+                whiteSpace: "nowrap",
+                color: active ? "#FFFFFF" : "#6B7280",
+                background: active ? "#111827" : "rgba(255,255,255,0.82)",
+                backdropFilter: active ? "none" : "blur(8px)",
+                boxShadow: active
+                  ? "rgba(0,0,0,0.4) 0px 12px 24px -6px, rgba(255,255,255,0.15) 0px 1px 1px 0px inset, rgba(0,0,0,0.5) 0px -2px 3px 0px inset, rgba(0,0,0,0.10) 0px 0px 0px 1px"
+                  : "0 1px 4px rgba(17,24,39,0.06), 0 0 0 1px rgba(17,24,39,0.07)",
+                transition: "background 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 150ms ease",
+              }}
+              onMouseEnter={e => {
+                if (!active) {
+                  (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)";
+                  (e.currentTarget as HTMLElement).style.color = "#111827";
+                }
+              }}
+              onMouseLeave={e => {
+                if (!active) {
+                  (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+                  (e.currentTarget as HTMLElement).style.color = "#6B7280";
+                }
+              }}
+            >
+              <Icon size={15} />
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Content card — gradient border shell + 32px radius, matches landing */}
+      <div
+        style={{
+          padding: 1,
+          borderRadius: 32,
+          background: "linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(17,24,39,0.07) 100%)",
+        }}
+        className={activeTab === "jobs" ? "hidden" : ""}
+      >
+        <div
+          style={{
+            borderRadius: 31,
+            background: "#FFFFFF",
+            boxShadow: CARD_SHADOW,
+            padding: "32px",
+            minHeight: 480,
+          }}
+        >
+          <div className={activeTab !== "desired-job" ? "hidden" : ""}>
+            <DesiredJobPage onSwitchToChat={() => setActiveTab("chat")} />
+          </div>
+          <div className={activeTab !== "chat" ? "hidden" : ""}>
+            <ChatPage />
           </div>
         </div>
+      </div>
+
+      {/* Jobs: full-width, no card wrapper */}
+      <div className={activeTab !== "jobs" ? "hidden" : ""}>
+        <JobsPage />
       </div>
     </Protected>
   );
