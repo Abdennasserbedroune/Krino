@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { EmailConfirmBanner } from "@/components/EmailConfirmBanner";
 
 const plusJakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-sans" });
 const fraunces = Fraunces({
@@ -40,6 +41,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
               <div className="flex min-h-screen flex-col">
                 <main className="flex-1">{children}</main>
               </div>
+              {/* Sticky banner for unconfirmed emails — auto-hides once confirmed */}
+              <EmailConfirmBanner />
               <Toaster />
             </AuthProvider>
           </LanguageProvider>
