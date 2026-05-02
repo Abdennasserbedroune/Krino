@@ -16,6 +16,7 @@ class User(Base):
     is_active = Column(Boolean(), default=True)
     is_superuser = Column(Boolean(), default=False)
     last_login = Column(DateTime)
+    role = Column(String, nullable=False, default="seeker")  # "seeker" | "recruiter"
     
     # Relationships
     cvs = relationship("CV", back_populates="owner")
