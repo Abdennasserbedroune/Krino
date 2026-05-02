@@ -1,5 +1,4 @@
 import { createBrowserClient } from '@supabase/ssr'
-import type { Database } from '@/types/supabase'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -12,8 +11,21 @@ if (!url || !key) {
 }
 
 /**
- * Browser-side Supabase client — singleton.
- * Session is stored in cookies managed by @supabase/ssr, NOT in localStorage.
- * Import this in Client Components instead of @/lib/supabase.
+ * Browser-side Supabase client — two usage patterns supported:
+ *
+ * 1. Singleton (used in login/register pages added in this PR):
+ *    import { supabase } from '@/lib/supabase/client'
+ *
+ * 2. Factory (used by all existing hooks and components):
+ *    import { createClient } from '@/lib/supabase/client'
+ *    const supabase = createClient()
+ *
+ * Both return the same underlying client. Session is stored in cookies
+ * managed by @supabase/ssr — never in localStorage.
  */
-export const supabase = createBrowserClient<Database>(url, key)
+export function createClient() {
+  return createBrowserClient(url!, key!)
+}
+
+// Singleton alias for convenience in new code
+export const supabase = createClient()

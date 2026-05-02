@@ -1,11 +1,21 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import type { Database } from '@/types/supabase'
 
 /**
  * Server-side Supabase client for Route Handlers and Server Components.
  * Reads/writes the session from HTTP-only cookies — never localStorage.
- * Use this in: app/auth/callback/route.ts, server actions, etc.
+ *
+ * Two usage patterns supported:
+ *
+ * 1. Async factory (new code — preferred):
+ *    import { createSupabaseServerClient } from '@/lib/supabase/server'
+ *    const supabase = await createSupabaseServerClient()
+ *
+ * 2. Named createClient export (matches pattern used by existing API routes):
+ *    import { createClient } from '@/lib/supabase/server'
+ *    const supabase = createClient()
+ *
+ * Both patterns produce a correctly cookie-backed server client.
  */
 export async function createSupabaseServerClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -20,7 +30,7 @@ export async function createSupabaseServerClient() {
 
   const cookieStore = await cookies()
 
-  return createServerClient<Database>(url, key, {
+  return createServerClient(url, key, {
     cookies: {
       getAll() {
         return cookieStore.getAll()
@@ -31,8 +41,43 @@ export async function createSupabaseServerClient() {
             cookieStore.set(name, value, options)
           )
         } catch {
-          // setAll is called from a Server Component — ignore the error.
-          // The middleware will refresh the session cookie regardless.
+          // Called from a Server Component — safe to ignore.
+          // Middleware will refresh the session cookie.
+        }
+      },
+    },
+  })
+}
+
+/**
+ * Synchronous factory alias — matches the `createClient()` import pattern
+ * used by all existing API routes in this codebase.
+ *
+ * Note: cookies() in Next.js 14+ returns a synchronous store inside
+ * Route Handlers (where it's always called), so this works correctly.
+ * For Server Components use createSupabaseServerClient() (async) instead.
+ */
+export function createClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+  // cookies() is sync-compatible inside Route Handlers in Next.js 14
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { cookies: syncCookies } = require('next/headers')
+  const cookieStore = syncCookies()
+
+  return createServerClient(url, key, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll()
+      },
+      setAll(cookiesToSet: { name: string; value: string; options?: object }[]) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }: { name: string; value: string; options?: object }) =>
+            cookieStore.set(name, value, options)
+          )
+        } catch {
+          // Safe to ignore in Server Components
         }
       },
     },
