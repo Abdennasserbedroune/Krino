@@ -17,20 +17,25 @@ const ACCENT = {
 // ── Error mapper ──────────────────────────────────────────────────────────────
 function mapSignUpError(msg: string): string {
   const m = msg.toLowerCase();
-  if (m.includes('already registered') || m.includes('already exists') || m.includes('duplicate'))
+  if (m.includes('already registered') || m.includes('already exists') || m.includes('duplicate') || m.includes('unique'))
     return 'An account with this email already exists. Try signing in instead.';
-  if (m.includes('password') && (m.includes('weak') || m.includes('short') || m.includes('length')))
+  if (m.includes('password') && (m.includes('weak') || m.includes('short') || m.includes('length') || m.includes('characters')))
     return 'Password is too weak. Use at least 8 characters with a mix of letters and numbers.';
-  if (m.includes('invalid email') || m.includes('email format'))
+  if (m.includes('invalid email') || m.includes('email format') || m.includes('valid email'))
     return 'Please enter a valid email address.';
-  if (m.includes('too many requests') || m.includes('rate limit'))
+  if (m.includes('too many requests') || m.includes('rate limit') || m.includes('429'))
     return 'Too many attempts. Please wait a few minutes before trying again.';
-  if (m.includes('network') || m.includes('fetch'))
+  if (m.includes('network') || m.includes('fetch') || m.includes('failed to fetch'))
     return 'Connection error. Please check your internet and try again.';
+  if (m.includes('signups not allowed') || m.includes('email link'))
+    return 'Sign-ups are temporarily disabled. Please contact support.';
+  // Surface raw error in dev so you can diagnose it instantly
+  if (process.env.NODE_ENV === 'development')
+    return `Debug: ${msg}`;
   return 'Could not create account. Please try again.';
 }
 
-// ── Icons ──────────────────────────────────────────────────────────────────────
+// ── Icons ─────────────────────────────────────────────────────────────────────
 const IconLogo = () => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
     <rect width="28" height="28" rx="7" fill="#111827"/>
@@ -114,14 +119,16 @@ function RegisterForm() {
     e.preventDefault();
     setError(null);
 
+    // ── Client-side guards ──
     if (!VALID_ROLES.includes(role)) { setError('Invalid role selected.'); return; }
-    if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
-    if (name.trim().length < 2) { setError('Please enter your full name.'); return; }
+    if (name.trim().length < 2)      { setError('Please enter your full name.'); return; }
+    if (password.length < 8)         { setError('Password must be at least 8 characters.'); return; }
 
     setLoading(true);
 
+    // ── 1. Create auth user ──
     const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
+      email: email.toLowerCase().trim(),
       password,
       options: {
         data: { full_name: name.trim(), role },
@@ -135,33 +142,45 @@ function RegisterForm() {
       return;
     }
 
-    // Write profile row — only if user was actually created (not a duplicate session)
-    if (data.user && !data.user.identities?.length === false) {
-      // identities array is empty for duplicate email signups in Supabase
-      // This is a false-positive signup — Supabase returns no error but sends
-      // a "you already have an account" email. Detect and surface it clearly.
+    // ── 2. Detect Supabase ghost-signup (duplicate email returns HTTP 200 + empty identities) ──
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      setError('An account with this email already exists. Try signing in instead.');
+      setLoading(false);
+      return;
     }
 
+    // ── 3. Write profile row (only for genuine new signups) ──
     if (data.user) {
       const resolvedPlan = planParam && VALID_PLANS.includes(planParam) ? planParam : 'free';
-      const { error: profileError } = await supabase.from('users').upsert({
-        id: data.user.id,
-        email: email.toLowerCase().trim(),
-        full_name: name.trim(),
-        role,
-        plan: resolvedPlan,
-      }, {
-        onConflict: 'id',
-        ignoreDuplicates: false,
-      });
+
+      const { error: profileError } = await supabase.from('users').upsert(
+        {
+          id: data.user.id,
+          email: email.toLowerCase().trim(),
+          full_name: name.trim(),
+          role,
+          plan: resolvedPlan,
+        },
+        { onConflict: 'id', ignoreDuplicates: false }
+      );
 
       if (profileError) {
-        // Profile insert failed — log for debugging but don't block the user
-        // The trigger or callback will retry on first login
-        console.error('[register] profile upsert error:', profileError.message);
+        console.error('[register] profile upsert failed:', profileError.message, profileError.code);
+        // Only block the user if it’s NOT a harmless duplicate-key error
+        const isDuplicate = profileError.message.includes('duplicate') || profileError.code === '23505';
+        if (!isDuplicate) {
+          setError(
+            process.env.NODE_ENV === 'development'
+              ? `Profile save failed — ${profileError.message} (code: ${profileError.code})`
+              : 'Account created but profile setup failed. Please sign in and we’ll complete your profile.'
+          );
+          setLoading(false);
+          return;
+        }
       }
     }
 
+    // ── 4. Route ──
     if (data.session) {
       router.push('/dashboard');
     } else {
@@ -170,6 +189,7 @@ function RegisterForm() {
     }
   }, [role, name, email, password, planParam, router]);
 
+  // ── Success screen ──
   if (success) {
     return (
       <div style={{ minHeight: '100dvh', background: '#F7F3EF', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, position: 'relative' }}>
@@ -193,12 +213,12 @@ function RegisterForm() {
     );
   }
 
+  // ── Main form ──
   return (
     <div style={{ minHeight: '100dvh', background: '#F7F3EF', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', position: 'relative', overflowX: 'hidden' }}>
       <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,237,213,0.55) 0%, transparent 70%)' }}/>
       <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, backgroundImage: 'linear-gradient(to right, rgba(17,24,39,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(17,24,39,0.04) 1px, transparent 1px)', backgroundSize: '48px 48px' }}/>
 
-      {/* ── INPUT FOCUS FIX ── */}
       <style>{`
         *, *::before, *::after { box-sizing: border-box; }
         .pw-input {
@@ -211,7 +231,7 @@ function RegisterForm() {
           transition: border-color 150ms ease, background 150ms ease;
         }
         .pw-input::placeholder { color: #9CA3AF; }
-        .pw-input-seeker:focus  { border-color: #3b82f6; background: rgba(59,130,246,0.04); }
+        .pw-input-seeker:focus   { border-color: #3b82f6; background: rgba(59,130,246,0.04); }
         .pw-input-recruiter:focus { border-color: #f97316; background: rgba(249,115,22,0.04); }
         .pw-submit-btn {
           margin-top: 6px; height: 48px; width: 100%; border-radius: 9999px;
@@ -259,7 +279,9 @@ function RegisterForm() {
 
           <div style={{ marginBottom: 24, position: 'relative' }}>
             <h1 style={{ margin: '0 0 6px', fontSize: 24, fontWeight: 600, color: '#111827', letterSpacing: '-0.02em' }}>Create your account</h1>
-            <p style={{ margin: 0, fontSize: 14, color: '#6B7280', fontWeight: 400, lineHeight: 1.6 }}>{role === 'seeker' ? 'Start optimising your resume and tracking jobs.' : 'Start screening candidates and building your pipeline.'}</p>
+            <p style={{ margin: 0, fontSize: 14, color: '#6B7280', fontWeight: 400, lineHeight: 1.6 }}>
+              {role === 'seeker' ? 'Start optimising your resume and tracking jobs.' : 'Start screening candidates and building your pipeline.'}
+            </p>
           </div>
 
           <button className="pw-google-btn" onClick={handleGoogleSignUp} disabled={googleLoading}>
@@ -318,7 +340,8 @@ function RegisterForm() {
             <span style={{ fontSize: 12, color: '#9CA3AF' }}>Already have an account?</span>
             <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }}/>
           </div>
-          <Link href="/auth/login" style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: 9999, border: '1.5px solid rgba(17,24,39,0.14)', color: '#374151', fontSize: 14, fontWeight: 500, textDecoration: 'none', transition: 'border-color 150ms ease, color 150ms ease' }}
+          <Link href="/auth/login"
+            style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: 9999, border: '1.5px solid rgba(17,24,39,0.14)', color: '#374151', fontSize: 14, fontWeight: 500, textDecoration: 'none', transition: 'border-color 150ms ease, color 150ms ease' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(17,24,39,0.32)'; (e.currentTarget as HTMLElement).style.color = '#111827'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(17,24,39,0.14)'; (e.currentTarget as HTMLElement).style.color = '#374151'; }}
           >Sign in instead</Link>
@@ -326,7 +349,9 @@ function RegisterForm() {
       </div>
 
       <p style={{ position: 'relative', zIndex: 1, marginTop: 24, fontSize: 12, color: '#9CA3AF', textAlign: 'center' }}>
-        By signing up you agree to our <Link href="#" style={{ color: '#6B7280', textDecoration: 'none' }}>Terms</Link> and <Link href="#" style={{ color: '#6B7280', textDecoration: 'none' }}>Privacy Policy</Link>.
+        By signing up you agree to our{' '}
+        <Link href="#" style={{ color: '#6B7280', textDecoration: 'none' }}>Terms</Link>{' '}and{' '}
+        <Link href="#" style={{ color: '#6B7280', textDecoration: 'none' }}>Privacy Policy</Link>.
       </p>
     </div>
   );
@@ -334,7 +359,9 @@ function RegisterForm() {
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100dvh', background: '#F7F3EF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif", fontSize: 14, color: '#9CA3AF' }}>Loading…</div>}>
+    <Suspense fallback={
+      <div style={{ minHeight: '100dvh', background: '#F7F3EF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif", fontSize: 14, color: '#9CA3AF' }}>Loading…</div>
+    }>
       <RegisterForm/>
     </Suspense>
   );
