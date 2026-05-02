@@ -1,661 +1,1038 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useDropzone } from 'react-dropzone';
+import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 
-// ─── Easing ───────────────────────────────────────────────────────────────────
-const EASE = [0.4, 0, 0.2, 1] as const;
-const SPRING = { type: 'spring' as const, stiffness: 280, damping: 28 };
-
-// ─── Mode types ───────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 type Mode = 'seeker' | 'recruiter';
 
-// ─── Feature cards per mode ──────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
+const ACCENT = {
+  seeker:    { color: '#3b82f6', soft: 'rgba(59,130,246,0.10)', border: 'rgba(59,130,246,0.22)' },
+  recruiter: { color: '#f97316', soft: 'rgba(249,115,22,0.10)',  border: 'rgba(249,115,22,0.22)'  },
+};
+
+// ─── Inline SVG icons (Solar linear set) ─────────────────────────────────────
+const IconLogo = () => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <rect width="28" height="28" rx="7" fill="#111827"/>
+    <path d="M7 14h14M14 7l7 7-7 7" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const IconArrowRight = ({ size = 16, color = 'currentColor' }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path d="M3 8h10M9 4l4 4-4 4" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const IconCheck = ({ color = '#22c55e' }: { color?: string }) => (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+    <path d="M2 6l3 3 5-5" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const IconX = ({ color = '#ef4444' }: { color?: string }) => (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+    <path d="M3 3l6 6M9 3l-6 6" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const IconShield = ({ color = '#f97316' }: { color?: string }) => (
+  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+    <path d="M16 3l11 4v9c0 6-4.5 10.5-11 13C5.5 26.5 5 22 5 16V7l11-4z" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M11 16l3 3 7-7" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const IconGraph = ({ color = '#3b82f6' }: { color?: string }) => (
+  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+    <path d="M4 24l7-8 5 4 7-10 5 3" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M26 10l3-2-1 4" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const IconTarget = ({ color = '#3b82f6' }: { color?: string }) => (
+  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+    <circle cx="16" cy="16" r="10" stroke={color} strokeWidth="1.6"/>
+    <circle cx="16" cy="16" r="5" stroke={color} strokeWidth="1.6"/>
+    <circle cx="16" cy="16" r="1.5" fill={color}/>
+  </svg>
+);
+
+const IconUsers = ({ color = '#f97316' }: { color?: string }) => (
+  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+    <circle cx="12" cy="10" r="4" stroke={color} strokeWidth="1.6"/>
+    <path d="M4 26c0-4.4 3.6-8 8-8h0c4.4 0 8 3.6 8 8" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
+    <circle cx="22" cy="10" r="3" stroke={color} strokeWidth="1.4"/>
+    <path d="M26 26c0-3.3-1.8-6.1-4.4-7.5" stroke={color} strokeWidth="1.4" strokeLinecap="round"/>
+  </svg>
+);
+
+const IconFilter = ({ color = '#f97316' }: { color?: string }) => (
+  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+    <path d="M5 8h22M9 14h14M13 20h6" stroke={color} strokeWidth="1.8" strokeLinecap="round"/>
+  </svg>
+);
+
+const IconSpark = ({ color = '#3b82f6' }: { color?: string }) => (
+  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+    <path d="M16 4v5M16 23v5M4 16h5M23 16h5M7.5 7.5l3.5 3.5M21 21l3.5 3.5M7.5 24.5l3.5-3.5M21 11l3.5-3.5" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
+    <circle cx="16" cy="16" r="4" stroke={color} strokeWidth="1.6"/>
+  </svg>
+);
+
+// ─── Card visual modules ──────────────────────────────────────────────────────
+
+// Seeker card 1 — ATS Score ring
+function SeekerScoreVisual({ accent }: { accent: string }) {
+  const r = 38;
+  const circ = 2 * Math.PI * r;
+  const score = 73;
+  const dash = (score / 100) * circ;
+  return (
+    <div className="flex items-center justify-center h-full gap-6">
+      <div className="relative w-24 h-24 flex-shrink-0">
+        <svg viewBox="0 0 100 100" className="w-24 h-24 -rotate-90">
+          <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(17,24,39,0.08)" strokeWidth="8"/>
+          <circle cx="50" cy="50" r={r} fill="none" stroke={accent} strokeWidth="8"
+            strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"/>
+        </svg>
+        <span className="absolute inset-0 flex flex-col items-center justify-center">
+          <span style={{ fontSize: 22, fontWeight: 600, color: '#111827', lineHeight: 1 }}>{score}</span>
+          <span style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>/100</span>
+        </span>
+      </div>
+      <div className="flex flex-col gap-2">
+        {[['Keywords', 91],['Format', 88],['Length', 74],['Sections', 56]].map(([label, val]) => (
+          <div key={label as string} className="flex items-center gap-2">
+            <span style={{ fontSize: 11, color: '#9CA3AF', width: 56 }}>{label}</span>
+            <div style={{ width: 64, height: 4, borderRadius: 9999, background: 'rgba(17,24,39,0.08)' }}>
+              <div style={{ width: `${val}%`, height: '100%', borderRadius: 9999, background: accent, transition: 'width 600ms ease' }}/>
+            </div>
+            <span style={{ fontSize: 11, color: '#6B7280' }}>{val}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Seeker card 2 — Keyword gap chips
+function SeekerGapVisual({ accent }: { accent: string }) {
+  const present = ['Communication','Leadership','Agile','SQL','Python'];
+  const missing = ['Kubernetes','Terraform','CI/CD','GraphQL'];
+  return (
+    <div className="flex flex-col gap-3 h-full justify-center px-2">
+      <div className="flex flex-wrap gap-1.5">
+        {present.map(k => (
+          <span key={k} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs"
+            style={{ background: 'rgba(34,197,94,0.10)', border: '1px solid rgba(34,197,94,0.25)', color: '#15803d', fontSize: 11 }}>
+            <IconCheck/> {k}
+          </span>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {missing.map(k => (
+          <span key={k} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs"
+            style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.22)', color: '#dc2626', fontSize: 11 }}>
+            <IconX/> {k}
+          </span>
+        ))}
+      </div>
+      <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>4 high-impact keywords missing from your resume</p>
+    </div>
+  );
+}
+
+// Seeker card 3 — Job match ring
+function SeekerMatchVisual({ accent }: { accent: string }) {
+  const r = 42;
+  const circ = 2 * Math.PI * r;
+  const score = 84;
+  const dash = (score / 100) * circ;
+  return (
+    <div className="flex items-center justify-center h-full gap-5">
+      <div className="relative w-28 h-28 flex-shrink-0">
+        <svg viewBox="0 0 100 100" className="w-28 h-28 -rotate-90">
+          <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(17,24,39,0.07)" strokeWidth="7"/>
+          <circle cx="50" cy="50" r={r} fill="none" stroke={accent} strokeWidth="7"
+            strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"/>
+        </svg>
+        <span className="absolute inset-0 flex flex-col items-center justify-center">
+          <span style={{ fontSize: 24, fontWeight: 600, color: '#111827', lineHeight: 1 }}>{score}%</span>
+          <span style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>Match</span>
+        </span>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <div style={{ padding: '6px 12px', borderRadius: 8, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.20)', fontSize: 11, color: '#15803d' }}>↑ +11 pts potential</div>
+        <p style={{ fontSize: 11, color: '#9CA3AF', lineHeight: 1.5 }}>Add 3 missing keywords<br/>to reach 95% match</p>
+      </div>
+    </div>
+  );
+}
+
+// Seeker card 4 — Fix diff
+function SeekerFixVisual({ accent }: { accent: string }) {
+  return (
+    <div className="h-full flex flex-col justify-center gap-2 font-mono text-xs px-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+      <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', lineHeight: 1.7 }}>
+        <span style={{ color: '#9CA3AF', userSelect: 'none' }}>- </span>
+        <span style={{ color: '#dc2626', textDecoration: 'line-through' }}>Responsible for managing projects and working with teams to deliver results on time</span>
+      </div>
+      <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.18)', lineHeight: 1.7 }}>
+        <span style={{ color: '#9CA3AF', userSelect: 'none' }}>+ </span>
+        <span style={{ color: '#15803d' }}>Led cross-functional team of 8 to deliver 4 product sprints, reducing time-to-market by 30%</span>
+      </div>
+      <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>AI rewrites weak bullets into quantified impact</p>
+    </div>
+  );
+}
+
+// HR card 1 — Candidate ranking
+function HRRankVisual({ accent }: { accent: string }) {
+  const candidates = [
+    { name: 'Amira S.',  score: 94, tag: 'Top Match' },
+    { name: 'James K.',  score: 87, tag: '' },
+    { name: 'Priya M.', score: 81, tag: '' },
+    { name: 'Leo T.',   score: 68, tag: '' },
+  ];
+  return (
+    <div className="flex flex-col gap-2 h-full justify-center px-1">
+      {candidates.map((c, i) => (
+        <div key={c.name} className="flex items-center gap-3">
+          <span style={{ fontSize: 11, color: '#9CA3AF', width: 14, textAlign: 'right' }}>{i+1}</span>
+          <div style={{ flex: 1, height: 28, borderRadius: 6, background: 'rgba(17,24,39,0.05)', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ width: `${c.score}%`, height: '100%', borderRadius: 6, background: i === 0 ? accent : `${accent}55`, transition: 'width 600ms ease' }}/>
+            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: i === 0 ? '#fff' : '#374151', fontWeight: 500 }}>{c.name}</span>
+          </div>
+          <span style={{ fontSize: 11, color: '#6B7280', width: 28, textAlign: 'right' }}>{c.score}</span>
+          {c.tag && <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 9999, background: `${accent}18`, color: accent, border: `1px solid ${accent}33` }}>{c.tag}</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// HR card 2 — Custom criteria chips
+function HRCriteriaVisual({ accent }: { accent: string }) {
+  const required = ['Python 3+','5+ yrs exp','Data Science','Remote OK'];
+  const missing  = ['Spanish','PhD','Team Lead','Security+'];
+  return (
+    <div className="flex flex-col gap-3 h-full justify-center px-2">
+      <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 2 }}>Role criteria — Senior ML Engineer</div>
+      <div className="flex flex-wrap gap-1.5">
+        {required.map(k => (
+          <span key={k} className="flex items-center gap-1 px-2 py-0.5 rounded-full"
+            style={{ background: `${accent}12`, border: `1px solid ${accent}30`, color: accent, fontSize: 11 }}>
+            <IconCheck color={accent}/> {k}
+          </span>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {missing.map(k => (
+          <span key={k} className="flex items-center gap-1 px-2 py-0.5 rounded-full"
+            style={{ background: 'rgba(17,24,39,0.05)', border: '1px solid rgba(17,24,39,0.12)', color: '#9CA3AF', fontSize: 11 }}>
+            <IconX color="#D1D5DB"/> {k}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// HR card 3 — Blind review
+function HRBlindVisual({ accent }: { accent: string }) {
+  const r = 40;
+  const circ = 2 * Math.PI * r;
+  const score = 91;
+  const dash = (score / 100) * circ;
+  return (
+    <div className="flex items-center justify-center h-full gap-5">
+      <div className="relative w-24 h-24 flex-shrink-0">
+        <svg viewBox="0 0 100 100" className="w-24 h-24 -rotate-90">
+          <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(17,24,39,0.07)" strokeWidth="8"/>
+          <circle cx="50" cy="50" r={r} fill="none" stroke={accent} strokeWidth="8"
+            strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"/>
+        </svg>
+        <span className="absolute inset-0 flex flex-col items-center justify-center">
+          <span style={{ fontSize: 20, fontWeight: 600, color: '#111827', lineHeight: 1 }}>{score}</span>
+          <span style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>Merit</span>
+        </span>
+      </div>
+      <div className="flex flex-col gap-2">
+        {['Name','Location','Age','Photo'].map(field => (
+          <div key={field} className="flex items-center gap-2">
+            <span style={{ fontSize: 11, color: '#9CA3AF', width: 56 }}>{field}</span>
+            <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 9999, background: 'rgba(17,24,39,0.07)', color: '#9CA3AF', fontFamily: 'monospace', letterSpacing: 3 }}>● ● ● ●</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// HR card 4 — Pipeline analytics
+function HRPipelineVisual({ accent }: { accent: string }) {
+  const sources = [
+    { name: 'Referrals',  pct: 38, quality: 94 },
+    { name: 'LinkedIn',  pct: 31, quality: 71 },
+    { name: 'Indeed',    pct: 22, quality: 58 },
+    { name: 'Other',     pct: 9,  quality: 43 },
+  ];
+  return (
+    <div className="flex flex-col gap-2.5 h-full justify-center px-1">
+      <div className="flex justify-between" style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 2 }}>
+        <span>Source</span><span>Volume</span><span>Quality</span>
+      </div>
+      {sources.map(s => (
+        <div key={s.name} className="flex items-center gap-2">
+          <span style={{ fontSize: 11, color: '#6B7280', width: 64 }}>{s.name}</span>
+          <div style={{ flex: 1, height: 6, borderRadius: 9999, background: 'rgba(17,24,39,0.07)' }}>
+            <div style={{ width: `${s.pct}%`, height: '100%', borderRadius: 9999, background: accent }}/>
+          </div>
+          <span style={{ fontSize: 11, color: '#9CA3AF', width: 20, textAlign: 'right' }}>{s.pct}%</span>
+          <span style={{ fontSize: 11, fontWeight: 500, color: s.quality >= 80 ? '#22c55e' : s.quality >= 60 ? '#f59e0b' : '#ef4444', width: 28 }}>{s.quality}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Feature card data ────────────────────────────────────────────────────────
 const SEEKER_CARDS = [
   {
-    id: 'ats',
-    label: 'ATS Score',
-    headline: 'See your score before they do',
-    body: '75% of resumes are auto-rejected. Pathwise runs the same ATS logic and shows your exact score with a breakdown of every failure point.',
-    stat: '75%',
-    statLabel: 'rejected before a human sees them',
-    visual: 'score',
+    num: '01', title: 'ATS Score',
+    desc: 'Instant breakdown of how automated systems read your resume across keywords, format, length, and section structure.',
+    visual: (a: string) => <SeekerScoreVisual accent={a}/>,
+    span: 'col-span-1',
   },
   {
-    id: 'gap',
-    label: 'Gap Detector',
-    headline: 'Missing keywords, found instantly',
-    body: 'Paste any job description. Pathwise maps every required skill against your CV and flags the exact gaps costing you interviews.',
-    stat: '2.4×',
-    statLabel: 'more callbacks with keyword alignment',
-    visual: 'gap',
+    num: '02', title: 'Keyword Gap Detector',
+    desc: 'Side-by-side view of exactly which skills the job description demands that your resume is missing.',
+    visual: (a: string) => <SeekerGapVisual accent={a}/>,
+    span: 'col-span-1',
   },
   {
-    id: 'match',
-    label: 'Job Match',
-    headline: 'Know your match % before applying',
-    body: 'Get a real compatibility score against a live JD—role fit, seniority alignment, and tailored one-line fixes to push your score over 80%.',
-    stat: '80%+',
-    statLabel: 'match threshold to get shortlisted',
-    visual: 'match',
+    num: '03', title: 'Job Match Score',
+    desc: 'Real-time match percentage against any posting — plus a prioritized action list to close the gap.',
+    visual: (a: string) => <SeekerMatchVisual accent={a}/>,
+    span: 'col-span-1',
   },
   {
-    id: 'fix',
-    label: 'Fix in Seconds',
-    headline: 'One click. Real rewrites.',
-    body: 'Every flag comes with a precise, copy-paste fix. Rewrite your bullet to hit the keyword, not pad the word count.',
-    stat: '<30s',
-    statLabel: 'average time to fix a critical gap',
-    visual: 'fix',
+    num: '04', title: 'AI Rewrite Engine',
+    desc: 'Weak bullets are rewritten into quantified impact statements that ATS systems rank highly.',
+    visual: (a: string) => <SeekerFixVisual accent={a}/>,
+    span: 'col-span-1 md:col-span-2',
   },
 ];
 
 const RECRUITER_CARDS = [
   {
-    id: 'filter',
-    label: 'Mass Screening',
-    headline: 'Screen 200 CVs in minutes',
-    body: 'Upload a full applicant pool. Pathwise reads every CV against your JD and ranks candidates by fit—without you opening a single file.',
-    stat: '200×',
-    statLabel: 'CVs ranked and scored automatically',
-    visual: 'filter',
+    num: '01', title: 'Mass Screening',
+    desc: 'Rank hundreds of applicants in seconds. Every candidate gets a transparent score against your exact role criteria.',
+    visual: (a: string) => <HRRankVisual accent={a}/>,
+    span: 'col-span-1 md:col-span-2',
   },
   {
-    id: 'calibrate',
-    label: 'Custom Criteria',
-    headline: 'Your scoring rules, enforced at scale',
-    body: 'Define must-have skills, preferred experience ranges, and deal-breakers. Every candidate is evaluated against your exact rubric, not a generic one.',
-    stat: '100%',
-    statLabel: 'criteria consistency across all candidates',
-    visual: 'calibrate',
+    num: '02', title: 'Custom Criteria Engine',
+    desc: 'Define your own must-have and nice-to-have attributes. Pathwise scores every resume against your rubric, not a generic model.',
+    visual: (a: string) => <HRCriteriaVisual accent={a}/>,
+    span: 'col-span-1',
   },
   {
-    id: 'blind',
-    label: 'Blind Review',
-    headline: 'Skills first. Bias never.',
-    body: 'Blind mode strips names, photos, and demographic signals before scoring. Shortlist on merit alone—then reveal identity only when you choose.',
-    stat: '3×',
-    statLabel: 'more diverse shortlists in blind mode',
-    visual: 'blind',
+    num: '03', title: 'Blind Review Mode',
+    desc: 'Strip names, photos, and location from all resumes before scoring. Hire on merit — audit-ready by design.',
+    visual: (a: string) => <HRBlindVisual accent={a}/>,
+    span: 'col-span-1',
   },
   {
-    id: 'pipeline',
-    label: 'Pipeline Intel',
-    headline: 'Track quality across every role',
-    body: 'See how candidate quality shifts by source, role, and time. Know which job boards actually send qualified applicants—not just volume.',
-    stat: '↑ 41%',
-    statLabel: 'offer acceptance rate improvement',
-    visual: 'pipeline',
+    num: '04', title: 'Pipeline Intelligence',
+    desc: 'Track which sourcing channels actually produce quality hires — so you can cut spend on noise and double down on signal.',
+    visual: (a: string) => <HRPipelineVisual accent={a}/>,
+    span: 'col-span-1',
   },
 ];
 
-// ─── Visual atoms per card ────────────────────────────────────────────────────
-function CardVisual({ id, accent }: { id: string; accent: string }) {
-  if (id === 'ats' || id === 'filter') {
-    const bars = id === 'ats'
-      ? [{ w: 90, label: 'Keywords', ok: true }, { w: 38, label: 'Format', ok: false }, { w: 74, label: 'Length', ok: true }, { w: 22, label: 'Sections', ok: false }]
-      : [{ w: 94, label: 'Nguyen, M.', ok: true }, { w: 81, label: 'Chen, D.', ok: true }, { w: 56, label: 'Smith, J.', ok: false }, { w: 44, label: 'Brown, K.', ok: false }];
-    return (
-      <div className="flex flex-col gap-[6px]">
-        {bars.map((b) => (
-          <div key={b.label} className="flex items-center gap-2">
-            <span className="w-[64px] text-[10px] font-medium shrink-0" style={{ color: '#6B7280' }}>{b.label}</span>
-            <div className="flex-1 h-[6px] rounded-full" style={{ background: 'rgba(17,24,39,0.08)' }}>
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${b.w}%`, background: b.ok ? accent : '#E5E7EB', opacity: b.ok ? 1 : 0.5 }}
-              />
-            </div>
-            <span className="text-[10px] font-mono w-7 text-right" style={{ color: b.ok ? accent : '#9CA3AF' }}>{b.w}%</span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  if (id === 'gap' || id === 'calibrate') {
-    const chips = id === 'gap'
-      ? [{ t: 'React', hit: true }, { t: 'TypeScript', hit: true }, { t: 'GraphQL', hit: false }, { t: 'Docker', hit: true }, { t: 'Kubernetes', hit: false }, { t: 'PostgreSQL', hit: true }]
-      : [{ t: 'Python 3+', hit: true }, { t: '5yr exp', hit: true }, { t: 'Remote OK', hit: false }, { t: 'MBA', hit: false }, { t: 'TDD', hit: true }, { t: 'AWS', hit: true }];
-    return (
-      <div className="flex flex-wrap gap-[6px]">
-        {chips.map((c) => (
-          <span
-            key={c.t}
-            className="px-2 py-[3px] text-[11px] font-medium rounded-full"
-            style={{
-              background: c.hit ? `${accent}18` : 'rgba(239,68,68,0.10)',
-              color: c.hit ? accent : '#EF4444',
-              border: `1px solid ${c.hit ? `${accent}30` : 'rgba(239,68,68,0.2)'}`,
-            }}
-          >
-            {c.hit ? '✓' : '✗'} {c.t}
-          </span>
-        ))}
-      </div>
-    );
-  }
-  if (id === 'match' || id === 'blind') {
-    const pct = id === 'match' ? 73 : 91;
-    const label = id === 'match' ? 'Match Score' : 'Blind Score';
-    const sublabel = id === 'match' ? '+11 pts with 3 fixes' : 'Identity hidden';
-    return (
-      <div className="flex items-center gap-4">
-        <div className="relative w-16 h-16 shrink-0">
-          <svg viewBox="0 0 56 56" className="w-full h-full -rotate-90">
-            <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(17,24,39,0.08)" strokeWidth="5" />
-            <circle
-              cx="28" cy="28" r="22" fill="none"
-              stroke={accent} strokeWidth="5"
-              strokeDasharray={`${2 * Math.PI * 22 * pct / 100} ${2 * Math.PI * 22 * (1 - pct / 100)}`}
-              strokeLinecap="round"
-            />
-          </svg>
-          <span className="absolute inset-0 flex items-center justify-center text-[13px] font-black" style={{ color: accent }}>{pct}%</span>
+// ─── Card component ───────────────────────────────────────────────────────────
+function FeatureCard({ num, title, desc, visual, accent, span }: {
+  num: string; title: string; desc: string;
+  visual: (a: string) => React.ReactNode;
+  accent: string; span: string;
+}) {
+  return (
+    <div className={`${span} group`}
+      style={{
+        padding: 1,
+        borderRadius: 32,
+        background: 'linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(17,24,39,0.07) 100%)',
+      }}
+    >
+      <div
+        style={{
+          borderRadius: 31,
+          background: '#FFFFFF',
+          boxShadow: '0 0 0 1px rgba(0,0,0,0.06), 0 1px 1px -0.5px rgba(0,0,0,0.06), 0 3px 3px -1.5px rgba(0,0,0,0.06), 0 6px 6px -3px rgba(0,0,0,0.06), 0 12px 12px -6px rgba(0,0,0,0.06), 0 24px 24px -12px rgba(0,0,0,0.06)',
+          padding: 8,
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+        }}
+      >
+        {/* Visual zone */}
+        <div
+          style={{
+            flex: 1,
+            minHeight: 180,
+            borderRadius: 24,
+            background: 'linear-gradient(160deg, #FAFAF9 0%, #F5F3EF 100%)',
+            padding: '20px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+          }}
+        >
+          {visual(accent)}
         </div>
-        <div>
-          <div className="text-[13px] font-semibold" style={{ color: '#111827' }}>{label}</div>
-          <div className="text-[11px] mt-0.5" style={{ color: '#6B7280' }}>{sublabel}</div>
+
+        {/* Content zone */}
+        <div style={{ padding: '18px 20px 16px' }}>
+          <div className="flex items-center gap-2 mb-2">
+            <span
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 22, height: 22, borderRadius: 6,
+                background: `${accent}18`, border: `1px solid ${accent}33`,
+                fontSize: 10, fontWeight: 600, color: accent, flexShrink: 0,
+              }}
+            >{num}</span>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#111827', letterSpacing: '-0.01em' }}>{title}</h3>
+          </div>
+          <p style={{ margin: 0, fontSize: 13, color: '#6B7280', lineHeight: 1.65, fontWeight: 400 }}>{desc}</p>
         </div>
       </div>
-    );
-  }
-  if (id === 'fix' || id === 'pipeline') {
-    const lines = id === 'fix'
-      ? [
-          { old: '→ Managed team projects', new: '→ Led 5-person cross-functional squad', flag: true },
-          { old: '→ Improved performance', new: '→ Reduced API latency 38% via caching', flag: true },
-          { old: '→ Responsible for sales', new: null, flag: false },
-        ]
-      : [
-          { old: 'LinkedIn Recruiter', new: '↑ 4.1 avg score', flag: true },
-          { old: 'Indeed', new: '↑ 2.9 avg score', flag: false },
-          { old: 'Referrals', new: '↑ 6.8 avg score', flag: true },
-        ];
-    return (
-      <div className="flex flex-col gap-[6px]">
-        {lines.map((l, i) => (
-          <div key={i} className="text-[11px] font-mono flex items-start gap-2">
-            <span style={{ color: l.flag ? '#EF4444' : '#9CA3AF' }}>{'›'}</span>
-            <span style={{ color: l.new ? '#9CA3AF' : '#6B7280', textDecoration: l.new ? 'line-through' : 'none' }}>{l.old}</span>
-            {l.new && <span style={{ color: accent }}>→ {l.new}</span>}
-          </div>
-        ))}
-      </div>
-    );
-  }
-  return null;
+    </div>
+  );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+// ─── Main landing page ────────────────────────────────────────────────────────
 export default function LandingPage() {
-  const router = useRouter();
   const [mode, setMode] = useState<Mode>('seeker');
-  const [scanPos, setScanPos] = useState(0);
-  const animRef = useRef<number | null>(null);
-  const dirRef = useRef(1);
-  const posRef = useRef(0);
+  const [scrolled, setScrolled] = useState(false);
+  const pillRef = useRef<HTMLDivElement>(null);
+  const seekerRef = useRef<HTMLButtonElement>(null);
+  const recruiterRef = useRef<HTMLButtonElement>(null);
+  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
 
-  const accent = mode === 'seeker' ? '#3b82f6' : '#f97316';
-  const accentSoft = mode === 'seeker' ? 'rgba(59,130,246,0.08)' : 'rgba(249,115,22,0.08)';
-  const accentBorder = mode === 'seeker' ? 'rgba(59,130,246,0.20)' : 'rgba(249,115,22,0.20)';
-  const cards = mode === 'seeker' ? SEEKER_CARDS : RECRUITER_CARDS;
+  const accent = ACCENT[mode];
+  const cards  = mode === 'seeker' ? SEEKER_CARDS : RECRUITER_CARDS;
 
-  // Smooth scanning line via rAF
+  // Scroll detection for header glass
   useEffect(() => {
-    const tick = () => {
-      posRef.current += dirRef.current * 0.35;
-      if (posRef.current >= 88) dirRef.current = -1;
-      if (posRef.current <= 0) dirRef.current = 1;
-      setScanPos(posRef.current);
-      animRef.current = requestAnimationFrame(tick);
-    };
-    animRef.current = requestAnimationFrame(tick);
-    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
+    const handler = () => setScrolled(window.scrollY > 12);
+    window.addEventListener('scroll', handler, { passive: true });
+    return () => window.removeEventListener('scroll', handler);
   }, []);
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (!acceptedFiles[0]) return;
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('pendingCVName', acceptedFiles[0].name);
-      sessionStorage.setItem('pathwiseMode', mode);
-    }
-    router.push('/onboarding');
-  }, [router, mode]);
+  // Animate toggle indicator
+  useEffect(() => {
+    const btn = mode === 'seeker' ? seekerRef.current : recruiterRef.current;
+    const pill = pillRef.current;
+    if (!btn || !pill) return;
+    const btnRect  = btn.getBoundingClientRect();
+    const pillRect = pill.getBoundingClientRect();
+    setIndicatorStyle({
+      left:  btnRect.left - pillRect.left,
+      width: btnRect.width,
+    });
+  }, [mode]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    accept: { 'application/pdf': ['.pdf'] },
-    maxFiles: 1,
-    onDrop,
-  });
-
-  const NOISE_TEXT = Array(120)
-    .fill(null)
-    .map(() => [
-      'John Doe', 'Senior Developer', 'React · Node.js · AWS', '2019–2024',
-      'Led cross-functional team', 'Increased conversion 40%', 'BS Computer Science',
-      'Agile · Scrum · Kanban', 'Docker · Kubernetes', 'CI/CD · PostgreSQL',
-    ][Math.floor(Math.random() * 10)])
-    .join(' · ');
+  // Init indicator
+  useEffect(() => {
+    const btn  = seekerRef.current;
+    const pill = pillRef.current;
+    if (!btn || !pill) return;
+    const btnRect  = btn.getBoundingClientRect();
+    const pillRect = pill.getBoundingClientRect();
+    setIndicatorStyle({ left: btnRect.left - pillRect.left, width: btnRect.width });
+  }, []);
 
   return (
-    <main
-      className="relative min-h-screen w-screen overflow-x-hidden"
-      style={{ background: '#E5E7EB', transition: 'background 0.4s ease' }}
+    <div
+      style={{
+        minHeight: '100dvh',
+        background: '#F7F3EF',
+        fontFamily: "'Inter', sans-serif",
+        overflowX: 'hidden',
+      }}
     >
-      {/* ── Grid background ── */}
+      {/* ── Warm radial glow ── */}
       <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-0"
+        aria-hidden
         style={{
-          backgroundImage: 'linear-gradient(to right,rgba(17,24,39,0.05) 1px,transparent 1px),linear-gradient(to bottom,rgba(17,24,39,0.05) 1px,transparent 1px)',
-          backgroundSize: '50px 50px',
+          position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
+          background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,237,213,0.55) 0%, transparent 70%)',
         }}
       />
 
-      {/* ── Accent radial tint ── */}
+      {/* ── Fine grid overlay ── */}
       <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-0 transition-all duration-700"
-        style={{ background: `radial-gradient(ellipse 80% 60% at 50% -10%, ${mode === 'seeker' ? 'rgba(59,130,246,0.07)' : 'rgba(249,115,22,0.07)'}, transparent)` }}
+        aria-hidden
+        style={{
+          position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
+          backgroundImage: [
+            'linear-gradient(to right, rgba(17,24,39,0.04) 1px, transparent 1px)',
+            'linear-gradient(to bottom, rgba(17,24,39,0.04) 1px, transparent 1px)',
+          ].join(','),
+          backgroundSize: '48px 48px',
+        }}
       />
 
-      {/* ── Header ── */}
+      {/* ════════════════════ HEADER ════════════════════ */}
       <header
-        className="sticky top-0 z-50 flex items-center justify-between px-6 h-12"
         style={{
-          background: 'rgba(255,255,255,0.72)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          borderBottom: '1px solid rgba(255,255,255,0.9)',
-          boxShadow: '0 1px 0 rgba(17,24,39,0.06)',
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '0 24px',
+          height: 60,
+          background: scrolled ? 'rgba(247,243,239,0.88)' : 'transparent',
+          backdropFilter: scrolled ? 'blur(12px)' : 'none',
+          WebkitBackdropFilter: scrolled ? 'blur(12px)' : 'none',
+          borderBottom: scrolled ? '1px solid rgba(17,24,39,0.07)' : '1px solid transparent',
+          transition: 'background 300ms ease, border-color 300ms ease, backdrop-filter 300ms ease',
         }}
       >
         {/* Logo */}
-        <div className="flex items-center gap-2">
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-label="Pathwise">
-            <rect x="1" y="1" width="20" height="20" rx="4" stroke="#111827" strokeWidth="1.5" fill="none" />
-            <path d="M6 16 L10 8 L14 13 L17 9" stroke="#111827" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-            <circle cx="17" cy="9" r="1.5" fill="#111827" />
-          </svg>
-          <span className="text-[13px] font-black tracking-widest" style={{ color: '#111827', fontFamily: 'Inter, sans-serif', letterSpacing: '0.12em' }}>PATHWISE</span>
-        </div>
+        <Link href="/" className="flex items-center gap-2 no-underline" style={{ textDecoration: 'none' }}>
+          <IconLogo/>
+          <span style={{ fontSize: 15, fontWeight: 600, color: '#111827', letterSpacing: '-0.01em' }}>Pathwise</span>
+        </Link>
 
-        {/* Mode toggle + nav */}
-        <div className="flex items-center gap-4">
-          {/* Dual-mode pill toggle */}
-          <div
-            className="relative flex items-center p-[3px] rounded-full"
-            style={{ background: 'rgba(17,24,39,0.07)', border: '1px solid rgba(17,24,39,0.10)' }}
-            role="group"
-            aria-label="Switch between job seeker and recruiter view"
-          >
-            {/* Sliding indicator */}
-            <motion.div
-              className="absolute top-[3px] bottom-[3px] rounded-full"
-              style={{ background: accent, boxShadow: `0 2px 8px ${accent}40` }}
-              layout
-              transition={{ type: 'spring', stiffness: 400, damping: 36 }}
-              animate={{
-                left: mode === 'seeker' ? 3 : '50%',
-                right: mode === 'seeker' ? '50%' : 3,
+        {/* Center nav pill */}
+        <nav
+          style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            background: 'rgba(255,255,255,0.82)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid rgba(17,24,39,0.09)',
+            borderRadius: 9999,
+            padding: '5px 6px',
+            boxShadow: '0 1px 3px rgba(17,24,39,0.08)',
+            position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+          }}
+          aria-label="Primary navigation"
+        >
+          {(['Features','How it works','Pricing','FAQ'] as const).map(label => (
+            <Link
+              key={label}
+              href={`#${label.toLowerCase().replace(/ /g,'-')}`}
+              style={{
+                fontSize: 13, fontWeight: 500, color: '#6B7280',
+                padding: '5px 14px', borderRadius: 9999,
+                textDecoration: 'none',
+                transition: 'color 150ms ease, background 150ms ease',
               }}
-            />
-            <button
-              onClick={() => setMode('seeker')}
-              className="relative z-10 px-3 py-1 text-[12px] font-medium rounded-full transition-colors duration-150"
-              style={{ color: mode === 'seeker' ? '#ffffff' : '#6B7280', fontFamily: 'Inter, sans-serif' }}
-              aria-pressed={mode === 'seeker'}
-            >
-              Job Hunter
-            </button>
-            <button
-              onClick={() => setMode('recruiter')}
-              className="relative z-10 px-3 py-1 text-[12px] font-medium rounded-full transition-colors duration-150"
-              style={{ color: mode === 'recruiter' ? '#ffffff' : '#6B7280', fontFamily: 'Inter, sans-serif' }}
-              aria-pressed={mode === 'recruiter'}
-            >
-              HR / Recruiter
-            </button>
-          </div>
+              onMouseEnter={e => { (e.target as HTMLElement).style.color = '#111827'; (e.target as HTMLElement).style.background = 'rgba(17,24,39,0.05)'; }}
+              onMouseLeave={e => { (e.target as HTMLElement).style.color = '#6B7280'; (e.target as HTMLElement).style.background = 'transparent'; }}
+            >{label}</Link>
+          ))}
+        </nav>
 
-          <a
+        {/* Auth CTA */}
+        <div className="flex items-center gap-2">
+          <Link
             href="/auth/login"
-            className="text-[12px] font-medium transition-colors duration-150 hover:opacity-70"
-            style={{ color: '#6B7280', fontFamily: 'Inter, sans-serif' }}
-          >
-            Sign in
-          </a>
+            style={{
+              fontSize: 13, fontWeight: 500, color: '#6B7280',
+              padding: '8px 16px', borderRadius: 9999,
+              textDecoration: 'none',
+              transition: 'color 150ms ease',
+            }}
+            onMouseEnter={e => (e.target as HTMLElement).style.color = '#111827'}
+            onMouseLeave={e => (e.target as HTMLElement).style.color = '#6B7280'}
+          >Sign in</Link>
+          <Link
+            href="/auth/register"
+            style={{
+              fontSize: 13, fontWeight: 500, color: '#FFFFFF',
+              padding: '8px 20px', borderRadius: 9999,
+              background: '#111827',
+              textDecoration: 'none',
+              boxShadow: 'rgba(0,0,0,0.4) 0px 12px 24px -6px, rgba(255,255,255,0.15) 0px 1px 1px 0px inset, rgba(0,0,0,0.5) 0px -2px 3px 0px inset, rgba(0,0,0,0.10) 0px 0px 0px 1px',
+              transition: 'opacity 150ms ease, transform 150ms ease',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}
+            onMouseEnter={e => { (e.target as HTMLElement).style.opacity = '0.88'; (e.target as HTMLElement).style.transform = 'translateY(-1px)'; }}
+            onMouseLeave={e => { (e.target as HTMLElement).style.opacity = '1'; (e.target as HTMLElement).style.transform = 'translateY(0)'; }}
+          >Get started</Link>
         </div>
       </header>
 
-      {/* ── Hero section ── */}
-      <section className="relative w-full max-w-5xl mx-auto px-6 pt-20 pb-8 text-center">
-        {/* Blueprint noise reveal */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 font-mono text-[10px] leading-relaxed overflow-hidden pointer-events-none select-none px-4 py-2"
+      {/* ════════════════════ HERO ════════════════════ */}
+      <main style={{ position: 'relative', zIndex: 1 }}>
+        <section
           style={{
-            color: 'rgba(17,24,39,0.055)',
-            maskImage: `linear-gradient(to bottom, transparent ${Math.max(0, scanPos - 10)}%, black ${scanPos}%, black ${scanPos + 2}%, transparent ${scanPos + 14}%)`,
-            WebkitMaskImage: `linear-gradient(to bottom, transparent ${Math.max(0, scanPos - 10)}%, black ${scanPos}%, black ${scanPos + 2}%, transparent ${scanPos + 14}%)`,
+            paddingTop: 140,
+            paddingBottom: 80,
+            paddingLeft: 24,
+            paddingRight: 24,
+            maxWidth: 1200,
+            margin: '0 auto',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
           }}
         >
-          {NOISE_TEXT}
-        </div>
-
-        {/* Scanning line */}
-        <div
-          aria-hidden="true"
-          className="absolute left-0 w-full h-[1.5px] pointer-events-none z-10"
-          style={{
-            top: `${scanPos}%`,
-            background: `linear-gradient(90deg, transparent 0%, ${accent}CC 50%, transparent 100%)`,
-            boxShadow: `0 0 10px ${accent}66`,
-            transition: 'background 0.5s ease, box-shadow 0.5s ease',
-          }}
-        />
-
-        {/* Mode badge */}
-        <motion.div
-          key={mode}
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium mb-6"
-          style={{
-            background: accentSoft,
-            border: `1px solid ${accentBorder}`,
-            color: accent,
-            fontFamily: 'Inter, sans-serif',
-          }}
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25, ease: EASE }}
-        >
-          <span
-            className="w-1.5 h-1.5 rounded-full"
-            style={{ background: accent }}
-          />
-          {mode === 'seeker' ? 'For Job Hunters' : 'For HR & Recruiters'}
-        </motion.div>
-
-        {/* Headline */}
-        <motion.h1
-          className="relative z-10"
-          style={{
-            fontFamily: 'Inter, sans-serif',
-            fontSize: 'clamp(2.6rem,7vw,5.5rem)',
-            fontWeight: 500,
-            lineHeight: 1.05,
-            letterSpacing: '-0.025em',
-            color: '#111827',
-          }}
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ ...SPRING, delay: 0.08 }}
-        >
-          Is your resume
-          <br />
-          <AnimatePresence mode="wait">
-            {mode === 'seeker' ? (
-              <motion.span
-                key="seeker-hl"
-                style={{ color: accent }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                actually reading?
-              </motion.span>
-            ) : (
-              <motion.span
-                key="recruiter-hl"
-                style={{ color: accent }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                finding your next hire?
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </motion.h1>
-
-        {/* Sub-headline */}
-        <AnimatePresence mode="wait">
-          <motion.p
-            key={mode + '-sub'}
-            className="relative z-10 mt-5 mx-auto max-w-xl"
+          {/* Trust badge */}
+          <div
             style={{
-              fontFamily: 'Inter, sans-serif',
-              fontSize: '18px',
-              fontWeight: 300,
-              lineHeight: '28px',
-              letterSpacing: '0.025em',
-              color: '#6B7280',
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '6px 14px 6px 8px',
+              borderRadius: 9999,
+              background: 'rgba(255,255,255,0.82)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(17,24,39,0.09)',
+              boxShadow: '0 1px 4px rgba(17,24,39,0.06)',
+              marginBottom: 36,
             }}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.25, ease: EASE }}
+          >
+            <div className="flex -space-x-1.5">
+              {['#3b82f6','#f97316','#22c55e'].map((c, i) => (
+                <div key={i} style={{
+                  width: 22, height: 22, borderRadius: '50%',
+                  background: c, border: '2px solid #F7F3EF',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 8, color: '#fff', fontWeight: 700,
+                }}>{['AK','JT','PM'][i]}</div>
+              ))}
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 500, color: '#6B7280', letterSpacing: '0.01em' }}>Trusted by 2,800+ job seekers & recruiters</span>
+          </div>
+
+          {/* Mode toggle pill */}
+          <div
+            ref={pillRef}
+            style={{
+              position: 'relative',
+              display: 'inline-flex', alignItems: 'center',
+              background: 'rgba(255,255,255,0.75)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(17,24,39,0.10)',
+              borderRadius: 9999,
+              padding: 4,
+              marginBottom: 40,
+              boxShadow: '0 1px 4px rgba(17,24,39,0.06)',
+            }}
+            role="group"
+            aria-label="Select user mode"
+          >
+            {/* Sliding indicator */}
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute',
+                top: 4, height: 'calc(100% - 8px)',
+                borderRadius: 9999,
+                background: accent.color,
+                left: indicatorStyle.left,
+                width: indicatorStyle.width,
+                transition: 'left 300ms cubic-bezier(0.4,0,0.2,1), width 300ms cubic-bezier(0.4,0,0.2,1), background 300ms ease',
+                zIndex: 0,
+                boxShadow: `0 2px 8px ${accent.color}44`,
+              }}
+            />
+            <button
+              ref={seekerRef}
+              onClick={() => setMode('seeker')}
+              style={{
+                position: 'relative', zIndex: 1,
+                padding: '7px 18px', borderRadius: 9999,
+                fontSize: 13, fontWeight: 500,
+                color: mode === 'seeker' ? '#fff' : '#6B7280',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                transition: 'color 200ms ease',
+                whiteSpace: 'nowrap',
+              }}
+              aria-pressed={mode === 'seeker'}
+            >Job Hunter</button>
+            <button
+              ref={recruiterRef}
+              onClick={() => setMode('recruiter')}
+              style={{
+                position: 'relative', zIndex: 1,
+                padding: '7px 18px', borderRadius: 9999,
+                fontSize: 13, fontWeight: 500,
+                color: mode === 'recruiter' ? '#fff' : '#6B7280',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                transition: 'color 200ms ease',
+                whiteSpace: 'nowrap',
+              }}
+              aria-pressed={mode === 'recruiter'}
+            >HR Teams</button>
+          </div>
+
+          {/* Headline */}
+          <h1
+            style={{
+              margin: 0,
+              fontSize: 'clamp(40px, 7vw, 88px)',
+              fontWeight: 500,
+              lineHeight: 1.1,
+              letterSpacing: '-0.025em',
+              color: '#111827',
+              maxWidth: 900,
+            }}
+          >
+            {mode === 'seeker' ? (
+              <>
+                Is your resume<br/>
+                <span style={{ color: accent.color }}>actually reading?</span>
+              </>
+            ) : (
+              <>
+                Find the right hire<br/>
+                <span style={{ color: accent.color }}>before anyone else does.</span>
+              </>
+            )}
+          </h1>
+
+          {/* Sub-headline */}
+          <p
+            style={{
+              marginTop: 24, marginBottom: 48,
+              fontSize: 'clamp(15px, 2vw, 18px)',
+              fontWeight: 300,
+              lineHeight: 1.7,
+              color: '#6B7280',
+              maxWidth: 580,
+              letterSpacing: '0.01em',
+            }}
           >
             {mode === 'seeker'
-              ? 'ATS systems reject 75% of resumes before a human sees them. Pathwise shows you exactly why—and how to fix it in seconds.'
-              : 'Most CVs look the same at first glance. Pathwise scores every applicant against your exact criteria—so the right ones rise to the top, fast.'}
-          </motion.p>
-        </AnimatePresence>
+              ? 'ATS systems reject 75% of resumes before a human sees them. Pathwise shows you exactly why — and how to fix it in seconds.'
+              : 'Manual screening wastes 80% of recruiter time on unqualified resumes. Pathwise ranks candidates instantly against your exact criteria.'}
+          </p>
 
-        {/* Drop zone */}
-        <motion.div
-          {...getRootProps()}
-          className="relative z-10 mt-10 mx-auto max-w-md cursor-pointer group"
-          style={{
-            border: `1px solid ${isDragActive ? accent : 'rgba(17,24,39,0.18)'}`,
-            borderRadius: '6px',
-            padding: '18px 22px',
-            background: isDragActive ? accentSoft : 'rgba(255,255,255,0.6)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            transition: 'all 0.15s ease',
-            boxShadow: isDragActive
-              ? `0 0 0 3px ${accent}30, 0 4px 12px rgba(0,0,0,0.06)`
-              : '0 2px 8px rgba(0,0,0,0.06)',
-          }}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ ...SPRING, delay: 0.3 }}
-          whileHover={{ scale: 1.008 }}
-          whileTap={{ scale: 0.995 }}
-        >
-          <input {...getInputProps()} />
-          <div className="flex items-center gap-3">
-            <div
-              className="w-8 h-8 rounded-[6px] flex items-center justify-center shrink-0 transition-colors duration-150"
-              style={{ background: accentSoft, border: `1px solid ${accentBorder}` }}
+          {/* CTA */}
+          <div className="flex items-center gap-3 flex-wrap justify-center">
+            <Link
+              href="/auth/register"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '14px 32px',
+                borderRadius: 9999,
+                background: '#111827',
+                color: '#FFFFFF',
+                fontSize: 15, fontWeight: 500, letterSpacing: '0.01em',
+                textDecoration: 'none',
+                boxShadow: 'rgba(0,0,0,0.4) 0px 12px 24px -6px, rgba(255,255,255,0.15) 0px 1px 1px 0px inset, rgba(0,0,0,0.5) 0px -2px 3px 0px inset, rgba(0,0,0,0.10) 0px 0px 0px 1px',
+                transition: 'transform 150ms ease, opacity 150ms ease',
+              }}
+              onMouseEnter={e => { (e.target as HTMLElement).style.transform = 'translateY(-2px)'; }}
+              onMouseLeave={e => { (e.target as HTMLElement).style.transform = 'translateY(0)'; }}
             >
-              <svg width="14" height="16" viewBox="0 0 14 16" fill="none" stroke={accent} strokeWidth="1.25">
-                <rect x="1" y="1" width="10" height="13" rx="1" />
-                <path d="M3 5h7M3 8h7M3 11h4" />
-              </svg>
-            </div>
-            <div className="text-left">
-              <div
-                className="text-[13px] font-medium"
-                style={{ color: '#111827', fontFamily: 'Inter, sans-serif' }}
-              >
-                {isDragActive
-                  ? 'Release to scan…'
-                  : mode === 'seeker'
-                  ? 'Drop your CV to start scanning'
-                  : 'Drop a CV to score a candidate'}
-              </div>
-              <div
-                className="text-[11px] mt-0.5"
-                style={{ color: '#9CA3AF', fontFamily: 'Inter, sans-serif' }}
-              >
-                .PDF accepted · Parsed locally · Never stored without permission
-              </div>
-            </div>
+              {mode === 'seeker' ? 'Analyse my resume' : 'Start screening'}
+              <IconArrowRight size={15} color="#ffffff"/>
+            </Link>
+            <Link
+              href="#features"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '14px 24px',
+                borderRadius: 9999,
+                background: 'transparent',
+                border: '1px solid rgba(17,24,39,0.14)',
+                color: '#4B5563',
+                fontSize: 14, fontWeight: 500,
+                textDecoration: 'none',
+                transition: 'border-color 150ms ease, color 150ms ease',
+              }}
+              onMouseEnter={e => { (e.target as HTMLElement).style.borderColor = 'rgba(17,24,39,0.28)'; (e.target as HTMLElement).style.color = '#111827'; }}
+              onMouseLeave={e => { (e.target as HTMLElement).style.borderColor = 'rgba(17,24,39,0.14)'; (e.target as HTMLElement).style.color = '#4B5563'; }}
+            >See how it works</Link>
           </div>
-        </motion.div>
 
-        <motion.p
-          className="relative z-10 mt-4 text-[12px]"
-          style={{ color: '#9CA3AF', fontFamily: 'Inter, sans-serif' }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.55 }}
-        >
-          or{' '}
-          <a
-            href="/auth/login"
-            className="underline underline-offset-2 hover:opacity-70 transition-opacity"
-            style={{ color: '#6B7280' }}
-          >
-            sign in to your workspace
-          </a>
-        </motion.p>
-      </section>
-
-      {/* ── Feature cards grid ── */}
-      <section className="relative z-10 w-full max-w-5xl mx-auto px-6 pb-24">
-        {/* Section label */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={mode + '-label'}
-            className="flex items-center gap-3 mb-6"
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 10 }}
-            transition={{ duration: 0.2, ease: EASE }}
-          >
-            <div className="h-[1px] w-8" style={{ background: accentBorder }} />
-            <span
-              className="text-[11px] font-medium tracking-widest uppercase"
-              style={{ color: accent, fontFamily: 'Inter, sans-serif', letterSpacing: '0.12em' }}
-            >
-              {mode === 'seeker' ? 'What Pathwise does for you' : 'What Pathwise does for your team'}
-            </span>
-          </motion.div>
-        </AnimatePresence>
-
-        {/* Cards */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={mode}
-            className="grid grid-cols-1 sm:grid-cols-2 gap-[8px]"
-            initial="hidden"
-            animate="show"
-            exit="hidden"
-            variants={{
-              hidden: {},
-              show: { transition: { staggerChildren: 0.06 } },
+          {/* Social proof strip */}
+          <div
+            style={{
+              marginTop: 48,
+              display: 'flex', alignItems: 'center', gap: 24,
+              flexWrap: 'wrap', justifyContent: 'center',
             }}
           >
-            {cards.map((card, i) => (
-              <motion.div
-                key={card.id}
-                variants={{
-                  hidden: { opacity: 0, y: 20 },
-                  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: EASE } },
-                }}
-              >
-                {/* Gradient border shell */}
+            {[
+              { val: '75%', label: 'ATS rejection rate' },
+              { val: '2.8K', label: 'Resumes analysed' },
+              { val: '94%', label: 'Pass-rate improvement' },
+            ].map(s => (
+              <div key={s.val} className="flex items-center gap-2">
+                <span style={{ fontSize: 18, fontWeight: 600, color: '#111827' }}>{s.val}</span>
+                <span style={{ fontSize: 12, color: '#9CA3AF', fontWeight: 400 }}>{s.label}</span>
+                <span style={{ color: '#E5E7EB', margin: '0 4px' }}>·</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ════════════════════ FEATURE BENTO ════════════════════ */}
+        <section
+          id="features"
+          style={{
+            maxWidth: 1200,
+            margin: '0 auto',
+            padding: '0 24px 100px',
+          }}
+        >
+          {/* Section label */}
+          <div
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              marginBottom: 32,
+            }}
+          >
+            <div style={{ height: 1, flex: 1, background: 'rgba(17,24,39,0.08)' }}/>
+            <span
+              style={{
+                fontSize: 11, fontWeight: 600, letterSpacing: '0.12em',
+                textTransform: 'uppercase', color: '#9CA3AF',
+              }}
+            >{mode === 'seeker' ? 'Job Hunter Features' : 'HR Teams Features'}</span>
+            <div style={{ height: 1, flex: 1, background: 'rgba(17,24,39,0.08)' }}/>
+          </div>
+
+          {/* Bento grid */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 12,
+            }}
+            className="bento-grid"
+          >
+            {mode === 'seeker' ? (
+              <>
+                <FeatureCard {...SEEKER_CARDS[0]} accent={accent.color} span="col-span-1"/>
+                <FeatureCard {...SEEKER_CARDS[1]} accent={accent.color} span="col-span-1"/>
+                <FeatureCard {...SEEKER_CARDS[2]} accent={accent.color} span="col-span-1"/>
+                <div style={{ gridColumn: 'span 3' }}>
+                  <FeatureCard {...SEEKER_CARDS[3]} accent={accent.color} span=""/>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <FeatureCard {...RECRUITER_CARDS[0]} accent={accent.color} span=""/>
+                </div>
+                <FeatureCard {...RECRUITER_CARDS[1]} accent={accent.color} span="col-span-1"/>
+                <FeatureCard {...RECRUITER_CARDS[2]} accent={accent.color} span="col-span-1"/>
+                <FeatureCard {...RECRUITER_CARDS[3]} accent={accent.color} span="col-span-1"/>
+                <FeatureCard {...RECRUITER_CARDS[3]} accent={accent.color} span="col-span-1"/>
+              </>
+            )}
+          </div>
+        </section>
+
+        {/* ════════════════════ SOCIAL PROOF ════════════════════ */}
+        <section
+          style={{
+            maxWidth: 1200, margin: '0 auto',
+            padding: '0 24px 100px',
+          }}
+        >
+          <div
+            style={{
+              padding: 1, borderRadius: 32,
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(17,24,39,0.07) 100%)',
+            }}
+          >
+            <div
+              style={{
+                borderRadius: 31,
+                background: '#FFFFFF',
+                boxShadow: '0 0 0 1px rgba(0,0,0,0.06), 0 12px 32px rgba(0,0,0,0.06)',
+                padding: '48px',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: 0,
+              }}
+              className="social-grid"
+            >
+              {[
+                {
+                  quote: '"Pathwise showed me in seconds why I kept getting ghosted. 3 keywords missing. Fixed them. Got 5 interviews in a week."',
+                  name: 'Amira K.', role: 'Software Engineer',
+                  avatar: '#3b82f6', initials: 'AK',
+                },
+                {
+                  quote: '"We cut screening time from 6 hours to 40 minutes per role. The blind review mode is now a requirement for every hire."',
+                  name: 'Jason T.', role: 'Head of Talent, Series B startup',
+                  avatar: '#f97316', initials: 'JT',
+                },
+                {
+                  quote: '"My ATS score went from 51 to 89 in one session. The keyword gap view is the most useful job-search tool I have ever seen."',
+                  name: 'Priya M.', role: 'Product Manager',
+                  avatar: '#22c55e', initials: 'PM',
+                },
+              ].map((t, i, arr) => (
                 <div
-                  className="p-[1px] rounded-[32px]"
+                  key={t.name}
                   style={{
-                    background: `linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(17,24,39,0.06) 100%)`,
+                    padding: '0 36px',
+                    borderRight: i < arr.length - 1 ? '1px solid rgba(17,24,39,0.07)' : 'none',
                   }}
+                  className="testimonial-item"
                 >
-                  <div
-                    className="rounded-[31px] p-[8px]"
-                    style={{
-                      background: 'rgba(255,255,255,0.82)',
-                      backdropFilter: 'blur(12px)',
-                      WebkitBackdropFilter: 'blur(12px)',
-                      boxShadow: '0 0 0 1px rgba(0,0,0,0.06), 0 1px 1px -0.5px rgba(0,0,0,0.06), 0 3px 3px -1.5px rgba(0,0,0,0.06), 0 6px 6px -3px rgba(0,0,0,0.06), 0 12px 12px -6px rgba(0,0,0,0.06)',
-                    }}
-                  >
-                    {/* Inner content card */}
-                    <div className="rounded-[24px] p-5" style={{ background: i % 2 === 0 ? '#FFFFFF' : '#FAFAFA' }}>
-                      {/* Top row */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <span
-                            className="inline-block px-2 py-[3px] rounded-full text-[10px] font-medium mb-2"
-                            style={{
-                              background: accentSoft,
-                              color: accent,
-                              border: `1px solid ${accentBorder}`,
-                              fontFamily: 'Inter, sans-serif',
-                              letterSpacing: '0.04em',
-                            }}
-                          >
-                            {card.label}
-                          </span>
-                          <h3
-                            className="text-[15px] font-semibold leading-snug"
-                            style={{ color: '#111827', fontFamily: 'Inter, sans-serif' }}
-                          >
-                            {card.headline}
-                          </h3>
-                        </div>
-                        {/* Stat badge */}
-                        <div
-                          className="shrink-0 ml-4 text-right"
-                        >
-                          <div
-                            className="text-[22px] font-black leading-none"
-                            style={{ color: accent, fontFamily: 'Inter, sans-serif' }}
-                          >
-                            {card.stat}
-                          </div>
-                          <div
-                            className="text-[9px] leading-tight mt-0.5 max-w-[80px] text-right"
-                            style={{ color: '#9CA3AF', fontFamily: 'Inter, sans-serif' }}
-                          >
-                            {card.statLabel}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Visual atom */}
-                      <div className="mb-4">
-                        <CardVisual id={card.id} accent={accent} />
-                      </div>
-
-                      {/* Body */}
-                      <p
-                        className="text-[13px] leading-[1.6]"
-                        style={{ color: '#6B7280', fontFamily: 'Inter, sans-serif', fontWeight: 300 }}
-                      >
-                        {card.body}
-                      </p>
+                  <p style={{ margin: '0 0 20px', fontSize: 14, color: '#4B5563', lineHeight: 1.75, fontWeight: 400, fontStyle: 'italic' }}>{t.quote}</p>
+                  <div className="flex items-center gap-3">
+                    <div style={{
+                      width: 36, height: 36, borderRadius: '50%',
+                      background: t.avatar,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 11, fontWeight: 700, color: '#fff',
+                    }}>{t.initials}</div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{t.name}</div>
+                      <div style={{ fontSize: 11, color: '#9CA3AF' }}>{t.role}</div>
                     </div>
                   </div>
                 </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </AnimatePresence>
-      </section>
+              ))}
+            </div>
+          </div>
+        </section>
 
-      {/* ── Footer strip ── */}
-      <footer
-        className="relative z-10 flex items-center justify-between px-6 py-4 border-t"
-        style={{ borderColor: 'rgba(17,24,39,0.08)' }}
-      >
-        <span className="text-[10px] font-mono" style={{ color: 'rgba(17,24,39,0.25)' }}>
-          PATHWISE v2.0
-        </span>
-        <span
-          className="text-[10px] font-mono"
-          style={{ color: `${accent}80`, transition: 'color 0.4s ease' }}
+        {/* ════════════════════ CTA SECTION ════════════════════ */}
+        <section
+          style={{
+            maxWidth: 1200, margin: '0 auto',
+            padding: '0 24px 120px',
+          }}
         >
-          [ {mode === 'seeker' ? 'SCAN ACTIVE' : 'SCREEN ACTIVE'} ]
-        </span>
+          <div
+            style={{
+              padding: 1, borderRadius: 32,
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.90) 0%, rgba(17,24,39,0.08) 100%)',
+            }}
+          >
+            <div
+              style={{
+                borderRadius: 31,
+                background: '#111827',
+                padding: '64px 48px',
+                textAlign: 'center',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              {/* Subtle glow */}
+              <div aria-hidden style={{
+                position: 'absolute', top: '-40%', left: '50%', transform: 'translateX(-50%)',
+                width: '70%', height: '80%',
+                background: `radial-gradient(ellipse, ${accent.color}22 0%, transparent 70%)`,
+                pointerEvents: 'none',
+              }}/>
+              <p style={{ margin: '0 0 12px', fontSize: 12, fontWeight: 500, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#6B7280' }}>Get started for free</p>
+              <h2 style={{ margin: '0 0 16px', fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 500, color: '#FFFFFF', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+                {mode === 'seeker' ? 'Your resume is getting rejected.\nFix it now.' : 'Stop screening manually.\nLet Pathwise rank candidates.'}
+              </h2>
+              <p style={{ margin: '0 0 36px', fontSize: 15, color: '#6B7280', fontWeight: 300, lineHeight: 1.7 }}>No credit card. Takes 60 seconds. Results are instant.</p>
+              <Link
+                href="/auth/register"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  padding: '14px 32px', borderRadius: 9999,
+                  background: '#FFFFFF', color: '#111827',
+                  fontSize: 15, fontWeight: 500, textDecoration: 'none',
+                  boxShadow: 'rgba(0,0,0,0.4) 0px 12px 24px -6px, rgba(255,255,255,0.15) 0px 1px 1px 0px inset',
+                  transition: 'transform 150ms ease',
+                  position: 'relative', zIndex: 1,
+                }}
+                onMouseEnter={e => (e.target as HTMLElement).style.transform = 'translateY(-2px)'}
+                onMouseLeave={e => (e.target as HTMLElement).style.transform = 'translateY(0)'}
+              >
+                {mode === 'seeker' ? 'Analyse my resume free' : 'Start screening free'}
+                <IconArrowRight size={15} color="#111827"/>
+              </Link>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* ════════════════════ FOOTER ════════════════════ */}
+      <footer
+        style={{
+          borderTop: '1px solid rgba(17,24,39,0.07)',
+          padding: '32px 24px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexWrap: 'wrap', gap: 16,
+          position: 'relative', zIndex: 1,
+        }}
+      >
+        <div className="flex items-center gap-2">
+          <IconLogo/>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Pathwise</span>
+          <span style={{ fontSize: 12, color: '#9CA3AF', marginLeft: 8 }}>© 2025 — Resume intelligence, built for humans.</span>
+        </div>
+        <div className="flex items-center gap-6">
+          {['Privacy','Terms','Contact'].map(l => (
+            <Link key={l} href="#" style={{ fontSize: 12, color: '#9CA3AF', textDecoration: 'none', transition: 'color 150ms' }}
+              onMouseEnter={e => (e.target as HTMLElement).style.color = '#111827'}
+              onMouseLeave={e => (e.target as HTMLElement).style.color = '#9CA3AF'}
+            >{l}</Link>
+          ))}
+        </div>
       </footer>
-    </main>
+
+      {/* ── Responsive styles ── */}
+      <style>{`
+        @media (max-width: 768px) {
+          .bento-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .bento-grid > div[style*="span 2"],
+          .bento-grid > div[style*="span 3"] {
+            grid-column: span 1 !important;
+          }
+          .social-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .testimonial-item {
+            padding: 24px 0 !important;
+            border-right: none !important;
+            border-bottom: 1px solid rgba(17,24,39,0.07);
+          }
+          .testimonial-item:last-child {
+            border-bottom: none;
+          }
+          nav[aria-label="Primary navigation"] {
+            display: none !important;
+          }
+        }
+        @media (max-width: 1024px) and (min-width: 769px) {
+          .bento-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+          .bento-grid > div[style*="span 3"] {
+            grid-column: span 2 !important;
+          }
+          .social-grid {
+            grid-template-columns: 1fr 1fr !important;
+          }
+          .testimonial-item:last-child {
+            border-right: none;
+            grid-column: span 2;
+            padding-top: 24px;
+            border-top: 1px solid rgba(17,24,39,0.07);
+          }
+        }
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        a { -webkit-tap-highlight-color: transparent; }
+        button { -webkit-tap-highlight-color: transparent; }
+      `}</style>
+    </div>
   );
 }
