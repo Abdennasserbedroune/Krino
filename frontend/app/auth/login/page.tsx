@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 
+// ── Icons ──────────────────────────────────────────────────────────────────────
 const IconLogo = () => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
     <rect width="28" height="28" rx="7" fill="#111827"/>
@@ -45,6 +46,7 @@ const IconMail = () => (
   </svg>
 );
 
+// ── Error mapper ───────────────────────────────────────────────────────────────
 function mapAuthError(msg: string): string {
   const m = msg.toLowerCase();
   if (m.includes('invalid login') || m.includes('invalid credentials') || m.includes('wrong password'))
@@ -62,7 +64,25 @@ function mapAuthError(msg: string): string {
 
 type Role = 'seeker' | 'recruiter';
 
-// ── Unverified email banner ───────────────────────────────────────────────────
+// ── Card — defined OUTSIDE LoginPage so React never sees a new component type ──
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      position: 'relative', zIndex: 1, width: '100%', maxWidth: 440,
+      padding: 1, borderRadius: 32,
+      background: 'linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(17,24,39,0.07) 100%)',
+    }}>
+      <div style={{
+        borderRadius: 31, background: '#FFFFFF', padding: '40px 36px 36px',
+        boxShadow: '0 0 0 1px rgba(0,0,0,0.06), 0 1px 1px -0.5px rgba(0,0,0,0.06), 0 3px 3px -1.5px rgba(0,0,0,0.06), 0 6px 6px -3px rgba(0,0,0,0.06), 0 12px 12px -6px rgba(0,0,0,0.06), 0 24px 24px -12px rgba(0,0,0,0.06)',
+      }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ── Unverified banner — no inline <style> tag, uses className added to global styles ──
 function UnverifiedBanner({ email, onResend }: { email: string; onResend: () => void }) {
   const [resent, setResent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
@@ -73,28 +93,21 @@ function UnverifiedBanner({ email, onResend }: { email: string; onResend: () => 
     return () => clearInterval(t);
   }, [cooldown]);
 
-  const handleResend = async () => {
+  const handleResend = () => {
     onResend();
     setResent(true);
     setCooldown(60);
   };
 
   return (
-    <div style={{
+    <div className="pw-banner" style={{
       position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
       zIndex: 9999, width: 'calc(100% - 32px)', maxWidth: 520,
       background: '#1c1917', borderRadius: 14,
       boxShadow: '0 4px 24px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.07)',
       padding: '14px 18px', display: 'flex', alignItems: 'flex-start', gap: 12,
-      animation: 'slideUp 300ms cubic-bezier(0.16,1,0.3,1)',
     }}>
-      <style>{`
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateX(-50%) translateY(16px); }
-          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
-        }
-      `}</style>
-      <div style={{ marginTop: 2, color: '#f59e0b', flexShrink: 0 }}><IconMail/></div>
+      <div style={{ marginTop: 2, color: '#f59e0b', flexShrink: 0 }}><IconMail /></div>
       <div style={{ flex: 1 }}>
         <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600, color: '#f5f5f4', lineHeight: 1.4 }}>
           Please verify your email
@@ -124,6 +137,7 @@ function UnverifiedBanner({ email, onResend }: { email: string; onResend: () => 
   );
 }
 
+// ── Page ───────────────────────────────────────────────────────────────────────
 export default function LoginPage() {
   const router = useRouter();
   const [step, setStep] = useState<'role' | 'form'>('role');
@@ -182,12 +196,8 @@ export default function LoginPage() {
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (authError) {
-      // Email not confirmed — let them in anyway, show the sticky banner
       if (authError.message.toLowerCase().includes('email not confirmed')) {
-        // Supabase blocks login for unconfirmed users — we show the banner and
-        // keep them on the login page with a helpful message instead of a hard error
         setUnverifiedEmail(email);
-        setError(null);
         setLoading(false);
         return;
       }
@@ -196,10 +206,9 @@ export default function LoginPage() {
       return;
     }
 
-    // Role check
     const { data: profile } = await supabase
       .from('users')
-      .select('role, email_confirmed_at')
+      .select('role')
       .eq('id', data.user!.id)
       .single();
 
@@ -224,25 +233,10 @@ export default function LoginPage() {
     router.push('/dashboard');
   }, [email, password, selectedRole, router]);
 
-  const Card = ({ children }: { children: React.ReactNode }) => (
-    <div style={{
-      position: 'relative', zIndex: 1, width: '100%', maxWidth: 440,
-      padding: 1, borderRadius: 32,
-      background: 'linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(17,24,39,0.07) 100%)',
-    }}>
-      <div style={{
-        borderRadius: 31, background: '#FFFFFF', padding: '40px 36px 36px',
-        boxShadow: '0 0 0 1px rgba(0,0,0,0.06), 0 1px 1px -0.5px rgba(0,0,0,0.06), 0 3px 3px -1.5px rgba(0,0,0,0.06), 0 6px 6px -3px rgba(0,0,0,0.06), 0 12px 12px -6px rgba(0,0,0,0.06), 0 24px 24px -12px rgba(0,0,0,0.06)',
-      }}>
-        {children}
-      </div>
-    </div>
-  );
-
   return (
     <div style={{ minHeight: '100dvh', background: '#F7F3EF', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', position: 'relative', overflowX: 'hidden' }}>
-      <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,237,213,0.55) 0%, transparent 70%)' }}/>
-      <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, backgroundImage: 'linear-gradient(to right, rgba(17,24,39,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(17,24,39,0.04) 1px, transparent 1px)', backgroundSize: '48px 48px' }}/>
+      <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,237,213,0.55) 0%, transparent 70%)' }} />
+      <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, backgroundImage: 'linear-gradient(to right, rgba(17,24,39,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(17,24,39,0.04) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
 
       <style>{`
         *, *::before, *::after { box-sizing: border-box; }
@@ -280,11 +274,16 @@ export default function LoginPage() {
         }
         .pw-google-btn:not(:disabled):hover { border-color: rgba(17,24,39,0.32); transform: translateY(-1px); }
         .pw-google-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        @keyframes pw-slide-up {
+          from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        .pw-banner { animation: pw-slide-up 300ms cubic-bezier(0.16,1,0.3,1); }
       `}</style>
 
       <div style={{ position: 'relative', zIndex: 1, marginBottom: 40 }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-          <IconLogo/>
+          <IconLogo />
           <span style={{ fontSize: 16, fontWeight: 600, color: '#111827', letterSpacing: '-0.01em' }}>Pathwise</span>
         </Link>
       </div>
@@ -301,30 +300,30 @@ export default function LoginPage() {
               onMouseEnter={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.background = 'rgba(59,130,246,0.04)'; }}
             >
-              <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(59,130,246,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconSeeker/></div>
+              <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(59,130,246,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconSeeker /></div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, color: '#111827', marginBottom: 3 }}>Job Seeker</div>
                 <div style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.5 }}>Analyse &amp; optimise your resume for ATS</div>
               </div>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
             <button className="pw-role-btn" onClick={() => handleRoleSelect('recruiter')}
               style={{ borderColor: 'rgba(249,115,22,0.25)', background: 'rgba(249,115,22,0.04)' }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = '#f97316'; e.currentTarget.style.background = 'rgba(249,115,22,0.08)'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(249,115,22,0.25)'; e.currentTarget.style.background = 'rgba(249,115,22,0.04)'; }}
             >
-              <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(249,115,22,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconRecruiter/></div>
+              <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(249,115,22,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconRecruiter /></div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, color: '#111827', marginBottom: 3 }}>Recruiter / HR Team</div>
                 <div style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.5 }}>Screen and rank candidates instantly</div>
               </div>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="#f97316" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="#f97316" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
           </div>
           <div style={{ margin: '24px 0 0', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }}/>
+            <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }} />
             <span style={{ fontSize: 12, color: '#9CA3AF' }}>New to Pathwise?</span>
-            <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }}/>
+            <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }} />
           </div>
           <Link href="/auth/register"
             style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: 9999, border: '1.5px solid rgba(17,24,39,0.14)', color: '#374151', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}
@@ -341,12 +340,12 @@ export default function LoginPage() {
             onMouseEnter={e => (e.currentTarget.style.color = '#111827')}
             onMouseLeave={e => (e.currentTarget.style.color = '#6B7280')}
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
             Back
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, background: selectedRole === 'seeker' ? 'rgba(59,130,246,0.06)' : 'rgba(249,115,22,0.06)', border: `1px solid ${selectedRole === 'seeker' ? 'rgba(59,130,246,0.20)' : 'rgba(249,115,22,0.20)'}`, marginBottom: 28 }}>
-            {selectedRole === 'seeker' ? <IconSeeker/> : <IconRecruiter/>}
+            {selectedRole === 'seeker' ? <IconSeeker /> : <IconRecruiter />}
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{selectedRole === 'seeker' ? 'Job Seeker' : 'Recruiter / HR Team'}</div>
               <div style={{ fontSize: 11, color: '#9CA3AF' }}>Signing in as {selectedRole}</div>
@@ -359,17 +358,16 @@ export default function LoginPage() {
           </div>
 
           <button className="pw-google-btn" onClick={() => handleGoogleSignIn(selectedRole)} disabled={googleLoading}>
-            <IconGoogle/>
+            <IconGoogle />
             {googleLoading ? 'Redirecting…' : 'Continue with Google'}
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0' }}>
-            <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }}/>
+            <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }} />
             <span style={{ fontSize: 12, color: '#9CA3AF' }}>or continue with email</span>
-            <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }}/>
+            <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }} />
           </div>
 
-          {/* Unverified notice inline (before error box) */}
           {unverifiedEmail && (
             <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', fontSize: 13, color: '#92400e', lineHeight: 1.6, marginBottom: 16 }}>
               📧 A confirmation email was sent to <strong>{unverifiedEmail}</strong>. Please verify your email to access all features.
@@ -385,7 +383,7 @@ export default function LoginPage() {
               <label htmlFor="login-email" style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Email</label>
               <input id="login-email" type="email" required placeholder="you@example.com"
                 value={email} onChange={e => setEmail(e.target.value)}
-                className={`pw-input pw-input-${selectedRole}`} autoComplete="email"/>
+                className={`pw-input pw-input-${selectedRole}`} autoComplete="email" />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -394,7 +392,7 @@ export default function LoginPage() {
               </div>
               <input id="login-password" type="password" required placeholder="••••••••"
                 value={password} onChange={e => setPassword(e.target.value)}
-                className={`pw-input pw-input-${selectedRole}`} autoComplete="current-password"/>
+                className={`pw-input pw-input-${selectedRole}`} autoComplete="current-password" />
             </div>
 
             {error && (
@@ -407,15 +405,14 @@ export default function LoginPage() {
               style={{ background: loading ? 'rgba(17,24,39,0.45)' : (selectedRole === 'recruiter' ? '#f97316' : '#111827') }}
             >
               {loading ? 'Signing in…' : 'Sign in'}
-              {!loading && <IconArrowRight/>}
+              {!loading && <IconArrowRight />}
             </button>
           </form>
         </Card>
       )}
 
-      {/* Sticky bottom banner for unverified users who got past login (future: confirmed session but unverified) */}
       {unverifiedEmail && step === 'form' && (
-        <UnverifiedBanner email={unverifiedEmail} onResend={handleResendConfirmation}/>
+        <UnverifiedBanner email={unverifiedEmail} onResend={handleResendConfirmation} />
       )}
 
       <p style={{ position: 'relative', zIndex: 1, marginTop: 28, fontSize: 12, color: '#9CA3AF', textAlign: 'center' }}>
