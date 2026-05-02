@@ -9,8 +9,9 @@ interface AuthContextType {
     user: User | null;
     loading: boolean;
     email: string | null;
+    role: "seeker" | "recruiter" | null;
     login: (email: string, password: string) => Promise<any>;
-    register: (email: string, password: string) => Promise<any>;
+    register: (email: string, password: string, role: "seeker" | "recruiter") => Promise<any>;
     logout: () => Promise<{ error: any }>;
 }
 
@@ -22,44 +23,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Get initial session
         supabase.auth.getSession().then(({ data }) => {
             setSession(data.session);
             setUser(data.session?.user ?? null);
+            // Sync role from Supabase metadata to localStorage on initial load
+            const metaRole = data.session?.user?.user_metadata?.role;
+            if (metaRole) {
+                localStorage.setItem("user_role", metaRole);
+            }
             setLoading(false);
         });
 
-        // Listen for changes
         const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
             setSession(session);
             setUser(session?.user ?? null);
+            // Sync role on every auth state change (login, token refresh, etc.)
+            const metaRole = session?.user?.user_metadata?.role;
+            if (metaRole) {
+                localStorage.setItem("user_role", metaRole);
+            }
             setLoading(false);
         });
 
         return () => listener.subscription.unsubscribe();
     }, []);
 
-    // Expose auth methods through context to avoid recreating them in hooks
     const login = async (email: string, password: string) => {
-        return supabase.auth.signInWithPassword({ email, password });
+        const result = await supabase.auth.signInWithPassword({ email, password });
+        // Immediately sync role to localStorage after successful login
+        const metaRole = result.data?.user?.user_metadata?.role;
+        if (metaRole) {
+            localStorage.setItem("user_role", metaRole);
+        }
+        return result;
     };
 
-    const register = async (email: string, password: string) => {
-        return supabase.auth.signUp({ email, password });
+    // role is now a required param — passed from sign-up form
+    const register = async (email: string, password: string, role: "seeker" | "recruiter") => {
+        return supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: { role }, // persisted in Supabase user_metadata
+            },
+        });
     };
 
     const logout = async () => {
+        localStorage.removeItem("user_role");
         return supabase.auth.signOut();
     };
+
+    // Derive role from Supabase user metadata (source of truth)
+    const role = (user?.user_metadata?.role ?? null) as "seeker" | "recruiter" | null;
 
     const value = {
         session,
         user,
         loading,
         email: user?.email ?? null,
+        role,
         login,
         register,
-        logout
+        logout,
     };
 
     return (
