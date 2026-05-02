@@ -14,28 +14,22 @@ const ACCENT = {
   recruiter: { color: '#f97316', soft: 'rgba(249,115,22,0.10)',  border: 'rgba(249,115,22,0.22)'  },
 };
 
-// ── Error mapper ──────────────────────────────────────────────────────────────
 function mapSignUpError(msg: string): string {
   const m = msg.toLowerCase();
   if (m.includes('already registered') || m.includes('already exists') || m.includes('duplicate') || m.includes('unique'))
     return 'An account with this email already exists. Try signing in instead.';
   if (m.includes('password') && (m.includes('weak') || m.includes('short') || m.includes('length') || m.includes('characters')))
-    return 'Password is too weak. Use at least 8 characters with a mix of letters and numbers.';
-  if (m.includes('invalid email') || m.includes('email format') || m.includes('valid email'))
+    return 'Password is too weak. Use at least 8 characters.';
+  if (m.includes('invalid email') || m.includes('valid email'))
     return 'Please enter a valid email address.';
-  if (m.includes('too many requests') || m.includes('rate limit') || m.includes('429'))
-    return 'Too many attempts. Please wait a few minutes before trying again.';
-  if (m.includes('network') || m.includes('fetch') || m.includes('failed to fetch'))
-    return 'Connection error. Please check your internet and try again.';
-  if (m.includes('signups not allowed') || m.includes('email link'))
-    return 'Sign-ups are temporarily disabled. Please contact support.';
-  // Surface raw error in dev so you can diagnose it instantly
-  if (process.env.NODE_ENV === 'development')
-    return `Debug: ${msg}`;
-  return 'Could not create account. Please try again.';
+  if (m.includes('too many requests') || m.includes('rate limit'))
+    return 'Too many attempts. Please wait a few minutes.';
+  if (m.includes('signups not allowed'))
+    return 'Sign-ups are disabled. Please contact support.';
+  // Always show raw error so we can diagnose
+  return `Error: ${msg}`;
 }
 
-// ── Icons ─────────────────────────────────────────────────────────────────────
 const IconLogo = () => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
     <rect width="28" height="28" rx="7" fill="#111827"/>
@@ -119,14 +113,13 @@ function RegisterForm() {
     e.preventDefault();
     setError(null);
 
-    // ── Client-side guards ──
     if (!VALID_ROLES.includes(role)) { setError('Invalid role selected.'); return; }
     if (name.trim().length < 2)      { setError('Please enter your full name.'); return; }
     if (password.length < 8)         { setError('Password must be at least 8 characters.'); return; }
 
     setLoading(true);
 
-    // ── 1. Create auth user ──
+    // ── 1. Call Supabase signUp ──
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.toLowerCase().trim(),
       password,
@@ -136,23 +129,27 @@ function RegisterForm() {
       },
     });
 
+    // Always log full response for diagnosis
+    console.log('[register] signUp response:', JSON.stringify({ data, error: signUpError }, null, 2));
+
     if (signUpError) {
+      console.error('[register] signUpError:', signUpError.message, signUpError.status);
       setError(mapSignUpError(signUpError.message));
       setLoading(false);
       return;
     }
 
-    // ── 2. Detect Supabase ghost-signup (duplicate email returns HTTP 200 + empty identities) ──
+    // ── 2. Ghost signup detection (duplicate email → empty identities) ──
     if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      console.warn('[register] Ghost signup detected — duplicate email:', email);
       setError('An account with this email already exists. Try signing in instead.');
       setLoading(false);
       return;
     }
 
-    // ── 3. Write profile row (only for genuine new signups) ──
+    // ── 3. Write profile row ──
     if (data.user) {
       const resolvedPlan = planParam && VALID_PLANS.includes(planParam) ? planParam : 'free';
-
       const { error: profileError } = await supabase.from('users').upsert(
         {
           id: data.user.id,
@@ -165,22 +162,17 @@ function RegisterForm() {
       );
 
       if (profileError) {
-        console.error('[register] profile upsert failed:', profileError.message, profileError.code);
-        // Only block the user if it’s NOT a harmless duplicate-key error
-        const isDuplicate = profileError.message.includes('duplicate') || profileError.code === '23505';
+        console.error('[register] profile upsert error:', profileError.message, profileError.code, profileError.details);
+        const isDuplicate = profileError.code === '23505' || profileError.message.includes('duplicate');
         if (!isDuplicate) {
-          setError(
-            process.env.NODE_ENV === 'development'
-              ? `Profile save failed — ${profileError.message} (code: ${profileError.code})`
-              : 'Account created but profile setup failed. Please sign in and we’ll complete your profile.'
-          );
+          setError(`Profile error: ${profileError.message} (${profileError.code})`);
           setLoading(false);
           return;
         }
       }
     }
 
-    // ── 4. Route ──
+    // ── 4. Redirect ──
     if (data.session) {
       router.push('/dashboard');
     } else {
@@ -189,7 +181,6 @@ function RegisterForm() {
     }
   }, [role, name, email, password, planParam, router]);
 
-  // ── Success screen ──
   if (success) {
     return (
       <div style={{ minHeight: '100dvh', background: '#F7F3EF', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, position: 'relative' }}>
@@ -213,7 +204,6 @@ function RegisterForm() {
     );
   }
 
-  // ── Main form ──
   return (
     <div style={{ minHeight: '100dvh', background: '#F7F3EF', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', position: 'relative', overflowX: 'hidden' }}>
       <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,237,213,0.55) 0%, transparent 70%)' }}/>
@@ -255,7 +245,7 @@ function RegisterForm() {
         .pw-google-btn:disabled { opacity: 0.6; cursor: not-allowed; }
       `}</style>
 
-      <div style={{ position: 'relative', zIndex: 1, marginBottom: 32, display: 'flex', alignItems: 'center' }}>
+      <div style={{ position: 'relative', zIndex: 1, marginBottom: 32 }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
           <IconLogo/>
           <span style={{ fontSize: 16, fontWeight: 600, color: '#111827', letterSpacing: '-0.01em' }}>Pathwise</span>
@@ -264,22 +254,22 @@ function RegisterForm() {
 
       {/* Role toggle */}
       <div style={{ position: 'relative', zIndex: 1, marginBottom: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-        <p style={{ margin: 0, fontSize: 13, color: '#6B7280', fontWeight: 400 }}>I am signing up as a…</p>
-        <div ref={pillRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '1px solid rgba(17,24,39,0.10)', borderRadius: 9999, padding: 4, boxShadow: '0 1px 4px rgba(17,24,39,0.06)' }} role="group" aria-label="Select account type">
+        <p style={{ margin: 0, fontSize: 13, color: '#6B7280' }}>I am signing up as a…</p>
+        <div ref={pillRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '1px solid rgba(17,24,39,0.10)', borderRadius: 9999, padding: 4, boxShadow: '0 1px 4px rgba(17,24,39,0.06)' }} role="group">
           <div aria-hidden style={{ position: 'absolute', top: 4, height: 'calc(100% - 8px)', borderRadius: 9999, background: accent.color, left: indicator.left, width: indicator.width, transition: 'left 300ms cubic-bezier(0.4,0,0.2,1), width 300ms cubic-bezier(0.4,0,0.2,1), background 300ms ease', zIndex: 0, boxShadow: `0 2px 8px ${accent.color}44` }}/>
-          <button ref={seekerRef} onClick={() => setRole('seeker')} aria-pressed={role === 'seeker'} style={{ position: 'relative', zIndex: 1, padding: '8px 20px', borderRadius: 9999, fontSize: 13, fontWeight: 500, color: role === 'seeker' ? '#fff' : '#6B7280', background: 'transparent', border: 'none', cursor: 'pointer', transition: 'color 200ms ease', whiteSpace: 'nowrap', fontFamily: "'Inter', sans-serif" }}>Job Hunter</button>
-          <button ref={recruiterRef} onClick={() => setRole('recruiter')} aria-pressed={role === 'recruiter'} style={{ position: 'relative', zIndex: 1, padding: '8px 20px', borderRadius: 9999, fontSize: 13, fontWeight: 500, color: role === 'recruiter' ? '#fff' : '#6B7280', background: 'transparent', border: 'none', cursor: 'pointer', transition: 'color 200ms ease', whiteSpace: 'nowrap', fontFamily: "'Inter', sans-serif" }}>HR Teams</button>
+          <button ref={seekerRef} onClick={() => setRole('seeker')} style={{ position: 'relative', zIndex: 1, padding: '8px 20px', borderRadius: 9999, fontSize: 13, fontWeight: 500, color: role === 'seeker' ? '#fff' : '#6B7280', background: 'transparent', border: 'none', cursor: 'pointer', transition: 'color 200ms ease', whiteSpace: 'nowrap', fontFamily: "'Inter', sans-serif" }}>Job Hunter</button>
+          <button ref={recruiterRef} onClick={() => setRole('recruiter')} style={{ position: 'relative', zIndex: 1, padding: '8px 20px', borderRadius: 9999, fontSize: 13, fontWeight: 500, color: role === 'recruiter' ? '#fff' : '#6B7280', background: 'transparent', border: 'none', cursor: 'pointer', transition: 'color 200ms ease', whiteSpace: 'nowrap', fontFamily: "'Inter', sans-serif" }}>HR Teams</button>
         </div>
       </div>
 
       {/* Card */}
       <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 440, padding: 1, borderRadius: 32, background: role === 'seeker' ? 'linear-gradient(135deg, rgba(59,130,246,0.18) 0%, rgba(255,255,255,0.92) 60%, rgba(17,24,39,0.07) 100%)' : 'linear-gradient(135deg, rgba(249,115,22,0.18) 0%, rgba(255,255,255,0.92) 60%, rgba(17,24,39,0.07) 100%)', transition: 'background 300ms ease' }}>
-        <div style={{ borderRadius: 31, background: '#FFFFFF', boxShadow: '0 0 0 1px rgba(0,0,0,0.06), 0 1px 1px -0.5px rgba(0,0,0,0.06), 0 3px 3px -1.5px rgba(0,0,0,0.06), 0 6px 6px -3px rgba(0,0,0,0.06), 0 12px 12px -6px rgba(0,0,0,0.06), 0 24px 24px -12px rgba(0,0,0,0.06)', padding: '36px 36px 32px', overflow: 'hidden', position: 'relative' }}>
+        <div style={{ borderRadius: 31, background: '#FFFFFF', boxShadow: '0 0 0 1px rgba(0,0,0,0.06), 0 24px 24px -12px rgba(0,0,0,0.06)', padding: '36px 36px 32px', overflow: 'hidden', position: 'relative' }}>
           <div aria-hidden style={{ position: 'absolute', top: '-30%', right: '-10%', width: 220, height: 220, borderRadius: '50%', background: `radial-gradient(circle, ${accent.color}14 0%, transparent 70%)`, pointerEvents: 'none', transition: 'background 300ms ease' }}/>
 
-          <div style={{ marginBottom: 24, position: 'relative' }}>
+          <div style={{ marginBottom: 24 }}>
             <h1 style={{ margin: '0 0 6px', fontSize: 24, fontWeight: 600, color: '#111827', letterSpacing: '-0.02em' }}>Create your account</h1>
-            <p style={{ margin: 0, fontSize: 14, color: '#6B7280', fontWeight: 400, lineHeight: 1.6 }}>
+            <p style={{ margin: 0, fontSize: 14, color: '#6B7280', lineHeight: 1.6 }}>
               {role === 'seeker' ? 'Start optimising your resume and tracking jobs.' : 'Start screening candidates and building your pipeline.'}
             </p>
           </div>
@@ -295,40 +285,34 @@ function RegisterForm() {
             <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }}/>
           </div>
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'relative' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               <label htmlFor="reg-name" style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Full name</label>
               <input id="reg-name" type="text" required placeholder="Your full name"
                 value={name} onChange={e => setName(e.target.value)}
-                className={`pw-input pw-input-${role}`}
-                autoComplete="name"
-              />
+                className={`pw-input pw-input-${role}`} autoComplete="name"/>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               <label htmlFor="reg-email" style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Email</label>
               <input id="reg-email" type="email" required placeholder="you@example.com"
                 value={email} onChange={e => setEmail(e.target.value)}
-                className={`pw-input pw-input-${role}`}
-                autoComplete="email"
-              />
+                className={`pw-input pw-input-${role}`} autoComplete="email"/>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               <label htmlFor="reg-password" style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Password</label>
               <input id="reg-password" type="password" required minLength={8} placeholder="Min. 8 characters"
                 value={password} onChange={e => setPassword(e.target.value)}
-                className={`pw-input pw-input-${role}`}
-                autoComplete="new-password"
-              />
+                className={`pw-input pw-input-${role}`} autoComplete="new-password"/>
             </div>
 
             {error && (
-              <div role="alert" style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.20)', fontSize: 13, color: '#dc2626', lineHeight: 1.5 }}>
+              <div role="alert" style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.20)', fontSize: 13, color: '#dc2626', lineHeight: 1.5, wordBreak: 'break-word' }}>
                 {error}
               </div>
             )}
 
             <button type="submit" disabled={loading} className="pw-submit-btn"
-              style={{ background: loading ? `${accent.color}88` : accent.color, boxShadow: `rgba(0,0,0,0.25) 0px 8px 20px -6px, ${accent.color}44 0px 0px 0px 1px` }}
+              style={{ background: loading ? `${accent.color}88` : accent.color, boxShadow: `rgba(0,0,0,0.25) 0px 8px 20px -6px` }}
             >
               {loading ? 'Creating account…' : (role === 'seeker' ? 'Start as Job Hunter' : 'Start as HR Teams')}
               {!loading && <IconArrowRight/>}
@@ -341,7 +325,7 @@ function RegisterForm() {
             <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }}/>
           </div>
           <Link href="/auth/login"
-            style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: 9999, border: '1.5px solid rgba(17,24,39,0.14)', color: '#374151', fontSize: 14, fontWeight: 500, textDecoration: 'none', transition: 'border-color 150ms ease, color 150ms ease' }}
+            style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: 9999, border: '1.5px solid rgba(17,24,39,0.14)', color: '#374151', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(17,24,39,0.32)'; (e.currentTarget as HTMLElement).style.color = '#111827'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(17,24,39,0.14)'; (e.currentTarget as HTMLElement).style.color = '#374151'; }}
           >Sign in instead</Link>
@@ -359,9 +343,7 @@ function RegisterForm() {
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={
-      <div style={{ minHeight: '100dvh', background: '#F7F3EF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif", fontSize: 14, color: '#9CA3AF' }}>Loading…</div>
-    }>
+    <Suspense fallback={<div style={{ minHeight: '100dvh', background: '#F7F3EF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif", fontSize: 14, color: '#9CA3AF' }}>Loading…</div>}>
       <RegisterForm/>
     </Suspense>
   );
