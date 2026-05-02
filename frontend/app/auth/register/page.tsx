@@ -18,15 +18,19 @@ function mapSignUpError(msg: string): string {
   const m = msg.toLowerCase();
   if (m.includes('already registered') || m.includes('already exists') || m.includes('duplicate') || m.includes('unique'))
     return 'An account with this email already exists. Try signing in instead.';
-  if (m.includes('password') && (m.includes('weak') || m.includes('short') || m.includes('length') || m.includes('characters')))
-    return 'Password is too weak. Use at least 8 characters.';
+  // Supabase password policy — replace the raw character-list dump with something human
+  if (m.includes('password should contain at least one character of each') || m.includes('abcdefghijklmnopqrstuvwxyz'))
+    return 'Your password must include an uppercase letter, a lowercase letter, a number, and a special character (e.g. Ab1@safe).';
+  if (m.includes('password') && (m.includes('weak') || m.includes('short') || m.includes('length') || m.includes('least') || m.includes('characters') || m.includes('6') || m.includes('8')))
+    return 'Password is too weak. Use at least 8 characters with uppercase, lowercase, a number and a symbol.';
   if (m.includes('invalid email') || m.includes('valid email'))
     return 'Please enter a valid email address.';
   if (m.includes('too many requests') || m.includes('rate limit'))
-    return 'Too many attempts. Please wait a few minutes.';
+    return 'Too many attempts. Please wait a few minutes before trying again.';
   if (m.includes('signups not allowed'))
-    return 'Sign-ups are disabled. Please contact support.';
-  // Always show raw error so we can diagnose
+    return 'Sign-ups are currently disabled. Please contact support.';
+  if (m.includes('network') || m.includes('fetch') || m.includes('failed to fetch'))
+    return 'Connection error. Please check your internet and try again.';
   return `Error: ${msg}`;
 }
 
@@ -54,6 +58,29 @@ const IconGoogle = () => (
     <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 6.294C4.672 4.169 6.656 3.58 9 3.58z" fill="#EA4335"/>
   </svg>
 );
+
+// Password strength hint shown below the input
+function PasswordHint({ password }: { password: string }) {
+  const checks = [
+    { label: 'Uppercase letter', ok: /[A-Z]/.test(password) },
+    { label: 'Lowercase letter', ok: /[a-z]/.test(password) },
+    { label: 'Number',           ok: /[0-9]/.test(password) },
+    { label: 'Symbol (!@#…)',    ok: /[^A-Za-z0-9]/.test(password) },
+    { label: '8+ characters',    ok: password.length >= 8 },
+  ];
+  if (!password) return null;
+  const allOk = checks.every(c => c.ok);
+  if (allOk) return null;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px', marginTop: 6 }}>
+      {checks.map(c => (
+        <span key={c.label} style={{ fontSize: 11, color: c.ok ? '#16a34a' : '#9CA3AF', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ fontSize: 10 }}>{c.ok ? '✓' : '○'}</span> {c.label}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 function RegisterForm() {
   const router = useRouter();
@@ -88,6 +115,10 @@ function RegisterForm() {
   useEffect(() => { recalcIndicator(); }, [recalcIndicator]);
   useEffect(() => { const t = setTimeout(recalcIndicator, 50); return () => clearTimeout(t); }, [recalcIndicator]);
 
+  // Client-side password validation matching Supabase policy
+  const passwordValid = (p: string) =>
+    p.length >= 8 && /[A-Z]/.test(p) && /[a-z]/.test(p) && /[0-9]/.test(p) && /[^A-Za-z0-9]/.test(p);
+
   const handleGoogleSignUp = useCallback(async () => {
     setGoogleLoading(true);
     setError(null);
@@ -115,11 +146,15 @@ function RegisterForm() {
 
     if (!VALID_ROLES.includes(role)) { setError('Invalid role selected.'); return; }
     if (name.trim().length < 2)      { setError('Please enter your full name.'); return; }
-    if (password.length < 8)         { setError('Password must be at least 8 characters.'); return; }
+
+    // Validate password client-side BEFORE hitting Supabase
+    if (!passwordValid(password)) {
+      setError('Your password must include an uppercase letter, a lowercase letter, a number, and a special character (e.g. Ab1@safe).');
+      return;
+    }
 
     setLoading(true);
 
-    // ── 1. Call Supabase signUp ──
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.toLowerCase().trim(),
       password,
@@ -129,7 +164,6 @@ function RegisterForm() {
       },
     });
 
-    // Always log full response for diagnosis
     console.log('[register] signUp response:', JSON.stringify({ data, error: signUpError }, null, 2));
 
     if (signUpError) {
@@ -139,30 +173,20 @@ function RegisterForm() {
       return;
     }
 
-    // ── 2. Ghost signup detection (duplicate email → empty identities) ──
     if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-      console.warn('[register] Ghost signup detected — duplicate email:', email);
       setError('An account with this email already exists. Try signing in instead.');
       setLoading(false);
       return;
     }
 
-    // ── 3. Write profile row ──
     if (data.user) {
       const resolvedPlan = planParam && VALID_PLANS.includes(planParam) ? planParam : 'free';
       const { error: profileError } = await supabase.from('users').upsert(
-        {
-          id: data.user.id,
-          email: email.toLowerCase().trim(),
-          full_name: name.trim(),
-          role,
-          plan: resolvedPlan,
-        },
+        { id: data.user.id, email: email.toLowerCase().trim(), full_name: name.trim(), role, plan: resolvedPlan },
         { onConflict: 'id', ignoreDuplicates: false }
       );
-
       if (profileError) {
-        console.error('[register] profile upsert error:', profileError.message, profileError.code, profileError.details);
+        console.error('[register] profile upsert error:', profileError.message, profileError.code);
         const isDuplicate = profileError.code === '23505' || profileError.message.includes('duplicate');
         if (!isDuplicate) {
           setError(`Profile error: ${profileError.message} (${profileError.code})`);
@@ -172,7 +196,6 @@ function RegisterForm() {
       }
     }
 
-    // ── 4. Redirect ──
     if (data.session) {
       router.push('/dashboard');
     } else {
@@ -252,7 +275,6 @@ function RegisterForm() {
         </Link>
       </div>
 
-      {/* Role toggle */}
       <div style={{ position: 'relative', zIndex: 1, marginBottom: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
         <p style={{ margin: 0, fontSize: 13, color: '#6B7280' }}>I am signing up as a…</p>
         <div ref={pillRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '1px solid rgba(17,24,39,0.10)', borderRadius: 9999, padding: 4, boxShadow: '0 1px 4px rgba(17,24,39,0.06)' }} role="group">
@@ -262,7 +284,6 @@ function RegisterForm() {
         </div>
       </div>
 
-      {/* Card */}
       <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 440, padding: 1, borderRadius: 32, background: role === 'seeker' ? 'linear-gradient(135deg, rgba(59,130,246,0.18) 0%, rgba(255,255,255,0.92) 60%, rgba(17,24,39,0.07) 100%)' : 'linear-gradient(135deg, rgba(249,115,22,0.18) 0%, rgba(255,255,255,0.92) 60%, rgba(17,24,39,0.07) 100%)', transition: 'background 300ms ease' }}>
         <div style={{ borderRadius: 31, background: '#FFFFFF', boxShadow: '0 0 0 1px rgba(0,0,0,0.06), 0 24px 24px -12px rgba(0,0,0,0.06)', padding: '36px 36px 32px', overflow: 'hidden', position: 'relative' }}>
           <div aria-hidden style={{ position: 'absolute', top: '-30%', right: '-10%', width: 220, height: 220, borderRadius: '50%', background: `radial-gradient(circle, ${accent.color}14 0%, transparent 70%)`, pointerEvents: 'none', transition: 'background 300ms ease' }}/>
@@ -300,9 +321,10 @@ function RegisterForm() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               <label htmlFor="reg-password" style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Password</label>
-              <input id="reg-password" type="password" required minLength={8} placeholder="Min. 8 characters"
+              <input id="reg-password" type="password" required placeholder="e.g. MyPass1@"
                 value={password} onChange={e => setPassword(e.target.value)}
                 className={`pw-input pw-input-${role}`} autoComplete="new-password"/>
+              <PasswordHint password={password} />
             </div>
 
             {error && (
