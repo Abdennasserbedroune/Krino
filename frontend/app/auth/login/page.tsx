@@ -38,12 +38,6 @@ const IconGoogle = () => (
     <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 6.294C4.672 4.169 6.656 3.58 9 3.58z" fill="#EA4335" />
   </svg>
 );
-const IconMail = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <rect x="2" y="4" width="20" height="16" rx="2" />
-    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-  </svg>
-);
 
 function mapAuthError(msg: string): string {
   const m = msg.toLowerCase();
@@ -58,6 +52,12 @@ function mapAuthError(msg: string): string {
   return `Sign-in failed: ${msg}`;
 }
 
+// Correct dashboard routes
+function getDashboardRoute(role: string | null | undefined): string {
+  if (role === 'recruiter') return '/dashboard/recruiter';
+  return '/dashboard'; // seeker + fallback
+}
+
 type Role = 'seeker' | 'recruiter';
 
 function Card({ children }: { children: React.ReactNode }) {
@@ -65,29 +65,6 @@ function Card({ children }: { children: React.ReactNode }) {
     <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 440, padding: 1, borderRadius: 32, background: 'linear-gradient(135deg,rgba(255,255,255,0.92) 0%,rgba(17,24,39,0.07) 100%)' }}>
       <div style={{ borderRadius: 31, background: '#fff', padding: '40px 36px 36px', boxShadow: '0 0 0 1px rgba(0,0,0,0.06),0 6px 6px -3px rgba(0,0,0,0.06),0 24px 24px -12px rgba(0,0,0,0.06)' }}>
         {children}
-      </div>
-    </div>
-  );
-}
-
-function ResendBanner({ email, onResend }: { email: string; onResend: () => void }) {
-  const [cooldown, setCooldown] = useState(0);
-  const [sent, setSent] = useState(false);
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const t = setInterval(() => setCooldown(c => c - 1), 1000);
-    return () => clearInterval(t);
-  }, [cooldown]);
-  const handle = () => { onResend(); setSent(true); setCooldown(60); };
-  return (
-    <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, width: 'calc(100% - 32px)', maxWidth: 520, background: '#1c1917', borderRadius: 14, boxShadow: '0 4px 24px rgba(0,0,0,.35)', padding: '14px 18px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-      <div style={{ marginTop: 2, color: '#f59e0b', flexShrink: 0 }}><IconMail /></div>
-      <div style={{ flex: 1 }}>
-        <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600, color: '#f5f5f4' }}>Verify your email</p>
-        <p style={{ margin: '0 0 10px', fontSize: 12, color: '#a8a29e' }}>Confirmation link sent to <strong style={{ color: '#e7e5e4' }}>{email}</strong></p>
-        <button onClick={handle} disabled={cooldown > 0} style={{ fontSize: 12, fontWeight: 500, padding: '5px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,.15)', background: sent ? 'rgba(34,197,94,.15)' : 'rgba(255,255,255,.08)', color: sent ? '#4ade80' : '#e7e5e4', cursor: cooldown > 0 ? 'not-allowed' : 'pointer', opacity: cooldown > 0 ? 0.6 : 1, fontFamily: 'inherit' }}>
-          {sent && cooldown > 0 ? `Sent ✓ — resend in ${cooldown}s` : 'Resend email'}
-        </button>
       </div>
     </div>
   );
@@ -102,14 +79,13 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [gLoading, setGLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [unverified, setUnverified] = useState<string | null>(null);
-
-  // Create client once per render — never at module level to avoid SSR issues
-  const supabase = createClient();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.replace('/dashboard');
+    const sb = createClient();
+    sb.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        router.replace(getDashboardRoute(data.session.user?.user_metadata?.role));
+      }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -127,27 +103,22 @@ export default function LoginPage() {
     if (e) { setError('Google sign-in failed.'); setGLoading(false); }
   }, []);
 
-  const resend = useCallback(async () => {
-    if (!unverified) return;
-    await createClient().auth.resend({ type: 'signup', email: unverified });
-  }, [unverified]);
-
   const submit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null); setUnverified(null); setLoading(true);
+    setError(null); setLoading(true);
     const sb = createClient();
     const { data, error: authErr } = await sb.auth.signInWithPassword({ email, password });
     if (authErr) {
-      if (authErr.message.toLowerCase().includes('email not confirmed')) { setUnverified(email); setLoading(false); return; }
       setError(mapAuthError(authErr.message)); setLoading(false); return;
     }
+    // Check stored role vs selected role
     const { data: profile } = await sb.from('users').select('role').eq('id', data.user.id).maybeSingle();
     if (profile && role && profile.role !== role) {
       await sb.auth.signOut();
-      setError(`This account is a ${profile.role === 'recruiter' ? 'Recruiter' : 'Job Seeker'}. Go back and pick the right role.`);
+      setError(`This account is registered as a ${profile.role === 'recruiter' ? 'Recruiter' : 'Job Seeker'}. Go back and pick the correct role.`);
       setLoading(false); return;
     }
-    router.push(`/dashboard/${profile?.role ?? role ?? 'seeker'}`);
+    router.push(getDashboardRoute(profile?.role ?? role));
   }, [email, password, role, router]);
 
   const inputCss: React.CSSProperties = { height: 44, width: '100%', padding: '0 14px', borderRadius: 12, border: '1.5px solid rgba(17,24,39,.14)', background: 'rgba(17,24,39,.02)', fontSize: 14, fontFamily: 'inherit', color: '#111827', outline: 'none', boxSizing: 'border-box' };
@@ -192,7 +163,7 @@ export default function LoginPage() {
 
       {step === 'form' && role && (
         <Card>
-          <button onClick={() => { setStep('role'); setError(null); setUnverified(null); }} style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#6B7280', padding: 0, fontFamily: 'inherit' }}>
+          <button onClick={() => { setStep('role'); setError(null); }} style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#6B7280', padding: 0, fontFamily: 'inherit' }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
             Back
           </button>
@@ -215,13 +186,6 @@ export default function LoginPage() {
             <span style={{ fontSize: 12, color: '#9CA3AF' }}>or continue with email</span>
             <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,.08)' }} />
           </div>
-
-          {unverified && (
-            <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.25)', fontSize: 13, color: '#92400e', marginBottom: 16 }}>
-              Check your inbox for a confirmation link at <strong>{unverified}</strong>.
-              <button onClick={resend} style={{ display: 'block', marginTop: 8, fontSize: 12, color: '#d97706', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', textDecoration: 'underline' }}>Resend email</button>
-            </div>
-          )}
 
           <form onSubmit={submit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -250,8 +214,6 @@ export default function LoginPage() {
           </form>
         </Card>
       )}
-
-      {unverified && step === 'form' && <ResendBanner email={unverified} onResend={resend} />}
 
       <p style={{ position: 'relative', zIndex: 1, marginTop: 28, fontSize: 12, color: '#9CA3AF', textAlign: 'center' }}>
         Protected by Supabase Auth &amp; PKCE.
