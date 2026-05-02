@@ -22,7 +22,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/signup", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def signup(user_in: UserCreate, db: Session = Depends(get_db)) -> UserRead:
-    """Register a new user with email + password."""
+    """Register a new user with email + password and role."""
     existing = db.query(User).filter(User.email == user_in.email).first()
     if existing:
         raise HTTPException(
@@ -34,6 +34,7 @@ def signup(user_in: UserCreate, db: Session = Depends(get_db)) -> UserRead:
         email=user_in.email,
         full_name=user_in.full_name,
         hashed_password=get_password_hash(user_in.password),
+        role=user_in.role,
     )
     db.add(user)
     db.commit()
@@ -56,12 +57,13 @@ def login(
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
+        data={"sub": user.email, "role": user.role},
+        expires_delta=access_token_expires,
     )
     return Token(access_token=access_token)
 
 
 @router.get("/me", response_model=UserRead)
 def read_me(current_user: User = Depends(get_current_active_user)) -> UserRead:
-    """Return the currently authenticated user."""
+    """Return the currently authenticated user including their role."""
     return current_user
