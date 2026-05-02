@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -31,7 +31,8 @@ const IconCheck = ({ color = '#22c55e' }: { color?: string }) => (
   </svg>
 );
 
-export default function RegisterPage() {
+// ─── Inner component that uses useSearchParams ────────────────────────────────
+function RegisterForm() {
   const router = useRouter();
   const params = useSearchParams();
   const planParam = params.get('plan');
@@ -45,7 +46,6 @@ export default function RegisterPage() {
   const [success, setSuccess] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  // pill indicator
   const pillRef = useRef<HTMLDivElement>(null);
   const seekerRef = useRef<HTMLButtonElement>(null);
   const recruiterRef = useRef<HTMLButtonElement>(null);
@@ -63,10 +63,7 @@ export default function RegisterPage() {
   };
 
   useEffect(() => { recalcIndicator(); }, [role]);
-  useEffect(() => {
-    // initial position on mount
-    setTimeout(recalcIndicator, 50);
-  }, []);
+  useEffect(() => { setTimeout(recalcIndicator, 50); }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,13 +74,10 @@ export default function RegisterPage() {
     }
     setLoading(true);
 
-    // 1. Create auth user
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: { full_name: name, role },
-      },
+      options: { data: { full_name: name, role } },
     });
 
     if (signUpError) {
@@ -92,7 +86,6 @@ export default function RegisterPage() {
       return;
     }
 
-    // 2. Upsert profile row in users table
     if (data.user) {
       await supabase.from('users').upsert({
         id: data.user.id,
@@ -103,8 +96,6 @@ export default function RegisterPage() {
       });
     }
 
-    // 3. If session exists immediately (email confirm disabled) → go to dashboard
-    //    Otherwise show success message
     if (data.session) {
       router.push('/dashboard');
     } else {
@@ -149,7 +140,7 @@ export default function RegisterPage() {
             <h2 style={{ margin: '0 0 10px', fontSize: 22, fontWeight: 600, color: '#111827', letterSpacing: '-0.02em' }}>Check your inbox</h2>
             <p style={{ margin: '0 0 28px', fontSize: 14, color: '#6B7280', lineHeight: 1.7 }}>
               We sent a confirmation link to <strong style={{ color: '#111827' }}>{email}</strong>.<br/>
-              Click it to activate your account and go to your dashboard.
+              Click it to activate your account.
             </p>
             <Link
               href="/auth/login"
@@ -181,7 +172,6 @@ export default function RegisterPage() {
         overflowX: 'hidden',
       }}
     >
-      {/* Glows */}
       <div aria-hidden style={{
         position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
         background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,237,213,0.55) 0%, transparent 70%)',
@@ -195,7 +185,6 @@ export default function RegisterPage() {
         backgroundSize: '48px 48px',
       }}/>
 
-      {/* Logo */}
       <div style={{ position: 'relative', zIndex: 1, marginBottom: 32, display: 'flex', alignItems: 'center' }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
           <IconLogo/>
@@ -203,14 +192,8 @@ export default function RegisterPage() {
         </Link>
       </div>
 
-      {/* Role toggle pill — ABOVE the card */}
-      <div
-        style={{
-          position: 'relative', zIndex: 1,
-          marginBottom: 24,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
-        }}
-      >
+      {/* Role toggle pill */}
+      <div style={{ position: 'relative', zIndex: 1, marginBottom: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
         <p style={{ margin: 0, fontSize: 13, color: '#6B7280', fontWeight: 400 }}>I am signing up as a…</p>
         <div
           ref={pillRef}
@@ -228,7 +211,6 @@ export default function RegisterPage() {
           role="group"
           aria-label="Select account type"
         >
-          {/* Animated pill indicator */}
           <div
             aria-hidden
             style={{
@@ -294,7 +276,6 @@ export default function RegisterPage() {
             position: 'relative',
           }}
         >
-          {/* Subtle corner glow per role */}
           <div aria-hidden style={{
             position: 'absolute', top: '-30%', right: '-10%',
             width: 220, height: 220, borderRadius: '50%',
@@ -315,101 +296,66 @@ export default function RegisterPage() {
           </div>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'relative' }}>
-
-            {/* Name */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               <label style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Full name</label>
               <input
-                type="text"
-                required
-                placeholder="Abdennasser Bedroune"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                onFocus={() => setFocusedField('name')}
-                onBlur={() => setFocusedField(null)}
+                type="text" required placeholder="Your full name"
+                value={name} onChange={e => setName(e.target.value)}
+                onFocus={() => setFocusedField('name')} onBlur={() => setFocusedField(null)}
                 style={{
-                  height: 44, width: '100%', padding: '0 14px',
-                  borderRadius: 12,
+                  height: 44, width: '100%', padding: '0 14px', borderRadius: 12,
                   border: `1.5px solid ${focusedField === 'name' ? accent.color : 'rgba(17,24,39,0.14)'}`,
-                  background: 'rgba(17,24,39,0.02)',
-                  fontSize: 14, color: '#111827',
-                  outline: 'none', transition: 'border-color 150ms ease',
-                  boxSizing: 'border-box',
+                  background: 'rgba(17,24,39,0.02)', fontSize: 14, color: '#111827',
+                  outline: 'none', transition: 'border-color 150ms ease', boxSizing: 'border-box',
                 }}
               />
             </div>
 
-            {/* Email */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               <label style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Email</label>
               <input
-                type="email"
-                required
-                placeholder="you@example.com"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                onFocus={() => setFocusedField('email')}
-                onBlur={() => setFocusedField(null)}
+                type="email" required placeholder="you@example.com"
+                value={email} onChange={e => setEmail(e.target.value)}
+                onFocus={() => setFocusedField('email')} onBlur={() => setFocusedField(null)}
                 style={{
-                  height: 44, width: '100%', padding: '0 14px',
-                  borderRadius: 12,
+                  height: 44, width: '100%', padding: '0 14px', borderRadius: 12,
                   border: `1.5px solid ${focusedField === 'email' ? accent.color : 'rgba(17,24,39,0.14)'}`,
-                  background: 'rgba(17,24,39,0.02)',
-                  fontSize: 14, color: '#111827',
-                  outline: 'none', transition: 'border-color 150ms ease',
-                  boxSizing: 'border-box',
+                  background: 'rgba(17,24,39,0.02)', fontSize: 14, color: '#111827',
+                  outline: 'none', transition: 'border-color 150ms ease', boxSizing: 'border-box',
                 }}
               />
             </div>
 
-            {/* Password */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               <label style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Password</label>
               <input
-                type="password"
-                required
-                minLength={6}
-                placeholder="Min. 6 characters"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                onFocus={() => setFocusedField('password')}
-                onBlur={() => setFocusedField(null)}
+                type="password" required minLength={6} placeholder="Min. 6 characters"
+                value={password} onChange={e => setPassword(e.target.value)}
+                onFocus={() => setFocusedField('password')} onBlur={() => setFocusedField(null)}
                 style={{
-                  height: 44, width: '100%', padding: '0 14px',
-                  borderRadius: 12,
+                  height: 44, width: '100%', padding: '0 14px', borderRadius: 12,
                   border: `1.5px solid ${focusedField === 'password' ? accent.color : 'rgba(17,24,39,0.14)'}`,
-                  background: 'rgba(17,24,39,0.02)',
-                  fontSize: 14, color: '#111827',
-                  outline: 'none', transition: 'border-color 150ms ease',
-                  boxSizing: 'border-box',
+                  background: 'rgba(17,24,39,0.02)', fontSize: 14, color: '#111827',
+                  outline: 'none', transition: 'border-color 150ms ease', boxSizing: 'border-box',
                 }}
               />
             </div>
 
-            {/* Error */}
             {error && (
               <div style={{
                 padding: '10px 14px', borderRadius: 10,
-                background: 'rgba(239,68,68,0.06)',
-                border: '1px solid rgba(239,68,68,0.20)',
+                background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.20)',
                 fontSize: 13, color: '#dc2626',
-              }}>
-                {error}
-              </div>
+              }}>{error}</div>
             )}
 
-            {/* Submit */}
             <button
-              type="submit"
-              disabled={loading}
+              type="submit" disabled={loading}
               style={{
-                marginTop: 6, height: 48, width: '100%',
-                borderRadius: 9999,
+                marginTop: 6, height: 48, width: '100%', borderRadius: 9999,
                 background: loading ? `${accent.color}88` : accent.color,
-                color: '#FFFFFF',
-                fontSize: 15, fontWeight: 500,
-                border: 'none',
-                cursor: loading ? 'not-allowed' : 'pointer',
+                color: '#FFFFFF', fontSize: 15, fontWeight: 500,
+                border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 boxShadow: `rgba(0,0,0,0.25) 0px 8px 20px -6px, ${accent.color}44 0px 0px 0px 1px`,
                 transition: 'opacity 150ms ease, transform 150ms ease, background 300ms ease',
@@ -422,7 +368,6 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          {/* Divider + login link */}
           <div style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,0.08)' }}/>
             <span style={{ fontSize: 12, color: '#9CA3AF' }}>Already have an account?</span>
@@ -458,5 +403,22 @@ export default function RegisterPage() {
         input::placeholder { color: #9CA3AF; }
       `}</style>
     </div>
+  );
+}
+
+// ─── Page export — wraps form in Suspense so useSearchParams is safe ──────────
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div style={{
+        minHeight: '100dvh', background: '#F7F3EF',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: "'Inter', sans-serif", fontSize: 14, color: '#9CA3AF',
+      }}>
+        Loading…
+      </div>
+    }>
+      <RegisterForm/>
+    </Suspense>
   );
 }
