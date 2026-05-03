@@ -8,7 +8,7 @@ import { ProfileDropdown } from "@/components/ui/profile-dropdown";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 
-// ─── Solar linear icons (inline SVG, 1.6px stroke — matches landing) ──────────
+// ─ Icons ─────────────────────────────────────────────────────────────────────────
 const IconLogo = () => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
     <rect width="28" height="28" rx="7" fill="#111827"/>
@@ -34,13 +34,6 @@ const IconBriefcase = ({ active }: { active: boolean }) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
     <rect x="2" y="7" width="20" height="14" rx="3" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6"/>
     <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6" strokeLinecap="round"/>
-  </svg>
-);
-
-const IconUpload = ({ active }: { active: boolean }) => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-    <path d="M12 16V4m0 0L8 8m4-4 4 4" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6" strokeLinecap="round"/>
   </svg>
 );
 
@@ -76,23 +69,21 @@ const IconX = () => (
   </svg>
 );
 
-// ─── Nav items ────────────────────────────────────────────────────────────────
+// ─ Nav items ────────────────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { href: "/dashboard",              label: "Career Match",    Icon: IconTarget     },
-  { href: "/dashboard/chat",         label: "AI Career Chat",  Icon: IconChat       },
-  { href: "/dashboard/jobs",         label: "Browse Jobs",     Icon: IconBriefcase  },
-  { href: "/dashboard/upload",       label: "Upload Resume",   Icon: IconUpload     },
-  { href: "/dashboard/cv-builder",   label: "CV Builder",      Icon: IconCvBuilder  },
-  { href: "/dashboard/tracker",      label: "Applications",    Icon: IconTracker    },
+  { href: "/dashboard",            label: "Job Match",       Icon: IconTarget    },
+  { href: "/dashboard/cv-builder", label: "Resume Builder",  Icon: IconCvBuilder },
+  { href: "/dashboard/chat",       label: "AI Career Coach", Icon: IconChat      },
+  { href: "/dashboard/jobs",       label: "Browse Jobs",     Icon: IconBriefcase },
+  { href: "/dashboard/tracker",    label: "Applications",    Icon: IconTracker   },
 ];
 
-// ─── Sidebar ─────────────────────────────────────────────────────────────────
+// ─ Sidebar ─────────────────────────────────────────────────────────────────────────────
 function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname();
 
   return (
     <>
-      {/* Mobile overlay */}
       {open && (
         <div
           className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm lg:hidden"
@@ -122,16 +113,14 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         className="lg:translate-x-0"
       >
         {/* Logo row */}
-        <div
-          style={{
-            height: 60,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "0 20px",
-            borderBottom: "1px solid rgba(17,24,39,0.07)",
-          }}
-        >
+        <div style={{
+          height: 60,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 20px",
+          borderBottom: "1px solid rgba(17,24,39,0.07)",
+        }}>
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
             <IconLogo />
             <span style={{ fontSize: 15, fontWeight: 600, color: "#111827", letterSpacing: "-0.01em" }}>Pathwise</span>
@@ -148,15 +137,13 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
 
         {/* Section label */}
         <div style={{ padding: "20px 20px 8px" }}>
-          <span
-            style={{
-              fontSize: 10,
-              fontWeight: 600,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: "#9CA3AF",
-            }}
-          >
+          <span style={{
+            fontSize: 10,
+            fontWeight: 600,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            color: "#9CA3AF",
+          }}>
             Job Seeker
           </span>
         </div>
@@ -207,7 +194,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
           })}
         </nav>
 
-        {/* Bottom: divider + settings */}
+        {/* Bottom: settings */}
         <div style={{ padding: "12px 12px 20px", borderTop: "1px solid rgba(17,24,39,0.07)" }}>
           <Link
             href="/dashboard/settings"
@@ -243,7 +230,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   );
 }
 
-// ─── Topbar ───────────────────────────────────────────────────────────────────
+// ─ Topbar ───────────────────────────────────────────────────────────────────────────
 function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   const { email } = useAuth();
   const pathname = usePathname();
@@ -257,7 +244,6 @@ function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
     return () => el.removeEventListener("scroll", handler);
   }, []);
 
-  // Derive page title from pathname
   const pageTitle = NAV_ITEMS.find(
     n => n.href === pathname || (n.href !== "/dashboard" && pathname.startsWith(n.href))
   )?.label ?? "Dashboard";
@@ -280,7 +266,6 @@ function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
         transition: "background 300ms ease, border-color 300ms ease",
       }}
     >
-      {/* Left: hamburger (mobile) + page title */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <button
           onClick={onMenuClick}
@@ -298,33 +283,17 @@ function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
         >
           <IconMenu />
         </button>
-        <span
-          style={{
-            fontSize: 15,
-            fontWeight: 600,
-            color: "#111827",
-            letterSpacing: "-0.01em",
-          }}
-        >
+        <span style={{ fontSize: 15, fontWeight: 600, color: "#111827", letterSpacing: "-0.01em" }}>
           {pageTitle}
         </span>
       </div>
 
-      {/* Right controls */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <ThemeToggle variant="icon" />
         <LanguageSwitcher />
         {email && (
           <span
-            style={{
-              fontSize: 13,
-              fontWeight: 400,
-              color: "#9CA3AF",
-              maxWidth: 180,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
+            style={{ fontSize: 13, fontWeight: 400, color: "#9CA3AF", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
             className="hidden sm:inline-block"
           >
             {email}
@@ -336,7 +305,9 @@ function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   );
 }
 
-// ─── Root layout ─────────────────────────────────────────────────────────────
+// ─ Root layout ─────────────────────────────────────────────────────────────────────
+const IconUpload = ({ active }: { active: boolean }) => null;
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -350,7 +321,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         position: "relative",
       }}
     >
-      {/* Warm radial glow — matches landing */}
+      {/* Warm radial glow */}
       <div
         aria-hidden
         style={{
@@ -358,12 +329,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           inset: 0,
           pointerEvents: "none",
           zIndex: 0,
-          background:
-            "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,237,213,0.55) 0%, transparent 70%)",
+          background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,237,213,0.55) 0%, transparent 70%)",
         }}
       />
 
-      {/* Fine grid overlay — matches landing */}
+      {/* Fine grid overlay */}
       <div
         aria-hidden
         style={{
@@ -379,10 +349,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }}
       />
 
-      {/* Sidebar */}
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* Main column — offset by sidebar on desktop */}
       <div
         id="dashboard-scroll-area"
         style={{
