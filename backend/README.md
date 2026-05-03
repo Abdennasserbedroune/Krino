@@ -1,6 +1,6 @@
-# Pathwise Backend (TypeScript/Node.js)
+# Krino Backend (TypeScript/Node.js)
 
-Modern TypeScript backend service for the Pathwise resume analysis platform, built with Express, MongoDB, and AI-powered analysis capabilities.
+Modern TypeScript backend service for the Krino resume analysis platform, built with Express, MongoDB, and AI-powered analysis capabilities.
 
 ## 🚀 Tech Stack
 
@@ -62,7 +62,7 @@ backend/
 3. **Edit `.env` with your configuration**:
    ```env
    # Required
-   MONGODB_URI=mongodb://localhost:27017/pathwise
+   MONGODB_URI=mongodb://localhost:27017/krino
    GROQ_API_KEY=your_groq_api_key_here
    
    # Optional (defaults provided)
