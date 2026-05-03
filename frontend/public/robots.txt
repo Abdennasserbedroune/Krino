@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# Block internal/auth/api routes from indexing
+Disallow: /api/
+Disallow: /auth/
+Disallow: /dashboard/
+Disallow: /test-supabase/
+
+Sitemap: https://pathwise.app/sitemap.xml

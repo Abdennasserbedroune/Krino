@@ -10,14 +10,12 @@ export default function TestSupabasePage() {
   useEffect(() => {
     async function testConnection() {
       try {
-        // Test 1: Check if supabase is initialized
         if (!supabase) {
           setError("Supabase client is not initialized");
           return;
         }
         setStatus("Supabase client initialized ✓");
 
-        // Test 2: Try to get session
         const { data, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) {
           setError(`Session error: ${sessionError.message}`);
@@ -25,7 +23,6 @@ export default function TestSupabasePage() {
         }
         setStatus(`Session check completed ✓\nUser: ${data.session?.user?.email || "No user logged in"}`);
 
-        // Test 3: Check connection
         const { error: healthError } = await supabase.from("users").select("count").limit(1);
         if (healthError) {
           setError(`Database error: ${healthError.message}`);
@@ -40,11 +37,17 @@ export default function TestSupabasePage() {
     testConnection();
   }, []);
 
+  // SECURITY: Do not render env vars — even public ones — in the browser DOM.
+  // NEXT_PUBLIC_* vars are already bundled into the client, so displaying them
+  // here adds no value and creates an unnecessary exposure surface.
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKeyConfigured = !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
         <h1 className="text-2xl font-bold mb-4">Supabase Connection Test</h1>
-        
+
         <div className="mb-4">
           <h2 className="font-semibold mb-2">Status:</h2>
           <pre className="bg-gray-100 p-4 rounded whitespace-pre-wrap">{status}</pre>
@@ -58,8 +61,8 @@ export default function TestSupabasePage() {
         )}
 
         <div className="mt-6 text-sm text-gray-600">
-          <p><strong>NEXT_PUBLIC_SUPABASE_URL:</strong> {process.env.NEXT_PUBLIC_SUPABASE_URL || "Not set"}</p>
-          <p><strong>NEXT_PUBLIC_SUPABASE_ANON_KEY:</strong> {process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "Set (" + process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.substring(0, 20) + "...)" : "Not set"}</p>
+          <p><strong>SUPABASE_URL:</strong> {supabaseUrl ? "✓ Set" : "✗ Not set"}</p>
+          <p><strong>SUPABASE_ANON_KEY:</strong> {anonKeyConfigured ? "✓ Set" : "✗ Not set"}</p>
         </div>
       </div>
     </div>
