@@ -629,7 +629,8 @@ export default function LandingPage() {
         }}
       >
         <Link href="/" className="flex items-center gap-2 no-underline" style={{ textDecoration: 'none' }}>
-          <Image src="/logo.png" alt="Krino" width={120} height={40} priority />
+          <Image src="/logo.png" alt="Krino" width={44} height={44} priority style={{ objectFit: 'contain' }} />
+          <span style={{ fontSize: 18, fontWeight: 700, color: '#111827', letterSpacing: '-0.02em' }}>Krino</span>
         </Link>
 
         <nav
@@ -1143,7 +1144,8 @@ export default function LandingPage() {
         }}
       >
         <div className="flex items-center gap-2">
-          <Image src="/logo.png" alt="Krino" width={100} height={34} />
+          <Image src="/logo.png" alt="Krino" width={36} height={36} style={{ objectFit: 'contain' }} />
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#111827', letterSpacing: '-0.01em' }}>Krino</span>
           <span style={{ fontSize: 12, color: '#9CA3AF', marginLeft: 8 }}>© 2026 — Resume intelligence, built for humans.</span>
         </div>
         <div className="flex items-center gap-6">

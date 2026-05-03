@@ -116,7 +116,8 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
           borderBottom: "1px solid rgba(17,24,39,0.07)",
         }}>
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-            <Image src="/logo.png" alt="Krino" width={120} height={40} priority />
+            <Image src="/logo.png" alt="Krino" width={44} height={44} priority style={{ objectFit: 'contain' }} />
+            <span style={{ fontSize: 18, fontWeight: 700, color: "#111827", letterSpacing: "-0.02em" }}>Krino</span>
           </Link>
           <button
             onClick={onClose}
