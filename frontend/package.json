@@ -41,6 +41,7 @@
     "groq-sdk": "^0.37.0",
     "lucide-react": "^0.546.0",
     "mammoth": "^1.6.0",
+    "nanoid": "^5.1.5",
     "next": "^14.2.33",
     "next-auth": "^4.24.7",
     "nodemailer": "^7.0.11",
