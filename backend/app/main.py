@@ -33,7 +33,7 @@ def create_app() -> FastAPI:
     @app.get("/", tags=["meta"], summary="API metadata")
     def read_root() -> dict[str, str]:
         """Return a simple payload describing the API."""
-        return {"message": "Welcome to Pathwise Python backend"}
+        return {"message": "Welcome to Krino Python backend"}
 
     return app
 

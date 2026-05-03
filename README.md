@@ -1,8 +1,8 @@
 <div align="center">
 
-# Pathwise
+# Krino
 
-[𝙻𝚒𝚟𝚎 𝙰𝚙𝚙](https://pathwise-app.vercel.app) ✦ [𝙹𝚘𝚋 𝚂𝚎𝚎𝚔𝚎𝚛 𝙳𝚊𝚜𝚑𝚋𝚘𝚊𝚛𝚍](https://pathwise-app.vercel.app/dashboard) ✦ [𝚁𝚎𝚌𝚛𝚞𝚒𝚝𝚎𝚛 𝙳𝚊𝚜𝚑𝚋𝚘𝚊𝚛𝚍](https://pathwise-app.vercel.app/dashboard/recruiter) ✦ [𝙰𝙿𝙸 𝙳𝚘𝚌𝚜](#api-reference) ✦ [𝙶𝚎𝚝𝚝𝚒𝚗𝚐 𝚂𝚝𝚊𝚛𝚝𝚎𝚍](#getting-started) ✦ [𝙲𝚛𝚎𝚊𝚝𝚘𝚛](#creators-note)
+[𝙻𝚒𝚟𝚎 𝙰𝚙𝚙](https://krino.app) ✦ [𝙹𝚘𝚋 𝚂𝚎𝚎𝚔𝚎𝚛 𝙳𝚊𝚜𝚑𝚋𝚘𝚊𝚛𝚍](https://krino.app/dashboard) ✦ [𝚁𝚎𝚌𝚛𝚞𝚒𝚝𝚎𝚛 𝙳𝚊𝚜𝚑𝚋𝚘𝚊𝚛𝚍](https://krino.app/dashboard/recruiter) ✦ [𝙰𝙿𝙸 𝙳𝚘𝚌𝚜](#api-reference) ✦ [𝙶𝚎𝚝𝚝𝚒𝚗𝚐 𝚂𝚝𝚊𝚛𝚝𝚎𝚍](#getting-started) ✦ [𝙲𝚛𝚎𝚊𝚝𝚘𝚛](#creators-note)
 
 AI-powered resume intelligence platform. Job seekers get instant ATS match scores and a personal AI career coach. Recruiters batch-screen up to 10 candidates in under 60 seconds.
 
@@ -12,12 +12,12 @@ AI-powered resume intelligence platform. Job seekers get instant ATS match score
 
 <div align="center">
 
-![GitHub stars](https://img.shields.io/github/stars/Abdennasserbedroune/Pathwise-main?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8)
-![License](https://img.shields.io/github/license/Abdennasserbedroune/Pathwise-main?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8)
-![GitHub forks](https://img.shields.io/github/forks/Abdennasserbedroune/Pathwise-main?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8)
+![GitHub stars](https://img.shields.io/github/stars/Abdennasserbedroune/Pathwise?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8)
+![License](https://img.shields.io/github/license/Abdennasserbedroune/Pathwise?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8)
+![GitHub forks](https://img.shields.io/github/forks/Abdennasserbedroune/Pathwise?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8)
 ![Version](https://img.shields.io/badge/Version-1.0%20Atlas-FFF?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8)
 
-[![Live App](https://img.shields.io/badge/Live-pathwise--app.vercel.app-FFF?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8)](https://pathwise-app.vercel.app)
+[![Live App](https://img.shields.io/badge/Live-krino.app-FFF?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8)](https://krino.app)
 [![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-FFF?labelColor=F0F0E8&logo=vercel&logoColor=1d4ed8&style=for-the-badge&color=1d4ed8)](https://vercel.com)
 [![Next.js](https://img.shields.io/badge/Frontend-Next.js%2014-FFF?labelColor=F0F0E8&logo=nextdotjs&logoColor=1d4ed8&style=for-the-badge&color=1d4ed8)](https://nextjs.org)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-FFF?labelColor=F0F0E8&logo=fastapi&logoColor=1d4ed8&style=for-the-badge&color=1d4ed8)](https://fastapi.tiangolo.com)
@@ -26,7 +26,7 @@ AI-powered resume intelligence platform. Job seekers get instant ATS match score
 
 > [!IMPORTANT]
 >
-> Pathwise is in active development. Features are shipped continuously. If you find a bug or have a feature request, please [open an issue](https://github.com/Abdennasserbedroune/Pathwise-main/issues). Contributions, feedback, and stars are always welcome.
+> Krino is in active development. Features are shipped continuously. If you find a bug or have a feature request, please [open an issue](https://github.com/Abdennasserbedroune/Pathwise/issues). Contributions, feedback, and stars are always welcome.
 
 ---
 
@@ -144,8 +144,8 @@ Fastest way to run the full stack (Postgres, Redis, API, Celery, Next.js):
 
 ```bash
 # 1. Clone
-git clone https://github.com/Abdennasserbedroune/Pathwise-main.git
-cd Pathwise-main
+git clone https://github.com/Abdennasserbedroune/Pathwise.git
+cd Pathwise
 
 # 2. Configure environment
 cp .env.example .env
@@ -272,7 +272,7 @@ vercel --cwd frontend --prod
 
 Or connect via [Vercel Dashboard](https://vercel.com/new):
 
-1. Import `Abdennasserbedroune/Pathwise-main`
+1. Import `Abdennasserbedroune/Pathwise`
 2. Set **Root Directory** → `frontend`
 3. Add all environment variables from `frontend/.env.example`
 4. Deploy
@@ -301,7 +301,7 @@ Or connect via [Vercel Dashboard](https://vercel.com/new):
 - [ ] Interview prep module (AI mock Q&A)
 - [ ] Analytics dashboard for recruiters
 
-Have a suggestion? [Open an issue](https://github.com/Abdennasserbedroune/Pathwise-main/issues) or start a [discussion](https://github.com/Abdennasserbedroune/Pathwise-main/discussions).
+Have a suggestion? [Open an issue](https://github.com/Abdennasserbedroune/Pathwise/issues) or start a [discussion](https://github.com/Abdennasserbedroune/Pathwise/discussions).
 
 ---
 
@@ -327,15 +327,15 @@ npm run lint
 npm run format
 ```
 
-<a href="https://github.com/Abdennasserbedroune/Pathwise-main/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=Abdennasserbedroune/Pathwise-main" />
+<a href="https://github.com/Abdennasserbedroune/Pathwise/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Abdennasserbedroune/Pathwise" />
 </a>
 
 ---
 
 ## Creator's Note
 
-Thank you for checking out Pathwise. I built this because I was tired of submitting resumes into a void — ATS black holes with zero feedback. Pathwise is the tool I wish I had.
+Thank you for checking out Krino. I built this because I was tired of submitting resumes into a void — ATS black holes with zero feedback. Krino is the tool I wish I had.
 
 Feel free to reach out, collaborate, or just say hi.
 
@@ -351,13 +351,13 @@ Feel free to reach out, collaborate, or just say hi.
 <details>
   <summary><kbd>Star History</kbd></summary>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Abdennasserbedroune/Pathwise-main&theme=dark&type=Date">
-    <img width="100%" src="https://api.star-history.com/svg?repos=Abdennasserbedroune/Pathwise-main&type=Date">
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Abdennasserbedroune/Pathwise&theme=dark&type=Date">
+    <img width="100%" src="https://api.star-history.com/svg?repos=Abdennasserbedroune/Pathwise&type=Date">
   </picture>
 </details>
 
-![Stars](https://img.shields.io/github/stars/Abdennasserbedroune/Pathwise-main?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8)
+![Stars](https://img.shields.io/github/stars/Abdennasserbedroune/Pathwise?labelColor=F0F0E8&style=for-the-badge&color=1d4ed8)
 
-*If Pathwise helped you land an interview, a ⭐ on GitHub means the world.*
+*If Krino helped you land an interview, a ⭐ on GitHub means the world.*
 
 </div>

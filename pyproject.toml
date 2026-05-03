@@ -1,7 +1,7 @@
 [project]
 name = "app"
 version = "0.1.0"
-description = "Pathwise CV Analysis Backend"
+description = "Krino CV Analysis Backend"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi",
