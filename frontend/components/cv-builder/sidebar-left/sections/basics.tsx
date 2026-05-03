@@ -23,13 +23,13 @@ export function BasicsSection() {
           label="Full Name"
           value={basics.name}
           onChange={(v) => update({ name: v })}
-          placeholder="Abdennasser Bedroune"
+          placeholder="e.g. John Doe"
         />
         <CvField
           label="Headline"
           value={basics.headline}
           onChange={(v) => update({ headline: v })}
-          placeholder="AI Engineer · Full-Stack Developer"
+          placeholder="e.g. Software Engineer · Product Designer"
         />
         <div className="grid grid-cols-2 gap-3">
           <CvField
@@ -44,14 +44,14 @@ export function BasicsSection() {
             type="tel"
             value={basics.phone}
             onChange={(v) => update({ phone: v })}
-            placeholder="+212 6 00 00 00 00"
+            placeholder="+1 555 000 0000"
           />
         </div>
         <CvField
           label="Location"
           value={basics.location}
           onChange={(v) => update({ location: v })}
-          placeholder="Marrakesh, Morocco"
+          placeholder="City, Country"
         />
         <CvField
           label="Website"
@@ -65,21 +65,21 @@ export function BasicsSection() {
           type="url"
           value={basics.linkedin}
           onChange={(v) => update({ linkedin: v })}
-          placeholder="https://linkedin.com/in/..."
+          placeholder="https://linkedin.com/in/yourname"
         />
         <CvField
           label="GitHub"
           type="url"
           value={basics.github}
           onChange={(v) => update({ github: v })}
-          placeholder="https://github.com/..."
+          placeholder="https://github.com/yourname"
         />
         <CvField
           label="Twitter / X"
           type="url"
           value={basics.twitter}
           onChange={(v) => update({ twitter: v })}
-          placeholder="https://x.com/..."
+          placeholder="https://x.com/yourname"
         />
       </div>
     </div>

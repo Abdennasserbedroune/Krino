@@ -1,55 +1,57 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { BuilderShell } from "@/components/cv-builder/builder-shell";
 import type { CvDraft } from "@/lib/cv-builder/types";
 import { DEFAULT_DESIGN, DEFAULT_SECTION_ORDER, EMPTY_DRAFT_DATA } from "@/lib/cv-builder/types";
+import { useCvBuilderStore } from "@/lib/cv-builder/store";
 import { Loader2 } from "lucide-react";
 
 export default function CvBuilderEditorPage() {
   const { id } = useParams<{ id: string }>();
+  const storeDraft = useCvBuilderStore((s) => s.draft);
   const [draft, setDraft] = useState<CvDraft | null>(null);
   const [loading, setLoading] = useState(true);
+  const didInit = useRef(false);
 
   useEffect(() => {
+    if (didInit.current) return;
+    didInit.current = true;
+
+    // 1️⃣ If the picker already pre-loaded a draft into the store (same id), use it directly.
+    if (storeDraft && storeDraft.id === id) {
+      setDraft(storeDraft);
+      setLoading(false);
+      return;
+    }
+
+    // 2️⃣ Otherwise try the API (real backend).
     async function load() {
       try {
-        // Try to fetch real draft from API
         const res = await fetch(`/api/cv-builder/${id}`);
         if (res.ok) {
           const data = await res.json();
           setDraft(data);
-        } else {
-          // API not ready yet — boot with a local empty draft
-          setDraft({
-            id,
-            userId: "",
-            title: "My Resume",
-            data: EMPTY_DRAFT_DATA,
-            design: DEFAULT_DESIGN,
-            sectionOrder: DEFAULT_SECTION_ORDER,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
+          return;
         }
-      } catch {
-        // Offline / API not wired — still boot the editor
-        setDraft({
-          id,
-          userId: "",
-          title: "My Resume",
-          data: EMPTY_DRAFT_DATA,
-          design: DEFAULT_DESIGN,
-          sectionOrder: DEFAULT_SECTION_ORDER,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
-      } finally {
-        setLoading(false);
-      }
+      } catch {/* network offline */}
+
+      // 3️⃣ Fallback: blank draft so editor still opens.
+      setDraft({
+        id,
+        userId: "",
+        title: "My Resume",
+        data: EMPTY_DRAFT_DATA,
+        design: DEFAULT_DESIGN,
+        sectionOrder: DEFAULT_SECTION_ORDER,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
     }
-    load();
+
+    load().finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   if (loading) {
@@ -64,6 +66,5 @@ export default function CvBuilderEditorPage() {
   }
 
   if (!draft) return null;
-
   return <BuilderShell draft={draft} />;
 }

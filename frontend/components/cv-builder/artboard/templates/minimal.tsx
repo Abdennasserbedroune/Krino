@@ -5,118 +5,74 @@ import { formatDateRange } from "@/lib/cv-builder/utils";
 
 export function MinimalTemplate({ draft }: { draft: CvDraft }) {
   const { data: d, design } = draft;
+  const fz = design.fontSize;
 
-  const css: React.CSSProperties = {
-    fontFamily: design.fontFamily,
-    fontSize: `${design.fontSize}pt`,
-    lineHeight: design.lineHeight,
-    paddingTop:    `${design.marginTop}mm`,
-    paddingBottom: `${design.marginTop}mm`,
-    paddingLeft:   `${design.marginSide}mm`,
-    paddingRight:  `${design.marginSide}mm`,
-    color: design.primaryColor,
-    width: "100%",
-    height: "100%",
-    overflowY: "hidden",
-    boxSizing: "border-box",
-    backgroundColor: "#ffffff",
-  };
-
-  const sectionTitle = (title: string) => (
-    <h2
-      style={{
-        fontSize: `${design.fontSize - 0.5}pt`,
+  const sec = (t: string) => (
+    <div style={{ marginTop: 12, marginBottom: 4 }}>
+      <h2 style={{
+        fontSize: `${fz - 0.5}pt`,
         fontWeight: 700,
         textTransform: "uppercase",
-        letterSpacing: "0.15em",
+        letterSpacing: "0.14em",
         color: design.accentColor,
-        margin: "12px 0 6px",
-      }}
-    >
-      {title}
-    </h2>
+        margin: 0,
+      }}>{t}</h2>
+    </div>
   );
 
   return (
-    <div style={css}>
-      {/* Header — centered, ultra-minimal */}
-      <div style={{ textAlign: "center", marginBottom: "12px" }}>
-        <h1
-          style={{
-            fontSize: `${design.fontSize + 9}pt`,
-            fontWeight: 300,
-            letterSpacing: "0.2em",
-            margin: 0,
-            color: design.primaryColor,
-            textTransform: "uppercase",
-          }}
-        >
-          {d.basics.name || "YOUR NAME"}
+    <div style={{
+      fontFamily: design.fontFamily,
+      fontSize: `${fz}pt`,
+      lineHeight: design.lineHeight,
+      color: design.primaryColor,
+      width: "100%",
+      height: "100%",
+      overflowY: "hidden",
+      boxSizing: "border-box",
+      padding: `${design.marginTop}mm ${design.marginSide}mm`,
+    }}>
+      {/* Minimal centered header */}
+      <div style={{ textAlign: "center", marginBottom: 10, paddingBottom: 10, borderBottom: `1px solid ${design.primaryColor}20` }}>
+        <h1 style={{ fontSize: `${fz + 9}pt`, fontWeight: 300, margin: 0, letterSpacing: "0.04em", color: design.primaryColor }}>
+          {d.basics.name || "Your Name"}
         </h1>
         {d.basics.headline && (
-          <p
-            style={{
-              margin: "4px 0 6px",
-              fontSize: `${design.fontSize}pt`,
-              color: `${design.primaryColor}80`,
-              fontWeight: 400,
-              letterSpacing: "0.05em",
-            }}
-          >
+          <p style={{ margin: "3px 0 0", fontSize: `${fz}pt`, color: design.accentColor, letterSpacing: "0.02em" }}>
             {d.basics.headline}
           </p>
         )}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            flexWrap: "wrap",
-            gap: "0 8px",
-            fontSize: `${design.fontSize - 1.5}pt`,
-            color: `${design.primaryColor}60`,
-          }}
-        >
-          {[d.basics.email, d.basics.phone, d.basics.location, d.basics.website]
-            .filter(Boolean)
-            .map((val, i, arr) => (
-              <span key={i}>
-                {val}
-                {i < arr.length - 1 && <span style={{ margin: "0 4px", opacity: 0.3 }}>|</span>}
-              </span>
-            ))}
+        <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "0 10px", marginTop: 5, fontSize: `${fz - 1}pt`, color: `${design.primaryColor}80` }}>
+          {d.basics.email    && <span>{d.basics.email}</span>}
+          {d.basics.phone    && <span>{d.basics.phone}</span>}
+          {d.basics.location && <span>{d.basics.location}</span>}
+          {d.basics.linkedin && <span>{d.basics.linkedin.replace("https://", "")}</span>}
+          {d.basics.github   && <span>{d.basics.github.replace("https://", "")}</span>}
         </div>
-        <div style={{ height: "1px", backgroundColor: `${design.primaryColor}20`, margin: "8px auto 0", width: "60%" }} />
       </div>
 
-      {/* Summary */}
       {d.summary.content && (
         <div>
-          <p style={{ textAlign: "center", fontSize: `${design.fontSize - 0.5}pt`, color: `${design.primaryColor}80`, fontStyle: "italic", margin: 0 }}>
-            {d.summary.content}
-          </p>
-          <div style={{ height: "1px", backgroundColor: `${design.primaryColor}10`, margin: "10px 0" }} />
+          {sec("About")}
+          <p style={{ margin: "2px 0 0", color: `${design.primaryColor}cc` }}>{d.summary.content}</p>
         </div>
       )}
 
-      {/* Experience */}
       {d.experience.length > 0 && (
         <div>
-          {sectionTitle("Experience")}
+          {sec("Experience")}
           {d.experience.map((exp) => (
-            <div key={exp.id} style={{ marginBottom: "8px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <span style={{ fontWeight: 600 }}>{exp.position}</span>
-                <span style={{ fontSize: `${design.fontSize - 1.5}pt`, color: `${design.primaryColor}50` }}>
+            <div key={exp.id} style={{ marginTop: 6 }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontWeight: 600 }}>{exp.position} — <span style={{ fontWeight: 400, color: design.accentColor }}>{exp.company}</span></span>
+                <span style={{ fontSize: `${fz - 1}pt`, color: `${design.primaryColor}60` }}>
                   {formatDateRange(exp.startDate, exp.endDate, exp.current)}
                 </span>
               </div>
-              <span style={{ fontSize: `${design.fontSize - 1}pt`, color: `${design.primaryColor}70` }}>
-                {exp.company}{exp.location ? `, ${exp.location}` : ""}
-              </span>
               {exp.bullets.filter(Boolean).length > 0 && (
-                <ul style={{ margin: "2px 0 0", paddingLeft: "12px" }}>
+                <ul style={{ margin: "2px 0 0", paddingLeft: 12 }}>
                   {exp.bullets.filter(Boolean).map((b, i) => (
-                    <li key={i} style={{ fontSize: `${design.fontSize - 0.5}pt`, color: `${design.primaryColor}85` }}>{b}</li>
+                    <li key={i} style={{ color: `${design.primaryColor}cc`, marginBottom: 1 }}>{b}</li>
                   ))}
                 </ul>
               )}
@@ -125,84 +81,66 @@ export function MinimalTemplate({ draft }: { draft: CvDraft }) {
         </div>
       )}
 
-      {/* Education */}
       {d.education.length > 0 && (
         <div>
-          {sectionTitle("Education")}
+          {sec("Education")}
           {d.education.map((edu) => (
-            <div key={edu.id} style={{ marginBottom: "6px" }}>
+            <div key={edu.id} style={{ marginTop: 4 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontWeight: 600 }}>{edu.degree}{edu.field ? ` — ${edu.field}` : ""}</span>
-                <span style={{ fontSize: `${design.fontSize - 1.5}pt`, color: `${design.primaryColor}50` }}>
+                <span style={{ fontWeight: 600 }}>{edu.degree}{edu.field ? ` in ${edu.field}` : ""} — <span style={{ fontWeight: 400, color: design.accentColor }}>{edu.institution}</span></span>
+                <span style={{ fontSize: `${fz - 1}pt`, color: `${design.primaryColor}60` }}>
                   {formatDateRange(edu.startDate, edu.endDate, edu.current)}
                 </span>
               </div>
-              <span style={{ fontSize: `${design.fontSize - 1}pt`, color: `${design.primaryColor}70` }}>{edu.institution}</span>
             </div>
           ))}
         </div>
       )}
 
-      {/* Skills */}
       {d.skills.length > 0 && (
         <div>
-          {sectionTitle("Skills")}
-          {d.skills.map((group) => (
-            <div key={group.id} style={{ display: "flex", gap: "4px", flexWrap: "wrap", alignItems: "baseline", marginBottom: "3px" }}>
-              {group.category && (
-                <span style={{ fontWeight: 600, fontSize: `${design.fontSize - 0.5}pt`, color: design.primaryColor }}>
-                  {group.category}:
-                </span>
-              )}
-              <span style={{ fontSize: `${design.fontSize - 1}pt`, color: `${design.primaryColor}80` }}>
-                {group.items.join("  ·  ")}
-              </span>
-            </div>
-          ))}
+          {sec("Skills")}
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
+            {d.skills.map((g) => (
+              <div key={g.id} style={{ display: "flex", gap: 6 }}>
+                {g.category && <span style={{ fontWeight: 600, minWidth: 70, fontSize: `${fz - 0.5}pt` }}>{g.category}:</span>}
+                <span style={{ color: `${design.primaryColor}cc` }}>{g.items.join(", ")}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Projects */}
       {d.projects.length > 0 && (
         <div>
-          {sectionTitle("Projects")}
+          {sec("Projects")}
           {d.projects.map((proj) => (
-            <div key={proj.id} style={{ marginBottom: "6px" }}>
+            <div key={proj.id} style={{ marginTop: 4 }}>
               <span style={{ fontWeight: 600 }}>{proj.name}</span>
-              {proj.techStack.length > 0 && (
-                <span style={{ fontSize: `${design.fontSize - 1.5}pt`, color: `${design.primaryColor}50`, marginLeft: "6px" }}>
-                  {proj.techStack.slice(0, 4).join(" · ")}
-                </span>
-              )}
+              {proj.techStack.length > 0 && <span style={{ color: `${design.primaryColor}60`, marginLeft: 6, fontSize: `${fz - 1}pt` }}>{proj.techStack.join(" · ")}</span>}
               {proj.bullets.filter(Boolean).map((b, i) => (
-                <li key={i} style={{ fontSize: `${design.fontSize - 0.5}pt`, color: `${design.primaryColor}80`, listStyle: "none", paddingLeft: "0" }}>— {b}</li>
+                <li key={i} style={{ listStyle: "disc", marginLeft: 12, color: `${design.primaryColor}cc` }}>{b}</li>
               ))}
             </div>
           ))}
         </div>
       )}
 
-      {/* Languages + Certifications in one row */}
-      {(d.languages.length > 0 || d.certifications.length > 0) && (
-        <div style={{ display: "flex", gap: "20px" }}>
-          {d.languages.length > 0 && (
+      {(d.certifications.length > 0 || d.languages.length > 0) && (
+        <div style={{ display: "flex", gap: 24, marginTop: 12 }}>
+          {d.certifications.length > 0 && (
             <div style={{ flex: 1 }}>
-              {sectionTitle("Languages")}
-              {d.languages.map((lang) => (
-                <span key={lang.id} style={{ fontSize: `${design.fontSize - 0.5}pt`, display: "block", color: `${design.primaryColor}85` }}>
-                  {lang.language} <span style={{ color: `${design.primaryColor}50`, fontSize: `${design.fontSize - 1.5}pt` }}>({lang.level})</span>
-                </span>
+              <h2 style={{ fontSize: `${fz - 0.5}pt`, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", color: design.accentColor, margin: "0 0 4px" }}>Certifications</h2>
+              {d.certifications.map((cert) => (
+                <p key={cert.id} style={{ margin: "1px 0", fontSize: `${fz - 0.5}pt` }}>{cert.name} — {cert.issuer}</p>
               ))}
             </div>
           )}
-          {d.certifications.length > 0 && (
-            <div style={{ flex: 1 }}>
-              {sectionTitle("Certifications")}
-              {d.certifications.map((cert) => (
-                <div key={cert.id} style={{ fontSize: `${design.fontSize - 0.5}pt`, marginBottom: "2px" }}>
-                  <span style={{ fontWeight: 600 }}>{cert.name}</span>
-                  <span style={{ color: `${design.primaryColor}60`, fontSize: `${design.fontSize - 1}pt` }}> · {cert.issuer}</span>
-                </div>
+          {d.languages.length > 0 && (
+            <div>
+              <h2 style={{ fontSize: `${fz - 0.5}pt`, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", color: design.accentColor, margin: "0 0 4px" }}>Languages</h2>
+              {d.languages.map((lang) => (
+                <p key={lang.id} style={{ margin: "1px 0", fontSize: `${fz - 0.5}pt` }}>{lang.language} — {lang.level.charAt(0).toUpperCase() + lang.level.slice(1)}</p>
               ))}
             </div>
           )}
