@@ -1,18 +1,18 @@
 /**
  * Central API base URL resolver.
  *
- * The Vercel env var is named NEXT_PUBLIC_API_BASE_URL (not NEXT_PUBLIC_API_URL).
- * This helper reads that var and falls back gracefully so we never build
- * `undefined/api/v1/...` URLs.
+ * Env var in Vercel: NEXT_PUBLIC_API_BASE_URL
+ * Local dev: backend runs on http://127.0.0.1:8001
  *
  * Priority:
- *  1. NEXT_PUBLIC_API_BASE_URL  (set in Vercel → Settings → Environment Variables)
+ *  1. NEXT_PUBLIC_API_BASE_URL  (Vercel env var — primary)
  *  2. NEXT_PUBLIC_API_URL       (legacy fallback)
- *  3. Hardcoded prod origin     (last resort — update PROD_FALLBACK if URL changes)
- *  4. localhost:8000            (local dev)
+ *  3. Hardcoded prod origin     (krino-backend.onrender.com, last resort in prod)
+ *  4. http://127.0.0.1:8001    (local dev)
  */
 
-const PROD_FALLBACK = 'https://krino-backend.onrender.com';
+const PROD_FALLBACK  = 'https://krino-backend.onrender.com';
+const LOCAL_FALLBACK = 'http://127.0.0.1:8001';
 
 export function getApiBase(): string {
   const candidates = [
@@ -24,10 +24,10 @@ export function getApiBase(): string {
       return v.replace(/\/$/, '');
     }
   }
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
     return PROD_FALLBACK;
   }
-  return 'http://localhost:8000';
+  return LOCAL_FALLBACK;
 }
 
 /** Build a full API URL from a path like '/api/v1/interview/sessions' */
