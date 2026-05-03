@@ -290,3 +290,74 @@ function AiBtn({
     </button>
   );
 }
+
+// ─── CvField — unified smart field used across all cv-builder sections ──────────
+// Combines Field (label wrapper) + Input/Textarea in one component.
+// Props mirror HTMLInput/Textarea so sections can pass type, placeholder, rows, etc.
+export interface CvFieldProps {
+  label: string;
+  value: string | undefined;
+  onChange: (value: string) => void;
+  type?: "text" | "email" | "tel" | "url" | "month" | "date" | "number" | "textarea" | "password";
+  placeholder?: string;
+  required?: boolean;
+  rows?: number;
+  className?: string;
+  /** Show the AI sparkle button */
+  aiEnabled?: boolean;
+  /** Context hint passed to the AI suggest handler (reserved for future use) */
+  aiContext?: string;
+  disabled?: boolean;
+}
+
+export function CvField({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+  required,
+  rows = 3,
+  className,
+  aiEnabled,
+  aiContext: _aiContext,
+  disabled,
+}: CvFieldProps) {
+  const [aiLoading, setAiLoading] = useState(false);
+
+  // Placeholder AI handler — extend this when the AI suggest endpoint is ready
+  const handleAiSuggest = aiEnabled
+    ? async () => {
+        setAiLoading(true);
+        // TODO: call AI suggest API with aiContext
+        await new Promise((r) => setTimeout(r, 800));
+        setAiLoading(false);
+      }
+    : undefined;
+
+  return (
+    <Field label={label} required={required} className={className}>
+      {type === "textarea" ? (
+        <Textarea
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          rows={rows}
+          disabled={disabled}
+          onAiSuggest={handleAiSuggest}
+          aiLoading={aiLoading}
+        />
+      ) : (
+        <Input
+          type={type}
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          disabled={disabled}
+          onAiSuggest={handleAiSuggest}
+          aiLoading={aiLoading}
+        />
+      )}
+    </Field>
+  );
+}
