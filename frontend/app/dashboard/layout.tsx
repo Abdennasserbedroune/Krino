@@ -44,6 +44,14 @@ const IconCvBuilder = ({ active }: { active: boolean }) => (
   </svg>
 );
 
+const IconInterview = ({ active }: { active: boolean }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <path d="M12 2a5 5 0 1 1 0 10A5 5 0 0 1 12 2z" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6"/>
+    <path d="M3 21c0-4 4-7 9-7s9 3 9 7" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6" strokeLinecap="round"/>
+    <path d="M17 9l1.5 1.5L21 8" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
 const IconSettings = ({ active }: { active: boolean }) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
     <circle cx="12" cy="12" r="3" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6"/>
@@ -65,11 +73,12 @@ const IconX = () => (
 
 // ─ Nav items ────────────────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { href: "/dashboard",            label: "Job Match",       Icon: IconTarget    },
-  { href: "/dashboard/cv-builder", label: "Resume Builder",  Icon: IconCvBuilder },
-  { href: "/dashboard/chat",       label: "AI Career Coach", Icon: IconChat      },
-  { href: "/dashboard/jobs",       label: "Browse Jobs",     Icon: IconBriefcase },
-  { href: "/dashboard/tracker",    label: "Applications",    Icon: IconTracker   },
+  { href: "/dashboard",                label: "Job Match",        Icon: IconTarget    },
+  { href: "/dashboard/cv-builder",     label: "Resume Builder",   Icon: IconCvBuilder },
+  { href: "/dashboard/interview-prep", label: "Interview Prep",   Icon: IconInterview },
+  { href: "/dashboard/chat",           label: "AI Career Coach",  Icon: IconChat      },
+  { href: "/dashboard/jobs",           label: "Browse Jobs",      Icon: IconBriefcase },
+  { href: "/dashboard/tracker",        label: "Applications",     Icon: IconTracker   },
 ];
 
 // ─ Sidebar ─────────────────────────────────────────────────────────────────────────────
@@ -300,8 +309,6 @@ function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
 }
 
 // ─ Root layout ─────────────────────────────────────────────────────────────────────
-const IconUpload = ({ active }: { active: boolean }) => null;
-
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 

@@ -23,6 +23,10 @@ class SessionCreate(BaseModel):
     cv_id: Optional[int] = None
     job_id: Optional[int] = None
     title: Optional[str] = None
+    # New fields from the setup wizard
+    jd_text: Optional[str] = None
+    company_name: Optional[str] = None
+    seniority: Optional[str] = "mid"  # junior|mid|senior|lead|principal
 
 
 class AnswerSubmit(BaseModel):
@@ -54,7 +58,7 @@ async def create_session(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_supabase_user),
 ) -> InterviewSession:
-    """Create a prep session. Generates question pack from CV + JD."""
+    """Create a prep session. Generates 10-question pack from context."""
     cv_structured: Dict[str, Any] = {}
     jd_parsed:     Dict[str, Any] = {}
     job_title = payload.title or ""
@@ -65,7 +69,6 @@ async def create_session(
         if not cv:
             raise HTTPException(status_code=404, detail="CV not found.")
         cv_structured = cv.structured_data or {}
-        # Infer language from CV
         extracted = cv.extracted_cv or {}
         language = extracted.get("cv_language", "en") if isinstance(extracted, dict) else "en"
 
@@ -84,6 +87,9 @@ async def create_session(
         jd_parsed     = jd_parsed,
         job_title     = job_title,
         language      = language,
+        company_name  = payload.company_name or "",
+        seniority     = payload.seniority or "mid",
+        jd_text       = payload.jd_text or "",
     )
 
     session = InterviewSession(
@@ -133,7 +139,7 @@ async def submit_answer(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_supabase_user),
 ) -> Dict[str, Any]:
-    """Submit an answer for a specific question and get AI feedback."""
+    """Submit an answer for a specific question and get real AI feedback."""
     session = db.query(InterviewSession).filter(
         InterviewSession.id == session_id, InterviewSession.user_id == current_user.id
     ).first()
@@ -146,15 +152,18 @@ async def submit_answer(
         raise HTTPException(status_code=404, detail="Question not found in session.")
 
     feedback = evaluate_answer(
-        question       = q["question"],
-        answer         = payload.answer,
-        expected_skills= payload.expected_skills,
+        question        = q["question"],
+        answer          = payload.answer,
+        expected_skills = payload.expected_skills,
+        seniority       = "mid",  # could be stored on session in future
     )
 
     # Persist answer + feedback back into question object
-    q["answer"]   = payload.answer
-    q["score"]    = feedback.get("score")
-    q["feedback"] = feedback.get("feedback")
+    q["answer"]          = payload.answer
+    q["score"]           = feedback.get("score")
+    q["feedback"]        = feedback.get("feedback")
+    q["what_worked"]     = feedback.get("what_worked", [])
+    q["what_to_improve"] = feedback.get("what_to_improve", [])
     session.questions = questions
 
     # Update overall score = avg of answered questions
