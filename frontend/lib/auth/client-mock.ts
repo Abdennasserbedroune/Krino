@@ -1,3 +1,13 @@
+// SECURITY: This file is a mock auth client for local development ONLY.
+// It uses localStorage and a hardcoded token — it must NEVER run in production.
+if (process.env.NODE_ENV === "production") {
+  throw new Error(
+    "[auth] client-mock.ts was imported in a production build. " +
+    "This file must only be used in development. " +
+    "Check your imports and ensure no production code references this module."
+  );
+}
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -24,9 +34,7 @@ export function useAuth() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Simulate loading and auto-login with mock user
     useEffect(() => {
-        // Check localStorage for mock auth
         const mockAuth = localStorage.getItem("mock_auth");
 
         setTimeout(() => {
@@ -44,19 +52,10 @@ export function useAuth() {
     async function login(email: string, password: string) {
         setLoading(true);
         setError(null);
-
-        // Simulate API call delay
         await new Promise(resolve => setTimeout(resolve, 500));
-
         try {
-            // Mock successful login
             localStorage.setItem("mock_auth", "true");
-            setState({
-                user: { ...MOCK_USER, email },
-                email: email,
-                accessToken: "mock-token",
-            });
-
+            setState({ user: { ...MOCK_USER, email }, email, accessToken: "mock-token" });
             return { user: { ...MOCK_USER, email }, session: { access_token: "mock-token" } };
         } catch (err: any) {
             const errorMessage = err?.message ?? "Unable to sign in.";
@@ -70,17 +69,10 @@ export function useAuth() {
     async function register(email: string, password: string) {
         setLoading(true);
         setError(null);
-
         await new Promise(resolve => setTimeout(resolve, 500));
-
         try {
             localStorage.setItem("mock_auth", "true");
-            setState({
-                user: { ...MOCK_USER, email },
-                email: email,
-                accessToken: "mock-token",
-            });
-
+            setState({ user: { ...MOCK_USER, email }, email, accessToken: "mock-token" });
             return { user: { ...MOCK_USER, email }, session: { access_token: "mock-token" } };
         } catch (err: any) {
             const errorMessage = err?.message ?? "Unable to create account.";
@@ -103,14 +95,5 @@ export function useAuth() {
         }
     }
 
-    return {
-        user: state.user,
-        email: state.email,
-        accessToken: state.accessToken,
-        loading,
-        error,
-        login,
-        register,
-        logout,
-    };
+    return { user: state.user, email: state.email, accessToken: state.accessToken, loading, error, login, register, logout };
 }

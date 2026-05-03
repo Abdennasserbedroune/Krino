@@ -21,6 +21,34 @@ export const metadata: Metadata = {
   title: "Pathwise - Check your resume before the recruiter does",
   description:
     "A small, focused tool that reads resumes and job descriptions with AI and gives a simple match score plus a short explanation.",
+  metadataBase: new URL("https://pathwise.app"),
+  openGraph: {
+    type: "website",
+    url: "https://pathwise.app",
+    title: "Pathwise - Check your resume before the recruiter does",
+    description:
+      "A small, focused tool that reads resumes and job descriptions with AI and gives a simple match score plus a short explanation.",
+    siteName: "Pathwise",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Pathwise — AI resume matcher",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Pathwise - Check your resume before the recruiter does",
+    description:
+      "A small, focused tool that reads resumes and job descriptions with AI and gives a simple match score plus a short explanation.",
+    images: ["/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 interface RootLayoutProps {
@@ -30,7 +58,7 @@ interface RootLayoutProps {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html
-      lang="fr"
+      lang="en"
       suppressHydrationWarning
       className={`${plusJakarta.variable} ${fraunces.variable}`}
     >
