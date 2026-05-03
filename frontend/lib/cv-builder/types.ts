@@ -172,7 +172,7 @@ export interface SectionMeta {
 }
 
 // ─── Design Settings ─────────────────────────────────────────────────────────
-export type TemplateId = "classic" | "modern" | "minimal";
+export type TemplateId = "classic" | "modern" | "minimal" | "executive" | "sidebar" | "creative";
 export type PaperSize = "A4" | "Letter";
 
 export interface DesignSettings {
