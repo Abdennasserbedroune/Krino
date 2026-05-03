@@ -1,35 +1,60 @@
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-// SECURITY: Hard-fail on missing secret — never fall back to a default
-if (!process.env.NEXTAUTH_SECRET) {
-  throw new Error(
-    "[auth] NEXTAUTH_SECRET environment variable is required but not set. " +
-    "Set it in your .env.local (dev) or in your hosting provider's environment variables (prod)."
-  );
+/**
+ * Returns the NextAuth config.
+ *
+ * SECURITY: Validation runs lazily (at first request) — NOT at module load
+ * time — so `next build` succeeds even when env vars are absent in CI/build
+ * environments. The error will be thrown on the first real auth request if
+ * any required variable is missing.
+ */
+function buildAuthOptions(): NextAuthOptions {
+  if (!process.env.NEXTAUTH_SECRET) {
+    throw new Error(
+      "[auth] NEXTAUTH_SECRET is required. " +
+      "Add it to Vercel → Settings → Environment Variables (or .env.local for dev)."
+    );
+  }
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    throw new Error(
+      "[auth] GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required. " +
+      "Add them to Vercel → Settings → Environment Variables."
+    );
+  }
+
+  return {
+    secret: process.env.NEXTAUTH_SECRET,
+    providers: [
+      GoogleProvider({
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      }),
+    ],
+    pages: {
+      signIn: "/signin",
+    },
+    session: {
+      strategy: "jwt",
+    },
+  };
 }
 
-// SECURITY: Hard-fail on missing Google OAuth credentials
-if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-  throw new Error(
-    "[auth] GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables are required."
-  );
+// Lazy singleton — built on first import (i.e. first request), never at build time
+let _authOptions: NextAuthOptions | null = null;
+
+export function getAuthOptions(): NextAuthOptions {
+  if (!_authOptions) {
+    _authOptions = buildAuthOptions();
+  }
+  return _authOptions;
 }
 
-const googleProvider = GoogleProvider({
-  clientId: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+// Keep the named export for any existing imports of authOptions
+export const authOptions: NextAuthOptions = new Proxy({} as NextAuthOptions, {
+  get(_target, prop) {
+    return (getAuthOptions() as any)[prop];
+  },
 });
-
-export const authOptions: NextAuthOptions = {
-  secret: process.env.NEXTAUTH_SECRET,
-  providers: [googleProvider],
-  pages: {
-    signIn: "/signin",
-  },
-  session: {
-    strategy: "jwt",
-  },
-};
 
 export default authOptions;
