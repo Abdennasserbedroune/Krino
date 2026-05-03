@@ -6,9 +6,6 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Strict mode causes double-invocation of render on dev AND triggers
-  // hydration mismatches in production when server/client trees diverge.
-  // Disabled until all hydration issues are fully resolved.
   reactStrictMode: false,
   images: {
     formats: ['image/avif', 'image/webp'],
@@ -18,6 +15,12 @@ const nextConfig = {
     serverExternalPackages: ['pdf-parse', 'mammoth'],
   },
   async headers() {
+    // Backend API URL — must match NEXT_PUBLIC_API_BASE_URL in Vercel env vars
+    const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://krino-backend.onrender.com';
+    // Extract just the origin (scheme + host) for CSP
+    let backendOrigin = backendUrl;
+    try { backendOrigin = new URL(backendUrl).origin; } catch {}
+
     return [
       {
         source: '/(.*)',
@@ -26,30 +29,27 @@ const nextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          // HSTS: force HTTPS for 2 years, include subdomains
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
-          // CSP: restrict resource origins — tighten script-src once inline scripts are removed from page.tsx
           {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  // TODO: remove unsafe-inline after refactoring page.tsx
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: https:",
-              "connect-src 'self' https://*.supabase.co https://api.openai.com",
+              // Allow Supabase, OpenAI, Groq (backend calls), and the backend origin itself
+              `connect-src 'self' https://*.supabase.co https://api.openai.com https://api.groq.com ${backendOrigin}`,
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
             ].join('; '),
           },
-          // Disable browser features not needed by the app
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
           { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
         ],
       },
       {
-        // Next.js static assets have content-hash names — safe to cache long-term
         source: '/_next/static/(.*)',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },

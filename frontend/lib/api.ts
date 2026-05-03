@@ -1,30 +1,36 @@
 /**
  * Central API base URL resolver.
- * Prevents the classic `undefined/api/v1/...` bug when NEXT_PUBLIC_API_URL
- * is not set in the Vercel environment.
+ *
+ * The Vercel env var is named NEXT_PUBLIC_API_BASE_URL (not NEXT_PUBLIC_API_URL).
+ * This helper reads that var and falls back gracefully so we never build
+ * `undefined/api/v1/...` URLs.
  *
  * Priority:
- *  1. NEXT_PUBLIC_API_URL env var (set this in Vercel → Settings → Environment Variables)
- *  2. Hardcoded production fallback (update PROD_FALLBACK below if your backend URL changes)
- *  3. localhost:8000 for local dev
+ *  1. NEXT_PUBLIC_API_BASE_URL  (set in Vercel → Settings → Environment Variables)
+ *  2. NEXT_PUBLIC_API_URL       (legacy fallback)
+ *  3. Hardcoded prod origin     (last resort — update PROD_FALLBACK if URL changes)
+ *  4. localhost:8000            (local dev)
  */
 
-const PROD_FALLBACK = 'https://krino-backend.onrender.com'; // ← update if your backend URL differs
+const PROD_FALLBACK = 'https://krino-backend.onrender.com';
 
 export function getApiBase(): string {
-  const env = process.env.NEXT_PUBLIC_API_URL;
-  // Guard: if undefined, empty string, or the literal string "undefined"
-  if (env && env !== 'undefined' && env.trim() !== '') {
-    return env.replace(/\/$/, ''); // strip trailing slash
+  const candidates = [
+    process.env.NEXT_PUBLIC_API_BASE_URL,
+    process.env.NEXT_PUBLIC_API_URL,
+  ];
+  for (const v of candidates) {
+    if (v && v !== 'undefined' && v.trim() !== '') {
+      return v.replace(/\/$/, '');
+    }
   }
-  // In production (Vercel), fall back to the known backend URL
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
     return PROD_FALLBACK;
   }
   return 'http://localhost:8000';
 }
 
-/** Convenience: build a full API path */
+/** Build a full API URL from a path like '/api/v1/interview/sessions' */
 export function apiUrl(path: string): string {
   return `${getApiBase()}${path.startsWith('/') ? path : `/${path}`}`;
 }
