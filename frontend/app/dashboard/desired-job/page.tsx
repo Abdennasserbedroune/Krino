@@ -4,9 +4,9 @@ import { useState, useEffect, useRef } from "react";
 import {
   FileText, CheckCircle2, XCircle, AlertTriangle,
   Lightbulb, Loader2, RotateCcw, MessageSquare,
-  Upload, Trash2, TrendingUp, Shield, Sparkles,
-  BarChart2, ArrowRight, ArrowUp, Lock, Unlock,
-  Headphones, Smile, ShieldCheck,
+  Trash2, TrendingUp, Shield, Sparkles,
+  BarChart2, ArrowRight, ArrowUp, ShieldCheck,
+  Zap, ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/client";
 import { useToast } from "@/hooks/use-toast";
@@ -47,18 +47,17 @@ const EXPERIENCE_LEVELS = [
 const MAX_DESC = 5000;
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const TOKEN = {
-  cardShadow: "0 0 0 1px rgba(0,0,0,0.06),0 1px 1px -0.5px rgba(0,0,0,0.06),0 3px 3px -1.5px rgba(0,0,0,0.06),0 6px 6px -3px rgba(0,0,0,0.06),0 12px 12px -6px rgba(0,0,0,0.06),0 24px 24px -12px rgba(0,0,0,0.06)",
-  btnShadow: "rgba(0,0,0,0.4) 0px 12px 24px -6px,rgba(255,255,255,0.15) 0px 1px 1px 0px inset,rgba(0,0,0,0.5) 0px -2px 3px 0px inset,rgba(0,0,0,0.1) 0px 0px 0px 1px",
-  glass: "rgba(255,255,255,0.82)",
-  blur: "blur(12px)",
+const T = {
+  card: "background:#fff;border-radius:20px;border:1px solid rgba(17,24,39,0.08);box-shadow:0 1px 3px rgba(0,0,0,0.06),0 4px 16px rgba(0,0,0,0.04)",
+  input: "width:100%;box-sizing:border-box;border:1px solid rgba(17,24,39,0.12);border-radius:10px;background:#fafafa;padding:10px 14px;font-size:14px;font-family:Inter,sans-serif;color:#111827;outline:none",
+  label: "display:block;font-size:12px;font-weight:600;letter-spacing:0.04em;color:#374151;margin-bottom:6px",
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function scoreColor(s: number) {
   if (s >= 70) return { bar: "#10b981", text: "#059669", bg: "#ecfdf5", border: "#a7f3d0" };
   if (s >= 50) return { bar: "#f59e0b", text: "#d97706", bg: "#fffbeb", border: "#fde68a" };
-  return              { bar: "#ef4444", text: "#dc2626", bg: "#fef2f2", border: "#fecaca" };
+  return { bar: "#ef4444", text: "#dc2626", bg: "#fef2f2", border: "#fecaca" };
 }
 function parsePipeItem(raw: string) {
   const idx = raw.indexOf(" | ");
@@ -70,49 +69,64 @@ function parseGapSeverity(prefix: string): { severity: "BLOCKING" | "IMPORTANT" 
   return { severity: null, skill: prefix };
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Reusable UI ─────────────────────────────────────────────────────────────
 
-function KanbanCard({ children, accent, style }: { children: React.ReactNode; accent?: string; style?: React.CSSProperties }) {
+function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
     <div style={{
-      padding: 1, borderRadius: 20,
-      background: accent
-        ? `linear-gradient(135deg, ${accent}33 0%, rgba(17,24,39,0.08) 100%)`
-        : "linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(17,24,39,0.06) 100%)",
+      background: "#fff", borderRadius: 20, padding: "24px 28px",
+      border: "1px solid rgba(17,24,39,0.08)",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.06),0 4px 16px rgba(0,0,0,0.04)",
       ...style,
     }}>
-      <div style={{
-        borderRadius: 19, background: TOKEN.glass,
-        backdropFilter: TOKEN.blur, WebkitBackdropFilter: TOKEN.blur,
-        boxShadow: TOKEN.cardShadow, padding: "20px 24px", height: "100%",
-      }}>
-        {children}
-      </div>
+      {children}
     </div>
   );
 }
 
-function StepBadge({ n }: { n: number }) {
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <p style={{ margin: 0, fontSize: 12, fontWeight: 600, letterSpacing: "0.04em", color: "#374151", marginBottom: 8 }}>{children}</p>;
+}
+
+function InputEl({ style, ...rest }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", justifyContent: "center",
-      width: 28, height: 28, borderRadius: 9999,
-      background: "#111827", color: "#fff",
-      fontSize: 13, fontWeight: 600, flexShrink: 0,
-      boxShadow: TOKEN.btnShadow,
-    }}>{n}</span>
+    <input
+      style={{
+        width: "100%", boxSizing: "border-box",
+        border: "1px solid rgba(17,24,39,0.12)", borderRadius: 10,
+        background: "#fafafa", padding: "10px 14px",
+        fontSize: 14, fontFamily: "Inter, sans-serif", color: "#111827", outline: "none",
+        ...style,
+      }}
+      {...rest}
+    />
   );
 }
 
-function PillBtn({ active, onClick, children }: { active?: boolean; onClick: () => void; children: React.ReactNode }) {
+function SelectEl({ style, ...rest }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      style={{
+        width: "100%", boxSizing: "border-box",
+        border: "1px solid rgba(17,24,39,0.12)", borderRadius: 10,
+        background: "#fafafa", padding: "10px 14px",
+        fontSize: 14, fontFamily: "Inter, sans-serif", color: "#111827", outline: "none",
+        ...style,
+      }}
+      {...rest}
+    />
+  );
+}
+
+function Chip({ active, onClick, children }: { active?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button onClick={onClick} style={{
-      padding: "6px 16px", borderRadius: 9999, border: "none", cursor: "pointer",
-      fontSize: 13, fontWeight: 500, letterSpacing: "0.35px", fontFamily: "Inter, sans-serif",
-      transition: "all 150ms ease",
-      background: active ? "#111827" : "rgba(255,255,255,0.7)",
+      padding: "7px 16px", borderRadius: 9999, border: active ? "none" : "1px solid rgba(17,24,39,0.12)",
+      cursor: "pointer", fontSize: 13, fontWeight: 500, letterSpacing: "0.3px",
+      fontFamily: "Inter, sans-serif", transition: "all 130ms ease",
+      background: active ? "#111827" : "#fff",
       color: active ? "#fff" : "#6B7280",
-      boxShadow: active ? TOKEN.btnShadow : "0 0 0 1px rgba(17,24,39,0.1)",
+      boxShadow: active ? "0 2px 8px rgba(17,24,39,0.25)" : "none",
     }}>{children}</button>
   );
 }
@@ -120,12 +134,12 @@ function PillBtn({ active, onClick, children }: { active?: boolean; onClick: () 
 function ScoreBar({ label, value }: { label: string; value: number }) {
   const c = scoreColor(value);
   return (
-    <div style={{ marginBottom: 12 }}>
+    <div style={{ marginBottom: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-        <span style={{ fontSize: 12, color: "#6B7280", fontWeight: 500 }}>{label}</span>
-        <span style={{ fontSize: 13, fontWeight: 600, color: c.text }}>{value}%</span>
+        <span style={{ fontSize: 13, color: "#6B7280", fontWeight: 500 }}>{label}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: c.text }}>{value}%</span>
       </div>
-      <div style={{ height: 6, borderRadius: 9999, background: "rgba(17,24,39,0.08)", overflow: "hidden" }}>
+      <div style={{ height: 7, borderRadius: 9999, background: "rgba(17,24,39,0.07)", overflow: "hidden" }}>
         <div style={{ height: "100%", borderRadius: 9999, background: c.bar, width: `${value}%`, transition: "width 700ms ease" }} />
       </div>
     </div>
@@ -187,7 +201,44 @@ function RoadmapItem({ text, index, isLast }: { text: string; index: number; isL
   );
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ─── Step Progress Bar ────────────────────────────────────────────────────────
+function StepBar({ step, step1Done, step2Done }: { step: number; step1Done: boolean; step2Done: boolean }) {
+  const steps = [
+    { n: 1, label: "Poste", done: step1Done },
+    { n: 2, label: "CV", done: step2Done },
+    { n: 3, label: "Résultat", done: false },
+  ];
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, marginBottom: 40 }}>
+      {steps.map((s, i) => (
+        <>
+          <div key={s.n} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 9999,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 13, fontWeight: 700,
+              background: s.done ? "#111827" : step === s.n ? "#111827" : "#e5e7eb",
+              color: s.done || step === s.n ? "#fff" : "#9ca3af",
+              border: step === s.n && !s.done ? "2px solid #111827" : "none",
+              transition: "all 200ms ease",
+            }}>
+              {s.done ? <CheckCircle2 style={{ width: 16, height: 16 }} /> : s.n}
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 600, color: step === s.n ? "#111827" : "#9ca3af", letterSpacing: "0.04em" }}>{s.label}</span>
+          </div>
+          {i < steps.length - 1 && (
+            <div key={`line-${i}`} style={{
+              height: 2, width: 64, background: steps[i].done ? "#111827" : "#e5e7eb",
+              marginBottom: 18, transition: "background 300ms ease",
+            }} />
+          )}
+        </>
+      ))}
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function DesiredJobPage({ onSwitchToChat }: Props) {
   const { user } = useAuth();
   const { toast: showToast } = useToast();
@@ -215,6 +266,11 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
   const [activeTab, setActiveTab] = useState<"overview"|"gaps"|"strengths"|"roadmap">("overview");
 
   const severityLabels = { BLOCKING: t.ext.severityBlocking, IMPORTANT: t.ext.severityImportant, MINOR: t.ext.severityMinor };
+
+  // Derived step state
+  const step1Done = !!(category && jobTitle.trim() && expLevel && description.trim().length >= 50);
+  const step2Done = !!(selectedCv);
+  const currentStep = result ? 3 : step1Done ? 2 : 1;
 
   function verdictLabel(s: number): { label: string; color: string } {
     if (s >= 75) return { label: t.ext.verdictStrong,     color: "#059669" };
@@ -306,265 +362,311 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
 
   const handleReset = () => { setResult(null); setError(""); setCategory(""); setJobTitle(""); setExpLevel(""); setSkills(""); setDescription(""); setSelectedCv(null); setActiveTab("overview"); };
 
-  const inputStyle: React.CSSProperties = {
-    width: "100%", boxSizing: "border-box",
-    border: "1px solid rgba(17,24,39,0.12)", borderRadius: 12,
-    background: "rgba(255,255,255,0.9)", padding: "10px 14px",
-    fontSize: 13, fontFamily: "Inter, sans-serif", color: "#111827",
-    outline: "none", boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-  };
-  const labelStyle: React.CSSProperties = {
-    display: "block", fontSize: 12, fontWeight: 600,
-    letterSpacing: "0.04em", color: "#374151", marginBottom: 6,
-  };
-
   return (
-    <div style={{ fontFamily: "Inter, sans-serif" }}>
+    <div style={{ fontFamily: "Inter, sans-serif", maxWidth: 760, margin: "0 auto", padding: "0 0 80px" }}>
 
-      {/* Page intro */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <BarChart2 style={{ width: 22, height: 22, color: "#111827" }} />
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 500, letterSpacing: "-0.025em", color: "#111827" }}>
-            {t.ext.checkFitTitle}
-          </h2>
+      {/* ── HERO ── */}
+      <div style={{ textAlign: "center", padding: "48px 0 40px" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#f1f5f9", borderRadius: 9999, padding: "5px 14px", marginBottom: 20, border: "1px solid rgba(17,24,39,0.08)" }}>
+          <Zap style={{ width: 12, height: 12, color: "#6366f1" }} />
+          <span style={{ fontSize: 11, fontWeight: 600, color: "#6366f1", letterSpacing: "0.08em", textTransform: "uppercase" }}>ATS Score · 30 secondes</span>
         </div>
-        <p style={{ margin: 0, fontSize: 14, fontWeight: 300, color: "#6B7280", lineHeight: 1.7 }}>{t.ext.checkFitSub}</p>
+        <h1 style={{ margin: "0 0 14px", fontSize: 36, fontWeight: 700, letterSpacing: "-0.03em", color: "#111827", lineHeight: 1.15 }}>
+          Analysez votre CV comme un ATS
+        </h1>
+        <p style={{ margin: "0 0 6px", fontSize: 16, color: "#6B7280", lineHeight: 1.7, maxWidth: 500, marginLeft: "auto", marginRight: "auto" }}>
+          Découvrez pourquoi votre CV est rejeté — et comment l'améliorer instantanément.
+        </p>
+        <p style={{ margin: 0, fontSize: 12, color: "#9ca3af", fontWeight: 500 }}>✓ Utilisé par 10 000+ candidats</p>
       </div>
 
-      {/* KANBAN GRID */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, alignItems: "start" }}>
+      {/* ── STEP BAR ── */}
+      <StepBar step={currentStep} step1Done={step1Done} step2Done={step2Done} />
 
-        {/* COL 1: Job Details */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 4 }}>
-            <StepBadge n={1} />
-            <div>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#111827" }}>{t.ext.theJob}</p>
-              <p style={{ margin: 0, fontSize: 11, color: "#6B7280" }}>{t.ext.theJobSub}</p>
-            </div>
+      {/* ── STEP 1: JOB DETAILS ── */}
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <div style={{
+            width: 30, height: 30, borderRadius: 9999, background: step1Done ? "#111827" : "#111827",
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+          }}>
+            {step1Done
+              ? <CheckCircle2 style={{ width: 16, height: 16, color: "#fff" }} />
+              : <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>1</span>}
           </div>
-
-          <KanbanCard accent="#E0E7FF">
-            <p style={labelStyle}>{t.careerMatch.jobCategory} <span style={{ color: "#ef4444" }}>*</span></p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {CATEGORIES.map(c => (
-                <PillBtn key={c.value} active={category === c.value} onClick={() => setCategory(c.value)}>
-                  {c.label}
-                </PillBtn>
-              ))}
-            </div>
-          </KanbanCard>
-
-          <KanbanCard>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div>
-                <label style={labelStyle}>{t.careerMatch.jobTitle} <span style={{ color: "#ef4444" }}>*</span></label>
-                <input style={inputStyle} type="text" value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="e.g. Senior Data Analyst" />
-              </div>
-              <div>
-                <label style={labelStyle}>{t.careerMatch.experienceRequired} <span style={{ color: "#ef4444" }}>*</span></label>
-                <select style={inputStyle} value={expLevel} onChange={e => setExpLevel(e.target.value)}>
-                  <option value="">{t.ext.selectLevel}</option>
-                  {EXPERIENCE_LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-                </select>
-              </div>
-            </div>
-          </KanbanCard>
-
-          <KanbanCard accent="#FFEDD5">
-            <label style={labelStyle}>
-              {t.careerMatch.skillsRequired}{" "}
-              <span style={{ color: "#9ca3af", fontWeight: 400 }}>({t.ui.filter})</span>
-            </label>
-            <input style={inputStyle} type="text" value={skills} onChange={e => setSkills(e.target.value)} placeholder="e.g. Python, SQL, Power BI, Spark" />
-          </KanbanCard>
-
-          <KanbanCard>
-            <label style={labelStyle}>{t.careerMatch.jobDescription} <span style={{ color: "#ef4444" }}>*</span></label>
-            <textarea
-              style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6, minHeight: 140 }}
-              value={description}
-              onChange={e => setDescription(e.target.value.slice(0, MAX_DESC))}
-              placeholder="Paste the complete job posting — responsibilities, requirements, tech stack, nice-to-haves."
-              rows={7}
-            />
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
-              <span style={{ fontSize: 11, color: description.trim().length < 50 ? "#ef4444" : "#6B7280" }}>{charHint}</span>
-              <span style={{ fontSize: 11, color: description.length > MAX_DESC * 0.9 ? "#f59e0b" : "#9ca3af" }}>{description.length.toLocaleString()} / {MAX_DESC.toLocaleString()}</span>
-            </div>
-          </KanbanCard>
+          <div>
+            <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#111827" }}>{t.ext.theJob}</p>
+            <p style={{ margin: 0, fontSize: 12, color: "#9ca3af" }}>{t.ext.theJobSub}</p>
+          </div>
         </div>
 
-        {/* COL 2: CV */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 4 }}>
-            <StepBadge n={2} />
-            <div>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#111827" }}>{t.ext.yourCv}</p>
-              <p style={{ margin: 0, fontSize: 11, color: "#6B7280" }}>{t.ext.yourCvSub}</p>
+        <Card style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          {/* Domain chips */}
+          <div>
+            <SectionLabel>{t.careerMatch.jobCategory} <span style={{ color: "#ef4444" }}>*</span></SectionLabel>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {CATEGORIES.map(c => (
+                <Chip key={c.value} active={category === c.value} onClick={() => setCategory(c.value)}>
+                  {c.label}
+                </Chip>
+              ))}
             </div>
           </div>
 
-          <KanbanCard accent="#FFEDD5">
-            <div
-              onClick={() => !uploading && fileInputRef.current?.click()}
+          {/* Title + Experience row */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div>
+              <SectionLabel>{t.careerMatch.jobTitle} <span style={{ color: "#ef4444" }}>*</span></SectionLabel>
+              <InputEl type="text" value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="e.g. Senior Data Analyst" />
+            </div>
+            <div>
+              <SectionLabel>{t.careerMatch.experienceRequired} <span style={{ color: "#ef4444" }}>*</span></SectionLabel>
+              <SelectEl value={expLevel} onChange={e => setExpLevel(e.target.value)}>
+                <option value="">{t.ext.selectLevel}</option>
+                {EXPERIENCE_LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </SelectEl>
+            </div>
+          </div>
+
+          {/* Skills */}
+          <div>
+            <SectionLabel>
+              {t.careerMatch.skillsRequired}{" "}
+              <span style={{ color: "#9ca3af", fontWeight: 400 }}>({t.ui.filter})</span>
+            </SectionLabel>
+            <InputEl type="text" value={skills} onChange={e => setSkills(e.target.value)} placeholder="e.g. Python, SQL, Power BI, Spark" />
+            <p style={{ margin: "5px 0 0", fontSize: 11, color: "#9ca3af" }}>Séparez les compétences par des virgules</p>
+          </div>
+
+          {/* Description */}
+          <div>
+            <SectionLabel>{t.careerMatch.jobDescription} <span style={{ color: "#ef4444" }}>*</span></SectionLabel>
+            <textarea
               style={{
-                borderRadius: 14, border: "1.5px dashed rgba(17,24,39,0.15)",
-                padding: "24px 16px", display: "flex", flexDirection: "column",
-                alignItems: "center", gap: 10, cursor: "pointer", textAlign: "center",
-                background: "rgba(255,255,255,0.5)", transition: "border-color 150ms ease",
+                width: "100%", boxSizing: "border-box",
+                border: "1px solid rgba(17,24,39,0.12)", borderRadius: 10,
+                background: "#fafafa", padding: "12px 14px",
+                fontSize: 14, fontFamily: "Inter, sans-serif", color: "#111827",
+                outline: "none", resize: "vertical", lineHeight: 1.6, minHeight: 160,
               }}
-            >
-              <div style={{
-                width: 44, height: 44, borderRadius: 9999,
-                background: "#111827", display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: TOKEN.btnShadow,
-              }}>
-                <ArrowUp style={{ width: 20, height: 20, color: "#fff" }} />
+              value={description}
+              onChange={e => setDescription(e.target.value.slice(0, MAX_DESC))}
+              placeholder="Collez la description complète du poste — responsabilités, exigences, stack technique, bonus..."
+              rows={7}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
+              <span style={{ fontSize: 11, color: description.trim().length < 50 ? "#ef4444" : "#9ca3af" }}>{charHint}</span>
+              <span style={{ fontSize: 11, color: description.length > MAX_DESC * 0.9 ? "#f59e0b" : "#c4c9d1" }}>{description.length.toLocaleString()} / {MAX_DESC.toLocaleString()}</span>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* ── STEP 2: CV UPLOAD ── */}
+      <div style={{ marginBottom: 40 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <div style={{
+            width: 30, height: 30, borderRadius: 9999,
+            background: step2Done ? "#111827" : step1Done ? "#111827" : "#d1d5db",
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+            transition: "background 200ms ease",
+          }}>
+            {step2Done
+              ? <CheckCircle2 style={{ width: 16, height: 16, color: "#fff" }} />
+              : <span style={{ fontSize: 13, fontWeight: 700, color: step1Done ? "#fff" : "#9ca3af" }}>2</span>}
+          </div>
+          <div>
+            <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: step1Done ? "#111827" : "#9ca3af", transition: "color 200ms ease" }}>{t.ext.yourCv}</p>
+            <p style={{ margin: 0, fontSize: 12, color: "#9ca3af" }}>{t.ext.yourCvSub}</p>
+          </div>
+        </div>
+
+        <Card style={{ opacity: step1Done ? 1 : 0.5, transition: "opacity 200ms ease", display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Drop zone */}
+          <div
+            onClick={() => step1Done && !uploading && fileInputRef.current?.click()}
+            style={{
+              borderRadius: 16, border: "2px dashed rgba(17,24,39,0.15)",
+              padding: "36px 24px", display: "flex", flexDirection: "column",
+              alignItems: "center", gap: 12,
+              cursor: step1Done ? "pointer" : "not-allowed",
+              textAlign: "center",
+              background: "linear-gradient(135deg, #f8faff 0%, #f1f5fb 100%)",
+              transition: "border-color 150ms ease",
+            }}
+          >
+            <div style={{
+              width: 52, height: 52, borderRadius: 9999,
+              background: "#111827", display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 4px 14px rgba(17,24,39,0.25)",
+            }}>
+              <ArrowUp style={{ width: 22, height: 22, color: "#fff" }} />
+            </div>
+            <div>
+              <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#111827" }}>
+                {uploading ? uploadStage : "Déposez votre CV ici"}
+              </p>
+              <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6B7280" }}>ou cliquez pour importer</p>
+              <p style={{ margin: "6px 0 0", fontSize: 12, color: "#9ca3af" }}>PDF, DOCX — Max 5 Mo · Analyse instantanée</p>
+            </div>
+            {uploading && (
+              <div style={{ width: "70%" }}>
+                <div style={{ height: 5, borderRadius: 9999, background: "rgba(17,24,39,0.08)", overflow: "hidden" }}>
+                  <div style={{ height: "100%", background: "#111827", width: `${uploadPct}%`, borderRadius: 9999, transition: "width 300ms ease" }} />
+                </div>
+                <p style={{ fontSize: 11, color: "#6B7280", marginTop: 5, textAlign: "center" }}>{Math.round(uploadPct)}%</p>
               </div>
-              <div>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#111827" }}>{uploading ? uploadStage : t.ext.uploadPrompt}</p>
-                <p style={{ margin: "4px 0 0", fontSize: 11, color: "#6B7280" }}>{t.ext.uploadLimit}</p>
-              </div>
-              {uploading && (
-                <div style={{ width: "80%" }}>
-                  <div style={{ height: 4, borderRadius: 9999, background: "rgba(17,24,39,0.08)", overflow: "hidden" }}>
-                    <div style={{ height: "100%", background: "#111827", width: `${uploadPct}%`, borderRadius: 9999, transition: "width 300ms ease" }} />
-                  </div>
-                  <p style={{ fontSize: 11, color: "#6B7280", marginTop: 4, textAlign: "center" }}>{Math.round(uploadPct)}%</p>
+            )}
+          </div>
+          <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.txt" style={{ display: "none" }} onChange={handleFileChange} />
+
+          {/* Existing CVs */}
+          {(loadingCvs || cvs.length > 0) && (
+            <div>
+              <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 600, color: "#6B7280", letterSpacing: "0.04em" }}>
+                OU SÉLECTIONNEZ UN CV EXISTANT
+              </p>
+              {loadingCvs && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Loader2 style={{ width: 14, height: 14, color: "#6B7280", animation: "spin 1s linear infinite" }} />
+                  <span style={{ fontSize: 13, color: "#6B7280" }}>{t.ext.loadingCvs}</span>
+                </div>
+              )}
+              {!loadingCvs && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {cvs.map(cv => (
+                    <div
+                      key={cv.id}
+                      onClick={() => step1Done && setSelectedCv(cv.id)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 12,
+                        borderRadius: 12, cursor: step1Done ? "pointer" : "not-allowed",
+                        padding: "12px 14px",
+                        border: selectedCv === cv.id ? "2px solid #111827" : "1px solid rgba(17,24,39,0.1)",
+                        background: selectedCv === cv.id ? "rgba(17,24,39,0.04)" : "#fafafa",
+                        transition: "all 150ms ease",
+                      }}
+                    >
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        background: selectedCv === cv.id ? "#111827" : "rgba(17,24,39,0.06)",
+                      }}>
+                        <FileText style={{ width: 18, height: 18, color: selectedCv === cv.id ? "#fff" : "#6B7280" }} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cv.original_filename}</p>
+                        <p style={{ margin: "2px 0 0", fontSize: 11, color: "#9ca3af" }}>
+                          {cv.file_type.toUpperCase()} · {(cv.file_size / 1024).toFixed(1)} KB
+                          {cv.score !== null ? ` · ${t.ext.quality}: ${cv.score}/100` : ""}
+                        </p>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                        {selectedCv === cv.id && <CheckCircle2 style={{ width: 18, height: 18, color: "#111827" }} />}
+                        <button
+                          onClick={e => { e.stopPropagation(); setDeleteId(cv.id); }}
+                          style={{ border: "none", background: "transparent", cursor: "pointer", padding: 4, borderRadius: 8 }}
+                        >
+                          <Trash2 style={{ width: 14, height: 14, color: "#c4c9d1" }} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
-            <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.txt" style={{ display: "none" }} onChange={handleFileChange} />
-          </KanbanCard>
-
-          {loadingCvs && (
-            <KanbanCard>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Loader2 style={{ width: 16, height: 16, color: "#6B7280", animation: "spin 1s linear infinite" }} />
-                <span style={{ fontSize: 13, color: "#6B7280" }}>{t.ext.loadingCvs}</span>
-              </div>
-            </KanbanCard>
           )}
 
-          {!loadingCvs && cvs.length > 0 && (
-            <KanbanCard>
-              <p style={{ ...labelStyle, marginBottom: 10 }}>{t.ext.selectExisting}</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {cvs.map(cv => (
-                  <div
-                    key={cv.id}
-                    onClick={() => setSelectedCv(cv.id)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 12,
-                      borderRadius: 14, cursor: "pointer", padding: "12px 14px",
-                      border: selectedCv === cv.id ? "2px solid #111827" : "1px solid rgba(17,24,39,0.1)",
-                      background: selectedCv === cv.id ? "rgba(17,24,39,0.04)" : "rgba(255,255,255,0.8)",
-                      transition: "all 150ms ease",
-                    }}
-                  >
-                    <div style={{
-                      width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      background: selectedCv === cv.id ? "#111827" : "rgba(17,24,39,0.06)",
-                    }}>
-                      <FileText style={{ width: 18, height: 18, color: selectedCv === cv.id ? "#fff" : "#6B7280" }} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cv.original_filename}</p>
-                      <p style={{ margin: "2px 0 0", fontSize: 11, color: "#6B7280" }}>
-                        {cv.file_type.toUpperCase()} · {(cv.file_size / 1024).toFixed(1)} KB
-                        {cv.score !== null ? ` · ${t.ext.quality}: ${cv.score}/100` : ""}
-                      </p>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                      {selectedCv === cv.id && <CheckCircle2 style={{ width: 18, height: 18, color: "#111827" }} />}
-                      <button
-                        onClick={e => { e.stopPropagation(); setDeleteId(cv.id); }}
-                        style={{ border: "none", background: "transparent", cursor: "pointer", padding: 4, borderRadius: 8 }}
-                      >
-                        <Trash2 style={{ width: 14, height: 14, color: "#9ca3af" }} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </KanbanCard>
-          )}
-
+          {/* Delete confirm */}
           {deleteId !== null && (
-            <KanbanCard accent="#fee2e2">
+            <div style={{ borderRadius: 14, background: "#fef2f2", border: "1px solid #fecaca", padding: "16px 18px" }}>
               <p style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 600, color: "#b91c1c" }}>
                 {t.ext.deletePrompt} &ldquo;{cvs.find(c => c.id === deleteId)?.original_filename}&rdquo;
               </p>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => handleDelete(deleteId)} style={{ flex: 1, padding: "8px 0", borderRadius: 9999, border: "none", background: "#111827", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: TOKEN.btnShadow }}>{t.ext.yesDelete}</button>
+                <button onClick={() => handleDelete(deleteId)} style={{ flex: 1, padding: "8px 0", borderRadius: 9999, border: "none", background: "#111827", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{t.ext.yesDelete}</button>
                 <button onClick={() => setDeleteId(null)} style={{ flex: 1, padding: "8px 0", borderRadius: 9999, border: "1px solid rgba(17,24,39,0.12)", background: "transparent", color: "#6B7280", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>{t.ext.cancel}</button>
               </div>
-            </KanbanCard>
-          )}
-
-          {/* CTA */}
-          <div style={{ paddingTop: 4 }}>
-            {error && (
-              <div style={{ marginBottom: 12, borderRadius: 12, background: "#fef2f2", border: "1px solid #fecaca", padding: "10px 14px", fontSize: 13, color: "#dc2626" }}>{error}</div>
-            )}
-            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
-              <button
-                disabled={!canAnalyse}
-                onClick={handleAnalyse}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 8,
-                  borderRadius: 9999, border: "none", cursor: canAnalyse ? "pointer" : "not-allowed",
-                  padding: "12px 28px", fontSize: 14, fontWeight: 500,
-                  letterSpacing: "0.35px", fontFamily: "Inter, sans-serif",
-                  color: "#fff", background: "#111827",
-                  boxShadow: canAnalyse ? TOKEN.btnShadow : "none",
-                  opacity: canAnalyse ? 1 : 0.4,
-                  transition: "all 150ms ease",
-                }}
-              >
-                {analysing
-                  ? <><Loader2 style={{ width: 16, height: 16, animation: "spin 1s linear infinite" }} /> {t.ext.analysingWait}</>
-                  : <><ArrowRight style={{ width: 16, height: 16 }} /> {t.ext.analyzeChances}</>}
-              </button>
-              {gateMessage && !analysing && (
-                <span style={{ fontSize: 12, color: "#9ca3af" }}>← {gateMessage} {t.ext.gateNext}</span>
-              )}
             </div>
-          </div>
+          )}
+        </Card>
+
+        {/* Privacy note */}
+        <p style={{ textAlign: "center", fontSize: 11, color: "#9ca3af", marginTop: 10 }}>🔒 Vos données restent privées — jamais partagées.</p>
+      </div>
+
+      {/* ── CTA ── */}
+      <div style={{ position: "sticky", bottom: 24, zIndex: 10 }}>
+        <div style={{
+          background: "rgba(255,255,255,0.95)", backdropFilter: "blur(10px)",
+          borderRadius: 20, padding: "16px 20px",
+          border: "1px solid rgba(17,24,39,0.08)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+          display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap",
+        }}>
+          {error && (
+            <div style={{ width: "100%", borderRadius: 10, background: "#fef2f2", border: "1px solid #fecaca", padding: "8px 12px", fontSize: 13, color: "#dc2626" }}>{error}</div>
+          )}
+          <button
+            disabled={!canAnalyse}
+            onClick={handleAnalyse}
+            style={{
+              flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 10,
+              height: 54, borderRadius: 14, border: "none",
+              cursor: canAnalyse ? "pointer" : "not-allowed",
+              fontSize: 15, fontWeight: 700, letterSpacing: "0.01em",
+              fontFamily: "Inter, sans-serif", color: "#fff",
+              background: canAnalyse ? "#111827" : "#d1d5db",
+              boxShadow: canAnalyse ? "0 4px 16px rgba(17,24,39,0.3)" : "none",
+              transition: "all 150ms ease",
+              minWidth: 200,
+            }}
+          >
+            {analysing
+              ? <><Loader2 style={{ width: 18, height: 18, animation: "spin 1s linear infinite" }} /> {t.ext.analysingWait}</>
+              : <><BarChart2 style={{ width: 18, height: 18 }} /> Voir mon score ATS</>}
+          </button>
+          {gateMessage && !analysing && (
+            <span style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "center", gap: 4 }}>
+              <ChevronRight style={{ width: 14, height: 14 }} /> {gateMessage}
+            </span>
+          )}
+          {!gateMessage && (
+            <span style={{ fontSize: 12, color: "#10b981", fontWeight: 600 }}>⚡ Résultat en moins de 30 secondes</span>
+          )}
         </div>
       </div>
 
-      {/* RESULTS */}
+      {/* ── RESULTS ── */}
       {result && (
-        <div ref={resultRef} style={{ marginTop: 40 }}>
-          <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(17,24,39,0.12), transparent)", marginBottom: 28 }} />
+        <div ref={resultRef} style={{ marginTop: 56 }}>
+          <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(17,24,39,0.12), transparent)", marginBottom: 32 }} />
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <StepBadge n={3} />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 30, height: 30, borderRadius: 9999, background: "#111827", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <CheckCircle2 style={{ width: 16, height: 16, color: "#fff" }} />
+              </div>
               <div>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#111827" }}>{t.ext.yourResult}</p>
-                <p style={{ margin: 0, fontSize: 11, color: "#6B7280" }}>{t.ext.yourResultSub}</p>
+                <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#111827" }}>{t.ext.yourResult}</p>
+                <p style={{ margin: 0, fontSize: 12, color: "#9ca3af" }}>{t.ext.yourResultSub}</p>
               </div>
             </div>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 9999, background: "#E0E7FF", color: "#4338ca", fontSize: 12, fontWeight: 600, border: "1px solid rgba(99,102,241,0.2)" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 9999, background: "#EEF2FF", color: "#4338ca", fontSize: 12, fontWeight: 600, border: "1px solid rgba(99,102,241,0.2)" }}>
               <Sparkles style={{ width: 12, height: 12 }} /> {t.ext.poweredByAI}
             </span>
           </div>
 
           {/* Score hero */}
-          <div style={{ padding: 1, borderRadius: 24, background: "linear-gradient(135deg, rgba(17,24,39,0.08) 0%, rgba(224,231,255,0.6) 100%)", marginBottom: 16 }}>
-            <div style={{ borderRadius: 23, background: TOKEN.glass, backdropFilter: TOKEN.blur, WebkitBackdropFilter: TOKEN.blur, boxShadow: TOKEN.cardShadow, padding: "24px 28px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+          <Card style={{ marginBottom: 16, background: "linear-gradient(135deg, #f8faff 0%, #fff 100%)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
               <div>
-                <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#6B7280" }}>{t.careerMatch.matchScore}</p>
+                <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#9ca3af" }}>{t.careerMatch.matchScore}</p>
                 <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
-                  <span style={{ fontSize: 64, fontWeight: 700, lineHeight: 1, color: scoreColor(result.match_score).text }}>{result.match_score}</span>
-                  <span style={{ fontSize: 24, color: "#9ca3af", marginBottom: 6 }}>/100</span>
+                  <span style={{ fontSize: 64, fontWeight: 800, lineHeight: 1, color: scoreColor(result.match_score).text }}>{result.match_score}</span>
+                  <span style={{ fontSize: 24, color: "#d1d5db", marginBottom: 8 }}>/100</span>
                 </div>
-                <p style={{ margin: "6px 0 0", fontSize: 15, fontWeight: 600, color: verdictLabel(result.match_score).color }}>{verdictLabel(result.match_score).label}</p>
+                <p style={{ margin: "6px 0 0", fontSize: 15, fontWeight: 700, color: verdictLabel(result.match_score).color }}>{verdictLabel(result.match_score).label}</p>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", borderRadius: 9999, border: result.application_ready ? "1px solid #a7f3d0" : "1px solid #fde68a", background: result.application_ready ? "#ecfdf5" : "#fffbeb", color: result.application_ready ? "#059669" : "#d97706", fontSize: 13, fontWeight: 600 }}>
@@ -572,30 +674,30 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                     ? <><CheckCircle2 style={{ width: 14, height: 14 }} /> {t.ext.readyToApply}</>
                     : <><AlertTriangle style={{ width: 14, height: 14 }} /> {t.ext.fixGapsFirst}</>}
                 </div>
-                <p style={{ margin: "8px 0 0", fontSize: 12, color: "#6B7280", fontWeight: 500 }}>{result.hire_probability}</p>
+                <p style={{ margin: "8px 0 0", fontSize: 12, color: "#9ca3af", fontWeight: 500 }}>{result.hire_probability}</p>
               </div>
             </div>
-          </div>
+          </Card>
 
-          {/* Score bars + verdict */}
+          {/* Score breakdown */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12, marginBottom: 16 }}>
-            <KanbanCard>
-              <p style={{ ...labelStyle, marginBottom: 14 }}>{t.ext.scoreBreakdown}</p>
+            <Card>
+              <p style={{ margin: "0 0 14px", fontSize: 12, fontWeight: 600, letterSpacing: "0.04em", color: "#374151" }}>{t.ext.scoreBreakdown}</p>
               <ScoreBar label={t.careerMatch.skillsMatch}     value={result.skills_match_score} />
               <ScoreBar label={t.careerMatch.experienceMatch} value={result.experience_score}    />
               <ScoreBar label={t.careerMatch.cvQuality}       value={result.cv_quality_score}   />
-            </KanbanCard>
-            <KanbanCard>
-              <p style={{ ...labelStyle, marginBottom: 10 }}>{t.careerMatch.overallVerdict}</p>
-              <p style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 600, color: "#111827", lineHeight: 1.5 }}>{result.overall_verdict}</p>
+            </Card>
+            <Card>
+              <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 600, letterSpacing: "0.04em", color: "#374151" }}>{t.careerMatch.overallVerdict}</p>
+              <p style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 600, color: "#111827", lineHeight: 1.5 }}>{result.overall_verdict}</p>
               <p style={{ margin: 0, fontSize: 13, color: "#6B7280", lineHeight: 1.6 }}>{result.overall_reason}</p>
-            </KanbanCard>
+            </Card>
           </div>
 
           {/* Required skills */}
           {result.job_requirements?.required_skills && result.job_requirements.required_skills.length > 0 && (
-            <KanbanCard accent="#E0E7FF" style={{ marginBottom: 16 }}>
-              <p style={{ ...labelStyle, marginBottom: 10 }}>{t.ext.whatRoleRequires}</p>
+            <Card style={{ marginBottom: 16 }}>
+              <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 600, letterSpacing: "0.04em", color: "#374151" }}>{t.ext.whatRoleRequires}</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: result.job_requirements.nice_to_have?.length ? 12 : 0 }}>
                 {result.job_requirements.required_skills.map((s, i) => (
                   <span key={i} style={{ padding: "4px 12px", borderRadius: 9999, background: "#111827", color: "#fff", fontSize: 12, fontWeight: 500 }}>{s}</span>
@@ -603,7 +705,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
               </div>
               {result.job_requirements.nice_to_have && result.job_requirements.nice_to_have.length > 0 && (
                 <>
-                  <p style={{ ...labelStyle, marginBottom: 8, marginTop: 0 }}>{t.ext.niceToHave}</p>
+                  <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 600, color: "#9ca3af" }}>{t.ext.niceToHave}</p>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {result.job_requirements.nice_to_have.map((s, i) => (
                       <span key={i} style={{ padding: "4px 12px", borderRadius: 9999, border: "1.5px dashed rgba(17,24,39,0.15)", background: "transparent", color: "#6B7280", fontSize: 12, fontWeight: 500 }}>{s}</span>
@@ -611,51 +713,49 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                   </div>
                 </>
               )}
-            </KanbanCard>
+            </Card>
           )}
 
           {/* Tabs */}
           <div style={{ display: "flex", gap: 4, marginBottom: 16, flexWrap: "wrap" }}>
             {(["overview", "gaps", "strengths", "roadmap"] as const).map(tab => (
-              <PillBtn key={tab} active={activeTab === tab} onClick={() => setActiveTab(tab)}>
+              <Chip key={tab} active={activeTab === tab} onClick={() => setActiveTab(tab)}>
                 {tab === "gaps" ? `${tabLabels.gaps} (${result.gaps.length})`
                   : tab === "strengths" ? `${tabLabels.strengths} (${result.strengths.length})`
                   : tabLabels[tab]}
-              </PillBtn>
+              </Chip>
             ))}
           </div>
 
           {activeTab === "overview" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {result.gaps.filter(g => g.startsWith("[BLOCKING]")).length > 0 && (
-                <KanbanCard accent="#fee2e2">
+                <Card style={{ background: "#fef2f2", border: "1px solid #fecaca" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                     <Shield style={{ width: 16, height: 16, color: "#dc2626" }} />
                     <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#b91c1c" }}>{t.ext.blockingGapsTitle}</p>
                   </div>
                   {result.gaps.filter(g => g.startsWith("[BLOCKING]")).map((g, i) => <GapCard key={i} raw={g} severityLabels={severityLabels} />)}
-                </KanbanCard>
+                </Card>
               )}
               {result.actionable_advice.length > 0 && (
-                <KanbanCard accent="#E0E7FF">
+                <Card>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                     <Lightbulb style={{ width: 16, height: 16, color: "#2563eb" }} />
                     <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#1e40af" }}>{t.ext.concreteStepsTitle}</p>
                   </div>
                   <ol style={{ margin: 0, padding: "0 0 0 18px" }}>
                     {result.actionable_advice.map((tip, i) => (
-                      <li key={i} style={{ fontSize: 13, color: "#1e3a8a", lineHeight: 1.6, marginBottom: 6 }}>{tip}</li>
+                      <li key={i} style={{ fontSize: 13, color: "#374151", lineHeight: 1.6, marginBottom: 6 }}>{tip}</li>
                     ))}
                   </ol>
-                </KanbanCard>
+                </Card>
               )}
               {result.gaps.filter(g => g.startsWith("[BLOCKING]")).length === 0 && result.actionable_advice.length === 0 && (
-                <KanbanCard accent="#a7f3d0">
-                  <div style={{ textAlign: "center", padding: "16px 0" }}>
-                    <CheckCircle2 style={{ width: 32, height: 32, color: "#059669", margin: "0 auto 8px" }} />
-                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#065f46" }}>{t.ext.noBlockingIssues}</p>
-                  </div>
-                </KanbanCard>
+                <Card style={{ textAlign: "center", padding: "32px 24px" }}>
+                  <CheckCircle2 style={{ width: 32, height: 32, color: "#059669", margin: "0 auto 8px" }} />
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#065f46" }}>{t.ext.noBlockingIssues}</p>
+                </Card>
               )}
             </div>
           )}
@@ -663,12 +763,10 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
           {activeTab === "gaps" && (
             <div>
               {result.gaps.length === 0 ? (
-                <KanbanCard>
-                  <div style={{ textAlign: "center", padding: "24px 0" }}>
-                    <CheckCircle2 style={{ width: 28, height: 28, color: "#10b981", margin: "0 auto 8px" }} />
-                    <p style={{ margin: 0, fontSize: 13, color: "#6B7280" }}>{t.ext.noGaps}</p>
-                  </div>
-                </KanbanCard>
+                <Card style={{ textAlign: "center", padding: "32px 24px" }}>
+                  <CheckCircle2 style={{ width: 28, height: 28, color: "#10b981", margin: "0 auto 8px" }} />
+                  <p style={{ margin: 0, fontSize: 13, color: "#6B7280" }}>{t.ext.noGaps}</p>
+                </Card>
               ) : result.gaps.map((g, i) => <GapCard key={i} raw={g} severityLabels={severityLabels} />)}
             </div>
           )}
@@ -676,38 +774,36 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
           {activeTab === "strengths" && (
             <div>
               {result.strengths.length === 0 ? (
-                <KanbanCard>
-                  <div style={{ textAlign: "center", padding: "24px 0" }}>
-                    <XCircle style={{ width: 28, height: 28, color: "#d1d5db", margin: "0 auto 8px" }} />
-                    <p style={{ margin: 0, fontSize: 13, color: "#6B7280" }}>{t.ext.noStrengths}</p>
-                  </div>
-                </KanbanCard>
+                <Card style={{ textAlign: "center", padding: "32px 24px" }}>
+                  <XCircle style={{ width: 28, height: 28, color: "#d1d5db", margin: "0 auto 8px" }} />
+                  <p style={{ margin: 0, fontSize: 13, color: "#6B7280" }}>{t.ext.noStrengths}</p>
+                </Card>
               ) : result.strengths.map((s, i) => <StrengthCard key={i} raw={s} />)}
             </div>
           )}
 
           {activeTab === "roadmap" && (
-            <KanbanCard accent="#FFEDD5">
+            <Card>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
                 <TrendingUp style={{ width: 16, height: 16, color: "#ea580c" }} />
                 <div>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#111827" }}>{t.ext.roadmapPersonalised}</p>
-                  <p style={{ margin: 0, fontSize: 11, color: "#6B7280" }}>{t.ext.roadmapBased}</p>
+                  <p style={{ margin: 0, fontSize: 11, color: "#9ca3af" }}>{t.ext.roadmapBased}</p>
                 </div>
               </div>
               {result.roadmap.length === 0
                 ? <p style={{ margin: 0, fontSize: 13, color: "#6B7280" }}>{t.ext.noRoadmap}</p>
                 : result.roadmap.map((step, i) => <RoadmapItem key={i} text={step} index={i} isLast={i === result.roadmap.length - 1} />)}
-            </KanbanCard>
+            </Card>
           )}
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 24 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 28 }}>
             {onSwitchToChat && (
-              <button onClick={onSwitchToChat} style={{ display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 9999, border: "none", cursor: "pointer", padding: "12px 24px", fontSize: 14, fontWeight: 500, color: "#fff", background: "#111827", boxShadow: TOKEN.btnShadow, fontFamily: "Inter, sans-serif" }}>
+              <button onClick={onSwitchToChat} style={{ display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 10, border: "none", cursor: "pointer", padding: "12px 24px", fontSize: 14, fontWeight: 600, color: "#fff", background: "#111827", fontFamily: "Inter, sans-serif" }}>
                 <MessageSquare style={{ width: 16, height: 16 }} /> {t.ext.discussCoach}
               </button>
             )}
-            <button onClick={handleReset} style={{ display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 9999, cursor: "pointer", padding: "12px 24px", fontSize: 14, fontWeight: 500, color: "#6B7280", background: "transparent", border: "1px solid rgba(17,24,39,0.12)", fontFamily: "Inter, sans-serif" }}>
+            <button onClick={handleReset} style={{ display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 10, cursor: "pointer", padding: "12px 24px", fontSize: 14, fontWeight: 500, color: "#6B7280", background: "transparent", border: "1px solid rgba(17,24,39,0.12)", fontFamily: "Inter, sans-serif" }}>
               <RotateCcw style={{ width: 16, height: 16 }} /> {t.ext.tryAnotherJob}
             </button>
           </div>
