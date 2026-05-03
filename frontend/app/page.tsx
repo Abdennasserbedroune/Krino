@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Mode = 'seeker' | 'recruiter';
@@ -13,13 +14,6 @@ const ACCENT = {
 };
 
 // ─── Inline SVG icons (Solar linear set) ─────────────────────────────────────
-const IconLogo = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <rect width="28" height="28" rx="7" fill="#111827"/>
-    <path d="M7 14h14M14 7l7 7-7 7" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
 const IconArrowRight = ({ size = 16, color = 'currentColor' }: { size?: number; color?: string }) => (
   <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
     <path d="M3 8h10M9 4l4 4-4 4" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -328,7 +322,7 @@ const RECRUITER_CARDS = [
   },
   {
     num: '02', title: 'Custom Criteria Engine',
-    desc: 'Define your own must-have and nice-to-have attributes. Pathwise scores every resume against your rubric, not a generic model.',
+    desc: 'Define your own must-have and nice-to-have attributes. Krino scores every resume against your rubric, not a generic model.',
     visual: (a: string) => <HRCriteriaVisual accent={a}/>,
     span: 'col-span-1',
   },
@@ -566,7 +560,7 @@ export default function LandingPage() {
   const RECRUITER_PLANS = [
     {
       name: 'Starter', price: '$0', priceNote: '/ forever',
-      desc: 'Try Pathwise screening with a single active role.',
+      desc: 'Try Krino screening with a single active role.',
       features: ['1 active job posting', 'Up to 50 candidates / role', 'AI candidate ranking', 'Blind review mode'],
       cta: 'Start screening free', ctaHref: '/auth/register',
       highlighted: false,
@@ -635,8 +629,7 @@ export default function LandingPage() {
         }}
       >
         <Link href="/" className="flex items-center gap-2 no-underline" style={{ textDecoration: 'none' }}>
-          <IconLogo/>
-          <span style={{ fontSize: 15, fontWeight: 600, color: '#111827', letterSpacing: '-0.01em' }}>Pathwise</span>
+          <Image src="/logo.png" alt="Krino" width={120} height={40} priority />
         </Link>
 
         <nav
@@ -835,8 +828,8 @@ export default function LandingPage() {
             }}
           >
             {mode === 'seeker'
-              ? 'ATS systems reject 75% of resumes before a human sees them. Pathwise shows you exactly why — and how to fix it in seconds.'
-              : 'Manual screening wastes 80% of recruiter time on unqualified resumes. Pathwise ranks candidates instantly against your exact criteria.'}
+              ? 'ATS systems reject 75% of resumes before a human sees them. Krino shows you exactly why — and how to fix it in seconds.'
+              : 'Manual screening wastes 80% of recruiter time on unqualified resumes. Krino ranks candidates instantly against your exact criteria.'}
           </p>
 
           <div className="flex items-center gap-3 flex-wrap justify-center">
@@ -981,7 +974,7 @@ export default function LandingPage() {
             >
               {[
                 {
-                  quote: '"Pathwise showed me in seconds why I kept getting ghosted. 3 keywords missing. Fixed them. Got 5 interviews in a week."',
+                  quote: '"Krino showed me in seconds why I kept getting ghosted. 3 keywords missing. Fixed them. Got 5 interviews in a week."',
                   name: 'Amira K.', role: 'Software Engineer',
                   avatar: '#3b82f6', initials: 'AK',
                 },
@@ -1114,7 +1107,7 @@ export default function LandingPage() {
               }}/>
               <p style={{ margin: '0 0 12px', fontSize: 12, fontWeight: 500, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#6B7280' }}>Get started for free</p>
               <h2 style={{ margin: '0 0 16px', fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 500, color: '#FFFFFF', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
-                {mode === 'seeker' ? 'Your resume is getting rejected. Fix it now.' : 'Stop screening manually. Let Pathwise rank candidates.'}
+                {mode === 'seeker' ? 'Your resume is getting rejected. Fix it now.' : 'Stop screening manually. Let Krino rank candidates.'}
               </h2>
               <p style={{ margin: '0 0 36px', fontSize: 15, color: '#6B7280', fontWeight: 300, lineHeight: 1.7 }}>No credit card. Takes 60 seconds. Results are instant.</p>
               <Link
@@ -1150,9 +1143,8 @@ export default function LandingPage() {
         }}
       >
         <div className="flex items-center gap-2">
-          <IconLogo/>
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Pathwise</span>
-          <span style={{ fontSize: 12, color: '#9CA3AF', marginLeft: 8 }}>© 2025 — Resume intelligence, built for humans.</span>
+          <Image src="/logo.png" alt="Krino" width={100} height={34} />
+          <span style={{ fontSize: 12, color: '#9CA3AF', marginLeft: 8 }}>© 2026 — Resume intelligence, built for humans.</span>
         </div>
         <div className="flex items-center gap-6">
           {['Privacy','Terms','Contact'].map(l => (

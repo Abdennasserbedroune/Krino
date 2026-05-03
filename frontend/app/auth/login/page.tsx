@@ -2,15 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
-const IconLogo = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-    <rect width="28" height="28" rx="7" fill="#111827" />
-    <path d="M7 14h14M14 7l7 7-7 7" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
 const IconArrowRight = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
     <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -131,15 +126,14 @@ export default function LoginPage() {
 
       <div style={{ position: 'relative', zIndex: 1, marginBottom: 40 }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-          <IconLogo />
-          <span style={{ fontSize: 16, fontWeight: 600, color: '#111827', letterSpacing: '-.01em' }}>Pathwise</span>
+          <Image src="/logo.png" alt="Krino" width={120} height={40} priority />
         </Link>
       </div>
 
       {step === 'role' && (
         <Card>
           <h1 style={{ margin: '0 0 8px', fontSize: 26, fontWeight: 600, color: '#111827', letterSpacing: '-.02em' }}>Welcome back</h1>
-          <p style={{ margin: '0 0 28px', fontSize: 14, color: '#6B7280' }}>How are you using Pathwise?</p>
+          <p style={{ margin: '0 0 28px', fontSize: 14, color: '#6B7280' }}>How are you using Krino?</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {(['seeker', 'recruiter'] as Role[]).map(r => (
               <button key={r} onClick={() => pickRole(r)} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '18px 20px', borderRadius: 16, border: `1.5px solid ${r === 'seeker' ? 'rgba(59,130,246,.25)' : 'rgba(249,115,22,.25)'}`, background: r === 'seeker' ? 'rgba(59,130,246,.04)' : 'rgba(249,115,22,.04)', cursor: 'pointer', width: '100%', fontFamily: 'inherit' }}>
@@ -154,7 +148,7 @@ export default function LoginPage() {
           </div>
           <div style={{ margin: '24px 0 0', display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,.08)' }} />
-            <span style={{ fontSize: 12, color: '#9CA3AF' }}>New to Pathwise?</span>
+            <span style={{ fontSize: 12, color: '#9CA3AF' }}>New to Krino?</span>
             <div style={{ flex: 1, height: 1, background: 'rgba(17,24,39,.08)' }} />
           </div>
           <Link href="/auth/register" style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 44, borderRadius: 9999, border: '1.5px solid rgba(17,24,39,.14)', color: '#374151', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>Create an account</Link>
@@ -175,7 +169,7 @@ export default function LoginPage() {
             </div>
           </div>
           <h2 style={{ margin: '0 0 6px', fontSize: 22, fontWeight: 600, color: '#111827', letterSpacing: '-.02em' }}>Welcome back</h2>
-          <p style={{ margin: '0 0 24px', fontSize: 14, color: '#6B7280' }}>Sign in to your Pathwise account</p>
+          <p style={{ margin: '0 0 24px', fontSize: 14, color: '#6B7280' }}>Sign in to your Krino account</p>
 
           <button onClick={() => googleSignIn(role)} disabled={gLoading} style={{ width: '100%', height: 44, borderRadius: 9999, border: '1.5px solid rgba(17,24,39,.14)', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, fontSize: 14, fontWeight: 500, color: '#374151', cursor: gLoading ? 'not-allowed' : 'pointer', opacity: gLoading ? 0.6 : 1, fontFamily: 'inherit' }}>
             <IconGoogle />{gLoading ? 'Redirecting…' : 'Continue with Google'}

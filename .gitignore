@@ -41,3 +41,9 @@ docker-data/
 # Temporary
 tmp/
 temp/
+
+# Debug / temp files
+debug_*.py
+debug_output.txt
+toprompt.pdf
+env.download

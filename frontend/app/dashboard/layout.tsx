@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/client";
 import { ProfileDropdown } from "@/components/ui/profile-dropdown";
@@ -9,13 +10,6 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 // ─ Icons ─────────────────────────────────────────────────────────────────────────
-const IconLogo = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-    <rect width="28" height="28" rx="7" fill="#111827"/>
-    <path d="M7 14h14M14 7l7 7-7 7" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
 const IconTarget = ({ active }: { active: boolean }) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
     <circle cx="12" cy="12" r="9" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6"/>
@@ -122,8 +116,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
           borderBottom: "1px solid rgba(17,24,39,0.07)",
         }}>
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-            <IconLogo />
-            <span style={{ fontSize: 15, fontWeight: 600, color: "#111827", letterSpacing: "-0.01em" }}>Pathwise</span>
+            <Image src="/logo.png" alt="Krino" width={120} height={40} priority />
           </Link>
           <button
             onClick={onClose}

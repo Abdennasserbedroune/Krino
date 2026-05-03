@@ -18,29 +18,29 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Pathwise - Check your resume before the recruiter does",
+  title: "Krino - Check your resume before the recruiter does",
   description:
     "A small, focused tool that reads resumes and job descriptions with AI and gives a simple match score plus a short explanation.",
-  metadataBase: new URL("https://pathwise.app"),
+  metadataBase: new URL("https://krino.app"),
   openGraph: {
     type: "website",
-    url: "https://pathwise.app",
-    title: "Pathwise - Check your resume before the recruiter does",
+    url: "https://krino.app",
+    title: "Krino - Check your resume before the recruiter does",
     description:
       "A small, focused tool that reads resumes and job descriptions with AI and gives a simple match score plus a short explanation.",
-    siteName: "Pathwise",
+    siteName: "Krino",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Pathwise — AI resume matcher",
+        alt: "Krino — AI resume matcher",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Pathwise - Check your resume before the recruiter does",
+    title: "Krino - Check your resume before the recruiter does",
     description:
       "A small, focused tool that reads resumes and job descriptions with AI and gives a simple match score plus a short explanation.",
     images: ["/og-image.png"],
