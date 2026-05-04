@@ -8,8 +8,6 @@ logger = logging.getLogger(__name__)
 
 # Create SQLAlchemy engine with lazy initialization
 try:
-    # For Supabase/PostgreSQL: embed sslmode in the URL instead of connect_args
-    # to avoid psycopg2 connect_args compatibility issues
     db_url = settings.DATABASE_URL
     if ("supabase" in db_url or "postgresql" in db_url) and "sslmode" not in db_url:
         separator = "&" if "?" in db_url else "?"
@@ -28,7 +26,6 @@ try:
         pool_recycle=300,
     )
 
-    # Session factory
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     DB_AVAILABLE = True
     logger.info("✅ Database engine created successfully")
@@ -54,7 +51,6 @@ def get_db() -> Session:
 
 
 # Import ALL models here so SQLAlchemy registers them with Base.metadata
-# This is critical — any model missing here won't be created by init_db()
 if DB_AVAILABLE:
     try:
         from app.db.models.user import User  # noqa
@@ -62,7 +58,6 @@ if DB_AVAILABLE:
         from app.db.models.cv_builder import CVBuilderDocument  # noqa
         from app.db.models.recruiter import JobPosting, CandidateCard  # noqa
         from app.db.models.tracker import SavedJob  # noqa
-        from app.db.models.interview import InterviewSession  # noqa
         from app.db.models.outreach import OutreachMessage  # noqa
         logger.info("✅ All models registered with SQLAlchemy")
     except Exception as e:

@@ -1,7 +1,7 @@
 """Versioned v1 API routes for Pathwise backend."""
 from fastapi import APIRouter
 
-from app.api.v1 import auth, cv, chat, recruiter, tracker, cv_builder, interview, pipeline
+from app.api.v1 import auth, cv, chat, recruiter, tracker, cv_builder, pipeline
 
 router = APIRouter()
 
@@ -12,7 +12,6 @@ router.include_router(chat.router)
 router.include_router(recruiter.router)
 router.include_router(tracker.router)
 router.include_router(cv_builder.router)
-router.include_router(interview.router)
 router.include_router(pipeline.router)
 
 
