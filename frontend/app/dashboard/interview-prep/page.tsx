@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { apiUrl } from '@/lib/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Question {
@@ -274,7 +273,7 @@ function PracticeView({ session, onFinish, onBack }: {
     setSubmitting(true);
     try {
       const headers = await authHeaders();
-      const res = await fetch(apiUrl(`/api/v1/interview/sessions/${session.id}/answer`), {
+      const res = await fetch(`/api/v1/interview/sessions/${session.id}/answer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({ question_id: q.id, answer, expected_skills: [] }),
@@ -486,7 +485,7 @@ function InterviewPrepContent() {
     setLoadingSessions(true);
     try {
       const headers = await authHeaders();
-      const res = await fetch(apiUrl('/api/v1/interview/sessions'), { headers });
+      const res = await fetch('/api/v1/interview/sessions', { headers });
       if (res.ok) setSessions(await res.json());
     } catch (e) { console.error(e); }
     setLoadingSessions(false);
@@ -499,7 +498,7 @@ function InterviewPrepContent() {
     setError('');
     try {
       const headers = await authHeaders();
-      const res = await fetch(apiUrl('/api/v1/interview/sessions'), {
+      const res = await fetch('/api/v1/interview/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({ title: `${role}${company ? ` @ ${company}` : ''}`, jd_text: jd, company_name: company, seniority }),
@@ -522,7 +521,7 @@ function InterviewPrepContent() {
   const handleFinish = async (updated: Session) => {
     try {
       const headers = await authHeaders();
-      await fetch(apiUrl(`/api/v1/interview/sessions/${updated.id}/complete`), { method: 'PATCH', headers });
+      await fetch(`/api/v1/interview/sessions/${updated.id}/complete`, { method: 'PATCH', headers });
     } catch (e) {}
     setActiveSession(updated);
     setView('summary');
