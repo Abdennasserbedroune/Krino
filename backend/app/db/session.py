@@ -1,6 +1,5 @@
 """Database session management."""
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from app.core.config import settings
 import logging
@@ -9,16 +8,20 @@ logger = logging.getLogger(__name__)
 
 # Create SQLAlchemy engine with lazy initialization
 try:
-    # Configure connection arguments based on backend
-    if settings.DATABASE_URL.startswith("sqlite"):
+    # For Supabase/PostgreSQL: embed sslmode in the URL instead of connect_args
+    # to avoid psycopg2 connect_args compatibility issues
+    db_url = settings.DATABASE_URL
+    if ("supabase" in db_url or "postgresql" in db_url) and "sslmode" not in db_url:
+        separator = "&" if "?" in db_url else "?"
+        db_url = f"{db_url}{separator}sslmode=require"
+        connect_args = {}
+    elif db_url.startswith("sqlite"):
         connect_args = {"check_same_thread": False}
-    elif "supabase" in settings.DATABASE_URL or "postgresql" in settings.DATABASE_URL:
-        connect_args = {"sslmode": "require"}
     else:
         connect_args = {}
 
     engine = create_engine(
-        settings.DATABASE_URL,
+        db_url,
         pool_pre_ping=True,
         connect_args=connect_args,
         pool_timeout=5,
@@ -37,33 +40,41 @@ except Exception as e:
     SessionLocal = None
     DB_AVAILABLE = False
 
+
 def get_db() -> Session:
     """Get a database session."""
     if not DB_AVAILABLE:
         raise RuntimeError("Database is not available")
-    
+
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
 
-# Import all models here to ensure they are registered with SQLAlchemy
+
+# Import ALL models here so SQLAlchemy registers them with Base.metadata
+# This is critical — any model missing here won't be created by init_db()
 if DB_AVAILABLE:
     try:
         from app.db.models.user import User  # noqa
         from app.db.models.cv import CV  # noqa
+        from app.db.models.cv_builder import CVBuilderDocument  # noqa
         from app.db.models.recruiter import JobPosting, CandidateCard  # noqa
+        from app.db.models.tracker import SavedJob  # noqa
+        from app.db.models.interview import InterviewSession  # noqa
+        from app.db.models.outreach import OutreachMessage  # noqa
+        logger.info("✅ All models registered with SQLAlchemy")
     except Exception as e:
-        logger.warning(f"⚠️  Could not import models: {e}")
+        logger.warning(f"⚠️  Could not import some models: {e}")
 
-# Create tables
+
 def init_db() -> None:
-    """Initialize the database."""
+    """Initialize the database — create all tables if they don't exist."""
     if not DB_AVAILABLE:
         logger.warning("⚠️  Skipping database initialization (DB not available)")
         return
-    
+
     try:
         from app.db.base_class import Base
         Base.metadata.create_all(bind=engine)
