@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const BACKEND = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://krino-backend.onrender.com'
+// NEVER use NEXT_PUBLIC_* here — that points to Vercel itself and causes a 508 loop.
+// BACKEND_API_URL must be a server-only env var pointing to Render.
+const BACKEND = (process.env.BACKEND_API_URL ?? '').replace(/\/$/, '') || 'https://krino-backend.onrender.com'
 
 async function proxy(req: NextRequest, path: string) {
   const auth = req.headers.get('authorization') ?? ''
-  const url = `${BACKEND}/api/v1${path}`
+  const url = `${BACKEND}${path}`
 
   const isGet = req.method === 'GET'
   const body = isGet ? undefined : await req.text()
@@ -26,9 +28,9 @@ async function proxy(req: NextRequest, path: string) {
 }
 
 export async function GET(req: NextRequest) {
-  return proxy(req, '/interview/sessions')
+  return proxy(req, '/api/v1/interview/sessions')
 }
 
 export async function POST(req: NextRequest) {
-  return proxy(req, '/interview/sessions')
+  return proxy(req, '/api/v1/interview/sessions')
 }
