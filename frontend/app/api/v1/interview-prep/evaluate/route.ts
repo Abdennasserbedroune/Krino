@@ -3,14 +3,40 @@ import { createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 60;
 
-const OPENROUTER_MODEL = "nvidia/llama-3.1-nemotron-70b-instruct:free";
-const OPENROUTER_URL   = "https://openrouter.ai/api/v1/chat/completions";
+const PRIMARY_MODEL  = "nvidia/nemotron-3-super-120b-a12b:free";
+const FALLBACK_MODEL = "z-ai/glm-4.5-air:free";
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 interface EvaluateBody {
-  question:  string;
-  answer:    string;
-  job_title: string;
+  question:      string;
+  answer:        string;
+  job_title:     string;
   question_type: string;
+}
+
+async function callOpenRouter(
+  apiKey: string,
+  model: string,
+  systemPrompt: string,
+  userPrompt: string,
+): Promise<{ ok: boolean; text: string; status: number }> {
+  const res = await fetch(OPENROUTER_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type":  "application/json",
+      "HTTP-Referer":  "https://pathwise-liart.vercel.app",
+      "X-Title":       "Krino Interview Prep",
+    },
+    body: JSON.stringify({
+      model,
+      messages:    [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+      temperature: 0.15,
+      max_tokens:  800,
+    }),
+  });
+  const text = await res.text();
+  return { ok: res.ok, text, status: res.status };
 }
 
 export async function POST(req: NextRequest) {
@@ -25,7 +51,6 @@ export async function POST(req: NextRequest) {
     if (!question?.trim() || !answer?.trim()) {
       return NextResponse.json({ detail: "question and answer are required." }, { status: 400 });
     }
-
     if (answer.trim().length < 10) {
       return NextResponse.json({ detail: "Answer is too short to evaluate." }, { status: 400 });
     }
@@ -50,42 +75,37 @@ export async function POST(req: NextRequest) {
       `CANDIDATE'S ANSWER:\n${answer.trim()}\n\n` +
       "Return a JSON object with exactly these keys:\n" +
       "{\n" +
-      "  \"score\": integer 0-100,\n" +
-      "  \"verdict\": \"one of: Excellent | Good | Needs Work | Insufficient\",\n" +
-      "  \"what_was_good\": \"1-2 sentences on what they got right — be specific and cite their words\",\n" +
-      "  \"what_was_missing\": \"1-2 sentences on what a strong answer would include that was absent or weak\",\n" +
-      "  \"ideal_answer_summary\": \"2-3 sentences: what the ideal answer looks like for this specific question\"\n" +
+      '  "score": integer 0-100,\n' +
+      '  "verdict": "one of: Excellent | Good | Needs Work | Insufficient",\n' +
+      '  "what_was_good": "1-2 sentences on what they got right — cite their words",\n' +
+      '  "what_was_missing": "1-2 sentences on what a strong answer would include that was absent or weak",\n' +
+      '  "ideal_answer_summary": "2-3 sentences: what the ideal answer looks like for this specific question"\n' +
       "}";
 
-    const response = await fetch(OPENROUTER_URL, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type":  "application/json",
-        "HTTP-Referer":  "https://pathwise-liart.vercel.app",
-        "X-Title":       "Krino Interview Prep",
-      },
-      body: JSON.stringify({
-        model:       OPENROUTER_MODEL,
-        messages:    [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
-        temperature: 0.15,
-        max_tokens:  800,
-      }),
-    });
+    // ── Try primary, fall back if it fails ─────────────────────────────────
+    let result = await callOpenRouter(apiKey, PRIMARY_MODEL, systemPrompt, userPrompt);
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("[interview-prep/evaluate] OpenRouter error status:", response.status);
-      console.error("[interview-prep/evaluate] OpenRouter error body:", errText);
+    if (!result.ok) {
+      console.error(`[interview-prep/evaluate] Primary model (${PRIMARY_MODEL}) failed [${result.status}]:`, result.text);
+      console.log(`[interview-prep/evaluate] Trying fallback: ${FALLBACK_MODEL}`);
+      result = await callOpenRouter(apiKey, FALLBACK_MODEL, systemPrompt, userPrompt);
+    }
+
+    if (!result.ok) {
+      console.error(`[interview-prep/evaluate] Fallback also failed [${result.status}]:`, result.text);
       return NextResponse.json(
-        { detail: `AI evaluation error (${response.status}): ${errText.slice(0, 200)}` },
-        { status: 502 }
+        { detail: `AI evaluation error (${result.status}): ${result.text.slice(0, 200)}` },
+        { status: 502 },
       );
     }
 
-    const data     = await response.json();
-    const raw      = data?.choices?.[0]?.message?.content ?? "";
-    const cleaned  = raw.replace(/^```[\w]*\n?/m, "").replace(/```$/m, "").trim();
+    let parsed: { choices?: { message?: { content?: string } }[] };
+    try { parsed = JSON.parse(result.text); } catch {
+      return NextResponse.json({ detail: "Unexpected response from AI. Please try again." }, { status: 500 });
+    }
+
+    const raw     = parsed?.choices?.[0]?.message?.content ?? "";
+    const cleaned = raw.replace(/^```[\w]*\n?/m, "").replace(/```$/m, "").trim();
 
     let evaluation: unknown;
     try {
