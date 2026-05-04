@@ -44,6 +44,14 @@ const IconCvBuilder = ({ active }: { active: boolean }) => (
   </svg>
 );
 
+const IconInterview = ({ active }: { active: boolean }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <path d="M12 2a5 5 0 1 1 0 10A5 5 0 0 1 12 2z" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6"/>
+    <path d="M2 20c0-4 4-7 10-7s10 3 10 7" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6" strokeLinecap="round"/>
+    <path d="M17 13l2 2 4-4" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
 const IconSettings = ({ active }: { active: boolean }) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
     <circle cx="12" cy="12" r="3" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6"/>
@@ -65,11 +73,12 @@ const IconX = () => (
 
 // ─ Nav items ────────────────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { href: "/dashboard",            label: "Job Match",       Icon: IconTarget    },
-  { href: "/dashboard/cv-builder", label: "Resume Builder",  Icon: IconCvBuilder },
-  { href: "/dashboard/chat",       label: "AI Career Coach", Icon: IconChat      },
-  { href: "/dashboard/jobs",       label: "Browse Jobs",     Icon: IconBriefcase },
-  { href: "/dashboard/tracker",    label: "Applications",    Icon: IconTracker   },
+  { href: "/dashboard",                  label: "Job Match",       Icon: IconTarget    },
+  { href: "/dashboard/cv-builder",       label: "Resume Builder",  Icon: IconCvBuilder },
+  { href: "/dashboard/chat",             label: "AI Career Coach", Icon: IconChat      },
+  { href: "/dashboard/interview-prep",   label: "Interview Prep",  Icon: IconInterview },
+  { href: "/dashboard/jobs",             label: "Browse Jobs",     Icon: IconBriefcase },
+  { href: "/dashboard/tracker",          label: "Applications",    Icon: IconTracker   },
 ];
 
 // ─ Sidebar ─────────────────────────────────────────────────────────────────────────────
