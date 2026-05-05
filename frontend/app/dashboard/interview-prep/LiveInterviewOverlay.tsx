@@ -1,26 +1,76 @@
 "use client";
-import { useEffect, useRef } from "react";
-import { useInterviewSession, SessionConfig, LivePhase } from "./useInterviewSession";
 
-// ── helpers ────────────────────────────────────────────────────────────────────
+import { useState, useEffect, useRef, useCallback } from "react";
+
+// ─── Types ────────────────────────────────────────────────────────────────
+export interface LiveSessionMeta {
+  job_title:        string;
+  job_field:        string;
+  experience_level: string;
+  company_name:     string;
+  tech_stack:       string;
+  language:         string;
+  total_turns:      number;
+}
+
+interface TurnEvaluation {
+  score:                number;
+  verdict:              string;
+  what_was_good:        string;
+  what_was_missing:     string;
+  ideal_answer_summary: string;
+}
+
+interface TurnRecord {
+  question:      string;
+  question_type: string;
+  answer:        string;
+  evaluation:    TurnEvaluation | null;
+}
+
+type LivePhase =
+  | "loading"      // fetching first question from backend
+  | "ai_speaking"  // AI audio playing / text being shown
+  | "user_turn"    // mic active, user speaking
+  | "recording"    // actively recording
+  | "thinking"     // waiting for backend response
+  | "feedback"     // brief per-turn score (auto-advance after 3s)
+  | "summary";     // final results
+
+interface Props {
+  meta:    LiveSessionMeta;
+  isFr:    boolean;
+  onClose: () => void;
+}
+
+// ─── Constants ─────────────────────────────────────────────────────────────
+const SILENCE_MS      = 2500;   // auto-submit after this ms of silence
+const FEEDBACK_AUTO_MS = 3000;  // ms to show per-turn feedback before advancing
 
 function scoreColor(s: number) {
   return s >= 80 ? "#10B981" : s >= 55 ? "#F59E0B" : "#EF4444";
 }
 
-function WaveformBars({ amplitude, active }: { amplitude: number; active: boolean }) {
-  const bars = [0.4, 0.7, 1.0, 0.7, 0.4];
+// ─── Waveform bars ───────────────────────────────────────────────────────────
+function WaveBars({ active, amplitude = 0 }: { active: boolean; amplitude?: number }) {
+  const bars = 7;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 3, height: 28 }}>
-      {bars.map((base, i) => {
-        const h = active ? Math.max(4, base * amplitude * 28 + 4) : 4;
+    <div style={{ display: "flex", alignItems: "center", gap: 4, height: 40 }}>
+      {Array.from({ length: bars }).map((_, i) => {
+        const base   = 6;
+        const maxH   = 36;
+        const phase  = (i / bars) * Math.PI * 2;
+        const height = active
+          ? base + (amplitude * maxH + (Math.sin(phase + Date.now() / 200) + 1) * 8)
+          : base;
         return (
           <div
             key={i}
             style={{
-              width: 3, height: h, borderRadius: 99,
-              background: active ? "#fff" : "rgba(255,255,255,0.3)",
-              transition: "height 80ms ease",
+              width: 4, borderRadius: 99,
+              background: active ? "#111827" : "#D1D5DB",
+              height: Math.min(maxH, Math.max(base, height)),
+              transition: active ? "height 60ms ease" : "height 300ms ease",
             }}
           />
         );
@@ -29,83 +79,54 @@ function WaveformBars({ amplitude, active }: { amplitude: number; active: boolea
   );
 }
 
-function AvatarRing({ phase, amplitude }: { phase: LivePhase; amplitude: number }) {
-  const isAI      = phase === "ai_speaking" || phase === "starting";
-  const isUser    = phase === "recording";
-  const isThink   = phase === "thinking";
-
-  const pulseScale = isAI
-    ? 1 + amplitude * 0.3
-    : isUser
-    ? 1 + amplitude * 0.2
-    : 1;
-
-  const ringColor = isAI ? "#6366F1" : isUser ? "#10B981" : "#374151";
-
+// ─── Animated avatar ring ───────────────────────────────────────────────────────
+function AvatarRing({ speaking, amplitude = 0 }: { speaking: boolean; amplitude?: number }) {
+  const scale = 1 + amplitude * 0.25;
   return (
-    <div style={{ position: "relative", width: 120, height: 120, margin: "0 auto" }}>
+    <div style={{ position: "relative", width: 120, height: 120 }}>
       {/* Outer pulse ring */}
-      <div style={{
-        position: "absolute", inset: -12,
-        borderRadius: "50%",
-        border: `2px solid ${ringColor}`,
-        opacity: (isAI || isUser) ? 0.35 : 0,
-        transform: `scale(${pulseScale})`,
-        transition: "transform 80ms ease, opacity 300ms ease",
-      }} />
-      {/* Mid ring */}
-      <div style={{
-        position: "absolute", inset: -4,
-        borderRadius: "50%",
-        border: `2px solid ${ringColor}`,
-        opacity: (isAI || isUser) ? 0.6 : 0.15,
-        transform: `scale(${1 + amplitude * 0.1})`,
-        transition: "transform 80ms ease, opacity 300ms ease",
-      }} />
+      {speaking && (
+        <>
+          <div style={{
+            position: "absolute", inset: -12,
+            borderRadius: "50%",
+            border: "2px solid rgba(17,24,39,0.12)",
+            transform: `scale(${scale})`,
+            transition: "transform 80ms ease",
+          }} />
+          <div style={{
+            position: "absolute", inset: -24,
+            borderRadius: "50%",
+            border: "1.5px solid rgba(17,24,39,0.06)",
+            transform: `scale(${scale * 1.08})`,
+            transition: "transform 120ms ease",
+          }} />
+        </>
+      )}
       {/* Core circle */}
       <div style={{
         width: 120, height: 120, borderRadius: "50%",
-        background: isAI
-          ? "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)"
-          : isUser
-          ? "linear-gradient(135deg, #059669 0%, #10B981 100%)"
-          : "linear-gradient(135deg, #1F2937 0%, #374151 100%)",
+        background: "#111827",
         display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: (isAI || isUser)
-          ? `0 0 32px ${ringColor}66, 0 0 8px ${ringColor}44`
-          : "0 4px 24px rgba(0,0,0,0.4)",
-        transition: "background 400ms ease, box-shadow 300ms ease",
+        boxShadow: speaking
+          ? `0 0 0 6px rgba(17,24,39,0.08), 0 8px 32px rgba(17,24,39,0.3)`
+          : "0 4px 16px rgba(17,24,39,0.15)",
+        transition: "box-shadow 200ms ease",
       }}>
-        {isThink ? (
-          // Three dot pulse
-          <div style={{ display: "flex", gap: 5 }}>
-            {[0, 1, 2].map(i => (
-              <div key={i} style={{
-                width: 8, height: 8, borderRadius: "50%", background: "rgba(255,255,255,0.7)",
-                animation: `dotPulse 1.2s ease-in-out ${i * 0.2}s infinite`,
-              }} />
-            ))}
-          </div>
-        ) : isAI ? (
-          // Sound wave icon
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
-            <path d="M12 3v18M9 6v12M15 6v12M6 9v6M18 9v6M3 11v2M21 11v2"
-              stroke="white" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-        ) : isUser ? (
-          // Mic icon
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
-            <rect x="9" y="2" width="6" height="12" rx="3" stroke="white" strokeWidth="1.8" />
-            <path d="M5 10a7 7 0 0014 0" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
-            <path d="M12 19v3" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
+        {/* Mic icon when speaking = false (user turn) */}
+        {!speaking ? (
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+            <rect x="9" y="3" width="6" height="11" rx="3" fill="#fff" />
+            <path d="M5 11a7 7 0 0 0 14 0" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+            <line x1="12" y1="18" x2="12" y2="21" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+            <line x1="9" y1="21" x2="15" y2="21" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
           </svg>
         ) : (
-          // Idle AI face
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.6)" strokeWidth="1.5" />
-            <circle cx="9" cy="10" r="1.2" fill="rgba(255,255,255,0.7)" />
-            <circle cx="15" cy="10" r="1.2" fill="rgba(255,255,255,0.7)" />
-            <path d="M9 14.5c.8 1 5.2 1 6 0" stroke="rgba(255,255,255,0.7)" strokeWidth="1.4" strokeLinecap="round" />
+          /* Sound wave icon when AI is speaking */
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+            <path d="M9 9v6l-3-2H4V11h2l3-2z" fill="#fff" />
+            <path d="M15 9a4 4 0 0 1 0 6" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+            <path d="M17.5 7a7 7 0 0 1 0 10" stroke="rgba(255,255,255,0.5)" strokeWidth="2" strokeLinecap="round" />
           </svg>
         )}
       </div>
@@ -113,415 +134,803 @@ function AvatarRing({ phase, amplitude }: { phase: LivePhase; amplitude: number 
   );
 }
 
-function ScoreRing({ score, size = 48 }: { score: number; size?: number }) {
+// ─── Score ring (mini) ───────────────────────────────────────────────────────────
+function ScoreRing({ score, size = 56 }: { score: number; size?: number }) {
   const r    = (size - 6) / 2;
   const circ = 2 * Math.PI * r;
   const dash = circ * (score / 100);
   const col  = scoreColor(score);
   return (
     <svg width={size} height={size} style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={5} />
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={col} strokeWidth={5}
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#2D3748" strokeWidth={5} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none"
+        stroke={col} strokeWidth={5}
         strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
         style={{ transition: "stroke-dasharray 0.8s ease" }}
       />
       <text x={size/2} y={size/2} textAnchor="middle" dominantBaseline="central"
-        style={{ transform: `rotate(90deg)`, transformOrigin: `${size/2}px ${size/2}px` }}
-        fontSize={size < 48 ? 10 : 13} fontWeight={700} fill={col}>
-        {score}
-      </text>
+        style={{ transform: "rotate(90deg)", transformOrigin: `${size/2}px ${size/2}px` }}
+        fontSize={13} fontWeight={700} fill={col}>{score}</text>
     </svg>
   );
 }
 
-// ── Main overlay ─────────────────────────────────────────────────────────────────
-
-interface Props {
-  open: boolean;
-  config: SessionConfig;
-  onClose: () => void;
-  isFr: boolean;
+// ─── Timer hook ─────────────────────────────────────────────────────────────────
+function useTimer(active: boolean) {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => setSeconds(s => s + 1), 1000);
+    return () => clearInterval(id);
+  }, [active]);
+  return seconds;
 }
 
-export default function LiveInterviewOverlay({ open, config, onClose, isFr }: Props) {
-  const {
-    phase, currentQ, turn, totalTurns, transcript,
-    lastResult, history, error, amplitude,
-    startSession, startRecording, stopRecording, endSession,
-  } = useInterviewSession();
+function formatTime(s: number) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+}
 
-  // Start session when overlay opens
-  const startedRef = useRef(false);
-  useEffect(() => {
-    if (open && !startedRef.current) {
-      startedRef.current = true;
-      startSession(config);
-    }
-    if (!open) startedRef.current = false;
-  }, [open]);
+// ─── Browser TTS helper ──────────────────────────────────────────────────────────
+function speakBrowser(text: string, lang: string, onEnd: () => void) {
+  if (!window.speechSynthesis) { onEnd(); return; }
+  window.speechSynthesis.cancel();
+  const utt  = new SpeechSynthesisUtterance(text);
+  utt.lang   = lang === "fr" ? "fr-FR" : "en-US";
+  utt.rate   = 0.95;
+  utt.pitch  = 1.0;
+  utt.onend  = onEnd;
+  utt.onerror = onEnd;
+  window.speechSynthesis.speak(utt);
+}
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.code === "Space" && phase === "user_turn") { e.preventDefault(); startRecording(); }
-      if (e.code === "Space" && phase === "recording")  { e.preventDefault(); stopRecording(); }
-      if (e.code === "Escape") handleClose();
+// ─── Play audio bytes helper ──────────────────────────────────────────────────────
+function playAudioB64(b64: string, onEnd: () => void) {
+  try {
+    const bytes  = atob(b64);
+    const buffer = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) buffer[i] = bytes.charCodeAt(i);
+    const blob = new Blob([buffer], { type: "audio/wav" });
+    const url  = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.onended = () => { URL.revokeObjectURL(url); onEnd(); };
+    audio.onerror = () => { URL.revokeObjectURL(url); onEnd(); };
+    audio.play();
+  } catch {
+    onEnd();
+  }
+}
+
+// ─── Chime helper (pure AudioContext, no audio file) ────────────────────────────
+function playChime() {
+  try {
+    const ctx  = new AudioContext();
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.5);
+  } catch { /* silence any errors in restricted contexts */ }
+}
+
+// ─── Main overlay component ────────────────────────────────────────────────────────
+export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
+  const [phase,         setPhase]         = useState<LivePhase>("loading");
+  const [currentQ,     setCurrentQ]       = useState("");
+  const [questionType, setQuestionType]   = useState("Technical");
+  const [hint,         setHint]           = useState("");
+  const [showHint,     setShowHint]       = useState(false);
+  const [transcript,   setTranscript]     = useState("");
+  const [turnNumber,   setTurnNumber]     = useState(1);
+  const [history,      setHistory]        = useState<{ role: string; content: string }[]>([]);
+  const [turns,        setTurns]          = useState<TurnRecord[]>([]);
+  const [lastEval,     setLastEval]       = useState<TurnEvaluation | null>(null);
+  const [amplitude,    setAmplitude]      = useState(0);
+  const [error,        setError]          = useState("");
+  const [confirmClose, setConfirmClose]   = useState(false);
+
+  const timerActive = phase === "user_turn" || phase === "recording";
+  const elapsed     = useTimer(timerActive);
+
+  // Audio analysis refs
+  const mediaStreamRef   = useRef<MediaStream | null>(null);
+  const analyserRef      = useRef<AnalyserNode | null>(null);
+  const animFrameRef     = useRef<number>(0);
+  const silenceTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recognitionRef   = useRef<any>(null);
+  const finalTranscript  = useRef("");
+
+  // ── Amplitude animation loop
+  const startAmplitudeLoop = useCallback(() => {
+    const loop = () => {
+      if (!analyserRef.current) return;
+      const data = new Uint8Array(analyserRef.current.frequencyBinCount);
+      analyserRef.current.getByteFrequencyData(data);
+      const avg = data.reduce((a, b) => a + b, 0) / data.length;
+      setAmplitude(avg / 255);
+      animFrameRef.current = requestAnimationFrame(loop);
+    };
+    loop();
+  }, []);
+
+  const stopAmplitudeLoop = useCallback(() => {
+    cancelAnimationFrame(animFrameRef.current);
+    setAmplitude(0);
+  }, []);
+
+  // ── Clean up mic / recognition
+  const stopMic = useCallback(() => {
+    stopAmplitudeLoop();
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch { }
+      recognitionRef.current = null;
     }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(t => t.stop());
+      mediaStreamRef.current = null;
+    }
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+  }, [stopAmplitudeLoop]);
+
+  // ── Speak AI text then transition to user_turn
+  const speakAI = useCallback((text: string, onDone: () => void) => {
+    setPhase("ai_speaking");
+    // placeholder amplitude animation while AI speaks
+    const fakeAmp = setInterval(() => {
+      setAmplitude(0.3 + Math.random() * 0.5);
+    }, 100);
+    const finish = () => {
+      clearInterval(fakeAmp);
+      setAmplitude(0);
+      onDone();
+    };
+    // Try to get audio from the data attributes on the response
+    // (audio_b64 is passed separately via the callers)
+    finish(); // default: just transition; callers handle actual audio
+  }, []);
+
+  // ── Submit answer to backend
+  const submitAnswer = useCallback(async (answer: string) => {
+    if (!answer.trim()) return;
+    stopMic();
+    setPhase("thinking");
+    setTranscript("");
+
+    try {
+      const res  = await fetch("/api/v1/interview-prep/live/answer", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          job_title:     meta.job_title,
+          last_question: currentQ,
+          answer,
+          question_type: questionType,
+          history,
+          turn_number:   turnNumber,
+          total_turns:   meta.total_turns,
+          language:      meta.language,
+          tts_enabled:   true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.detail || "Error"); setPhase("user_turn"); return; }
+
+      // Record turn
+      const newTurn: TurnRecord = {
+        question:      currentQ,
+        question_type: questionType,
+        answer,
+        evaluation:    data.evaluation,
+      };
+      setTurns(prev => [...prev, newTurn]);
+      setLastEval(data.evaluation);
+
+      // Update history
+      setHistory(prev => [
+        ...prev,
+        { role: "ai",   content: currentQ },
+        { role: "user", content: answer },
+      ]);
+
+      // Show brief feedback
+      setPhase("feedback");
+
+      setTimeout(() => {
+        if (data.is_last) {
+          setPhase("summary");
+          return;
+        }
+
+        // Advance to next question
+        const nextText = `${data.response} ${data.next_question}`.trim();
+        setCurrentQ(data.next_question);
+        setQuestionType(data.question_type);
+        setHint(data.hint || "");
+        setShowHint(false);
+        setTurnNumber(data.turn_number);
+        setPhase("ai_speaking");
+        playChime();
+
+        const afterSpeak = () => setPhase("user_turn");
+        if (data.audio_b64) {
+          playAudioB64(data.audio_b64, afterSpeak);
+        } else {
+          speakBrowser(nextText, meta.language, afterSpeak);
+        }
+      }, FEEDBACK_AUTO_MS);
+
+    } catch (e: any) {
+      setError("Network error. Please retry.");
+      setPhase("user_turn");
+    }
+  }, [currentQ, questionType, history, turnNumber, meta, stopMic]);
+
+  // ── Start mic recording with Web Speech API
+  const startRecording = useCallback(async () => {
+    setTranscript("");
+    finalTranscript.current = "";
+    setError("");
+    setPhase("recording");
+
+    // Request mic for amplitude analysis
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      const ctx      = new AudioContext();
+      const source   = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+      startAmplitudeLoop();
+    } catch { /* mic denied — still use speech recognition */ }
+
+    // Web Speech API for transcription
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setError(isFr
+        ? "La reconnaissance vocale n’est pas prise en charge. Saisissez votre réponse ci-dessous."
+        : "Speech recognition not supported. Please type your answer below."
+      );
+      setPhase("user_turn");
+      return;
+    }
+
+    const rec       = new SpeechRecognition();
+    rec.lang        = meta.language === "fr" ? "fr-FR" : "en-US";
+    rec.continuous  = true;
+    rec.interimResults = true;
+
+    rec.onresult = (e: any) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          finalTranscript.current += e.results[i][0].transcript + " ";
+        } else {
+          interim += e.results[i][0].transcript;
+        }
+      }
+      setTranscript(finalTranscript.current + interim);
+
+      // Reset silence timer
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = setTimeout(() => {
+        if (finalTranscript.current.trim().length > 5) {
+          submitAnswer(finalTranscript.current.trim());
+        }
+      }, SILENCE_MS);
+    };
+
+    rec.onerror = (e: any) => {
+      if (e.error === "no-speech") return;
+      setError(`Speech error: ${e.error}`);
+      stopMic();
+      setPhase("user_turn");
+    };
+
+    rec.onend = () => {
+      // auto-restart unless we already moved on
+      if (recognitionRef.current === rec) {
+        try { rec.start(); } catch { }
+      }
+    };
+
+    recognitionRef.current = rec;
+    rec.start();
+  }, [meta.language, isFr, startAmplitudeLoop, stopMic, submitAnswer]);
+
+  const stopRecording = useCallback(() => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    const answer = finalTranscript.current.trim();
+    stopMic();
+    if (answer.length > 5) {
+      submitAnswer(answer);
+    } else {
+      setPhase("user_turn");
+    }
+  }, [stopMic, submitAnswer]);
+
+  // ── Keyboard shortcut: Space = toggle recording, Escape = confirm close
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === "Space" && e.target === document.body) {
+        e.preventDefault();
+        if (phase === "user_turn")  startRecording();
+        if (phase === "recording")  stopRecording();
+      }
+      if (e.code === "Escape") setConfirmClose(true);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, phase]);
+  }, [phase, startRecording, stopRecording]);
 
-  function handleClose() {
-    endSession();
-    onClose();
-  }
+  // ── Initial load — fetch first question
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res  = await fetch("/api/v1/interview-prep/live/start", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            job_title:        meta.job_title,
+            job_field:        meta.job_field,
+            experience_level: meta.experience_level,
+            company_name:     meta.company_name,
+            tech_stack:       meta.tech_stack,
+            language:         meta.language,
+            total_turns:      meta.total_turns,
+          }),
+        });
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok) { setError(data.detail || "Failed to start"); return; }
 
-  if (!open) return null;
+        setCurrentQ(data.first_question);
+        setQuestionType(data.question_type);
+        setHint(data.hint || "");
+        setTurnNumber(1);
 
-  const isSummary = phase === "summary";
-  const evaluatedTurns = history.filter(h => h.role === "user" && h.evaluation);
-  const avgScore = evaluatedTurns.length
-    ? Math.round(evaluatedTurns.reduce((s, h) => s + (h.evaluation?.score ?? 0), 0) / evaluatedTurns.length)
+        const speakText = data.speak_text || `${data.greeting} ${data.first_question}`;
+        setPhase("ai_speaking");
+
+        const afterSpeak = () => {
+          if (!cancelled) { playChime(); setPhase("user_turn"); }
+        };
+
+        if (data.audio_b64) {
+          playAudioB64(data.audio_b64, afterSpeak);
+        } else {
+          speakBrowser(speakText, meta.language, afterSpeak);
+        }
+      } catch (e: any) {
+        if (!cancelled) setError("Network error loading interview.");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Cleanup on unmount
+  useEffect(() => () => {
+    stopMic();
+    window.speechSynthesis?.cancel();
+  }, [stopMic]);
+
+  // ── Summary stats
+  const avgScore = turns.length
+    ? Math.round(turns.reduce((s, t) => s + (t.evaluation?.score ?? 0), 0) / turns.length)
     : 0;
 
-  const phaseLabel = {
-    idle:        "",
-    starting:    isFr ? "Préparation de l'entretien…" : "Preparing interview…",
-    ai_speaking: isFr ? "L'IA parle…" : "AI is speaking…",
-    user_turn:   isFr ? "Votre tour — appuyez sur Espace ou le micro" : "Your turn — press Space or the mic",
-    recording:   isFr ? "Enregistrement… appuyez pour arrêter" : "Recording… press to stop",
-    thinking:    isFr ? "L'IA réfléchit…" : "AI is thinking…",
-    feedback:    isFr ? "Résultat" : "Feedback",
-    summary:     isFr ? "Session terminée" : "Session complete",
-  }[phase];
+  // ── Render helpers
+  const phaseLabelEn: Record<LivePhase, string> = {
+    loading:     "Loading interview…",
+    ai_speaking: "AI Interviewer is speaking",
+    user_turn:   "Your turn — tap mic or press Space",
+    recording:   "Listening… speak clearly",
+    thinking:    "AI is thinking…",
+    feedback:    "Evaluating your answer…",
+    summary:     "Interview complete",
+  };
+  const phaseLabelFr: Record<LivePhase, string> = {
+    loading:     "Chargement de l'entretien…",
+    ai_speaking: "L’IA parle",
+    user_turn:   "Votre tour — appuyez sur le micro ou Espace",
+    recording:   "Enregistrement… parlez clairement",
+    thinking:    "L’IA réfléchit…",
+    feedback:    "Évaluation de votre réponse…",
+    summary:     "Entretien terminé",
+  };
+  const phaseLabel = (isFr ? phaseLabelFr : phaseLabelEn)[phase];
+  const isAiActive = phase === "ai_speaking" || phase === "thinking" || phase === "loading";
+
+  // ───────────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ───────────────────────────────────────────────────────────────────────────────
 
   return (
     <>
-      {/* keyframe animations */}
       <style>{`
-        @keyframes dotPulse {
-          0%, 100% { opacity: 0.3; transform: scale(0.8); }
-          50%       { opacity: 1;   transform: scale(1.2); }
-        }
-        @keyframes slideUp {
+        @keyframes live-slide-up {
           from { transform: translateY(100%); opacity: 0; }
           to   { transform: translateY(0);    opacity: 1; }
         }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(6px); }
+        @keyframes live-pulse {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.4; }
+        }
+        @keyframes live-spin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes live-fade-in {
+          from { opacity: 0; transform: translateY(8px); }
           to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
 
-      {/* Backdrop */}
-      <div style={{
-        position: "fixed", inset: 0, zIndex: 9998,
-        background: "rgba(0,0,0,0.7)",
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
-      }} onClick={handleClose} />
-
-      {/* Overlay panel */}
-      <div style={{
-        position: "fixed", inset: 0, zIndex: 9999,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        padding: "24px 16px",
-        pointerEvents: "none",
-      }}>
+      {/* ── Confirm close dialog */}
+      {confirmClose && (
         <div style={{
-          width: "100%", maxWidth: 520,
-          background: "linear-gradient(160deg, #0F1117 0%, #1A1D27 60%, #0D1020 100%)",
-          borderRadius: 24,
-          border: "1px solid rgba(255,255,255,0.08)",
-          boxShadow: "0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)",
-          overflow: "hidden",
-          pointerEvents: "all",
-          animation: "slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1) both",
-          display: "flex",
-          flexDirection: "column",
-          maxHeight: "90vh",
+          position: "fixed", inset: 0, zIndex: 10001,
+          background: "rgba(0,0,0,0.7)",
+          display: "flex", alignItems: "center", justifyContent: "center",
         }}>
-
-          {/* ── TOP BAR */}
           <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "18px 20px 14px",
-            borderBottom: "1px solid rgba(255,255,255,0.06)",
-            flexShrink: 0,
+            background: "#1A1A2E", borderRadius: 16, padding: "32px 36px",
+            textAlign: "center", maxWidth: 360,
+            border: "1px solid rgba(255,255,255,0.1)",
+            animation: "live-fade-in 200ms ease",
           }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{
-                width: 8, height: 8, borderRadius: "50%",
-                background: phase === "recording" ? "#EF4444" : phase === "summary" ? "#9CA3AF" : "#10B981",
-                boxShadow: phase === "recording" ? "0 0 8px #EF4444" : phase !== "summary" ? "0 0 8px #10B981" : "none",
-                animation: phase === "recording" ? "dotPulse 1s ease-in-out infinite" : "none",
-              }} />
-              <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.7)", letterSpacing: "0.04em" }}>
-                {isSummary
-                  ? (isFr ? "Entretien terminé" : "Interview complete")
-                  : (isFr ? `Question ${turn} sur ${totalTurns}` : `Question ${turn} of ${totalTurns}`)}
-              </span>
+            <p style={{ margin: "0 0 8px", fontSize: 17, fontWeight: 700, color: "#fff" }}>
+              {isFr ? "Quitter l'entretien ?" : "End the interview?"}
+            </p>
+            <p style={{ margin: "0 0 24px", fontSize: 13, color: "rgba(255,255,255,0.5)" }}>
+              {isFr
+                ? "Votre progression sera perdue."
+                : "Your progress will be lost."
+              }
+            </p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button onClick={() => setConfirmClose(false)} style={{
+                padding: "9px 20px", borderRadius: 9999,
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                color: "#fff", fontSize: 13, fontWeight: 500, cursor: "pointer",
+              }}>{isFr ? "Continuer" : "Keep going"}</button>
+              <button onClick={() => { stopMic(); window.speechSynthesis?.cancel(); onClose(); }} style={{
+                padding: "9px 20px", borderRadius: 9999,
+                background: "#EF4444", border: "none",
+                color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
+              }}>{isFr ? "Quitter" : "End interview"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Main overlay */}
+      <div style={{
+        position:  "fixed", inset: 0, zIndex: 10000,
+        background: "linear-gradient(160deg, #0D0D1A 0%, #111827 60%, #0D0D1A 100%)",
+        display: "flex", flexDirection: "column",
+        animation: "live-slide-up 350ms cubic-bezier(0.16,1,0.3,1)",
+        fontFamily: "'Inter', sans-serif",
+      }}>
+
+        {/* ── Top bar */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "18px 28px",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          flexShrink: 0,
+        }}>
+          {/* Left: title + turn counter */}
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{
+              width: 8, height: 8, borderRadius: "50%",
+              background: phase === "recording" ? "#EF4444" : "#10B981",
+              boxShadow: phase === "recording" ? "0 0 0 3px rgba(239,68,68,0.25)" : "0 0 0 3px rgba(16,185,129,0.25)",
+              animation: phase === "recording" ? "live-pulse 1s ease infinite" : "none",
+            }} />
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.85)" }}>
+              {meta.job_title}
+              {meta.company_name && (
+                <span style={{ fontWeight: 400, color: "rgba(255,255,255,0.4)" }}> @ {meta.company_name}</span>
+              )}
+            </p>
+          </div>
+
+          {/* Right: progress dots + close */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ display: "flex", gap: 6 }}>
+              {Array.from({ length: meta.total_turns }).map((_, i) => (
+                <div key={i} style={{
+                  width: 7, height: 7, borderRadius: "50%",
+                  background: i < turns.length
+                    ? scoreColor(turns[i]?.evaluation?.score ?? 0)
+                    : i === turns.length
+                    ? "rgba(255,255,255,0.6)"
+                    : "rgba(255,255,255,0.15)",
+                  transition: "background 300ms ease",
+                }} />
+              ))}
             </div>
             <button
-              onClick={handleClose}
+              onClick={() => setConfirmClose(true)}
               style={{
-                width: 32, height: 32, borderRadius: "50%",
-                border: "1px solid rgba(255,255,255,0.12)",
                 background: "rgba(255,255,255,0.06)",
-                color: "rgba(255,255,255,0.6)",
-                fontSize: 16, cursor: "pointer", lineHeight: 1,
-                display: "flex", alignItems: "center", justifyContent: "center",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 9999, padding: "6px 14px",
+                color: "rgba(255,255,255,0.6)", fontSize: 12,
+                fontWeight: 500, cursor: "pointer",
               }}
-            >×</button>
+            >{isFr ? "Quitter" : "End"}</button>
           </div>
+        </div>
 
-          {/* ── SCROLLABLE BODY */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "28px 24px" }}>
+        {/* ── Summary phase */}
+        {phase === "summary" ? (
+          <div style={{
+            flex: 1, overflowY: "auto",
+            display: "flex", flexDirection: "column", alignItems: "center",
+            padding: "48px 24px",
+            animation: "live-fade-in 400ms ease",
+          }}>
+            <ScoreRing score={avgScore} size={96} />
+            <p style={{ margin: "20px 0 6px", fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em" }}>
+              {avgScore >= 80 ? (isFr ? "Excellent travail" : "Excellent work")
+                : avgScore >= 60 ? (isFr ? "Bon effort" : "Good effort")
+                : (isFr ? "À améliorer" : "Needs more work")}
+            </p>
+            <p style={{ margin: "0 0 40px", fontSize: 14, color: "rgba(255,255,255,0.5)" }}>
+              {isFr ? `Score moyen : ${avgScore}/100` : `Average score: ${avgScore}/100`}
+            </p>
 
-            {/* ─── SUMMARY VIEW */}
-            {isSummary ? (
-              <div style={{ animation: "fadeIn 0.4s ease both" }}>
-                <div style={{ textAlign: "center", marginBottom: 28 }}>
-                  <ScoreRing score={avgScore} size={80} />
-                  <p style={{ margin: "16px 0 4px", fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em" }}>
-                    {avgScore >= 80
-                      ? (isFr ? "Excellent !" : "Excellent!")
-                      : avgScore >= 60
-                      ? (isFr ? "Bon travail" : "Good work")
-                      : (isFr ? "À améliorer" : "Needs work")}
-                  </p>
-                  <p style={{ margin: 0, fontSize: 13, color: "rgba(255,255,255,0.4)" }}>
-                    {isFr
-                      ? `Score moyen : ${avgScore}/100`
-                      : `Average score: ${avgScore}/100`}
-                  </p>
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {evaluatedTurns.map((turn, i) => {
-                    const ev = turn.evaluation!;
-                    return (
-                      <div key={i} style={{
-                        background: "rgba(255,255,255,0.04)",
-                        borderRadius: 12, padding: "14px 16px",
-                        border: "1px solid rgba(255,255,255,0.06)",
-                      }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                          <ScoreRing score={ev.score} size={36} />
-                          <div>
-                            <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: scoreColor(ev.score) }}>{ev.verdict}</p>
-                            <p style={{ margin: "2px 0 0", fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
-                              {isFr ? `Question ${i + 1}` : `Question ${i + 1}`}
-                            </p>
-                          </div>
-                        </div>
-                        {turn.content && (
-                          <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,0.5)",
-                            fontStyle: "italic", lineHeight: 1.5,
-                            overflow: "hidden", textOverflow: "ellipsis",
-                            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const }}>
-                            “{turn.content}”
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <button
-                  onClick={handleClose}
-                  style={{
-                    width: "100%", marginTop: 24, padding: "13px 0",
-                    background: "#fff", color: "#111827",
-                    border: "none", borderRadius: 9999,
-                    fontSize: 14, fontWeight: 700, cursor: "pointer",
-                    letterSpacing: "0.01em",
-                  }}
-                >
-                  {isFr ? "Fermer" : "Close"}
-                </button>
-              </div>
-
-            ) : (
-              /* ─── INTERVIEW VIEW */
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 28 }}>
-
-                {/* Avatar */}
-                <AvatarRing phase={phase} amplitude={amplitude} />
-
-                {/* Phase label */}
-                <p style={{
-                  margin: 0, fontSize: 12, fontWeight: 500,
-                  color: "rgba(255,255,255,0.4)", letterSpacing: "0.04em",
-                  textTransform: "uppercase", textAlign: "center",
-                  minHeight: 16,
+            <div style={{ width: "100%", maxWidth: 640, display: "flex", flexDirection: "column", gap: 12 }}>
+              {turns.map((t, i) => (
+                <div key={i} style={{
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: 14, padding: "18px 20px",
                 }}>
-                  {phaseLabel}
-                </p>
-
-                {/* Current question */}
-                {currentQ && (
-                  <div style={{
-                    background: "rgba(255,255,255,0.04)",
-                    borderRadius: 14, padding: "16px 18px",
-                    border: "1px solid rgba(255,255,255,0.07)",
-                    width: "100%",
-                    animation: "fadeIn 0.3s ease both",
-                  }}>
-                    <p style={{ margin: 0, fontSize: 15, fontWeight: 500,
-                      color: "rgba(255,255,255,0.92)", lineHeight: 1.65 }}>
-                      {currentQ}
-                    </p>
-                  </div>
-                )}
-
-                {/* Live transcript */}
-                {transcript && (
-                  <div style={{
-                    width: "100%",
-                    animation: "fadeIn 0.3s ease both",
-                  }}>
-                    <p style={{
-                      margin: "0 0 4px", fontSize: 10, fontWeight: 600,
-                      color: "rgba(255,255,255,0.3)", letterSpacing: "0.1em",
-                      textTransform: "uppercase",
-                    }}>
-                      {isFr ? "Votre réponse" : "Your answer"}
-                    </p>
-                    <p style={{
-                      margin: 0, fontSize: 13, color: "rgba(255,255,255,0.6)",
-                      lineHeight: 1.6, fontStyle: "italic",
-                    }}>
-                      “{transcript}”
-                    </p>
-                  </div>
-                )}
-
-                {/* Feedback card */}
-                {phase === "feedback" && lastResult?.evaluation && (
-                  <div style={{
-                    width: "100%",
-                    background: "rgba(255,255,255,0.03)",
-                    borderRadius: 14, padding: "16px 18px",
-                    border: `1px solid ${scoreColor(lastResult.evaluation.score)}44`,
-                    animation: "fadeIn 0.4s ease both",
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                      <ScoreRing score={lastResult.evaluation.score} size={48} />
-                      <div>
-                        <p style={{ margin: 0, fontSize: 13, fontWeight: 700,
-                          color: scoreColor(lastResult.evaluation.score) }}>
-                          {lastResult.evaluation.verdict}
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+                    {t.evaluation && <ScoreRing score={t.evaluation.score} size={44} />}
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                        Q{i + 1} · {t.question_type}
+                      </p>
+                      <p style={{ margin: "0 0 8px", fontSize: 14, color: "rgba(255,255,255,0.85)", lineHeight: 1.55 }}>{t.question}</p>
+                      {t.evaluation && (
+                        <p style={{ margin: 0, fontSize: 12, color: scoreColor(t.evaluation.score) }}>
+                          {t.evaluation.verdict}
                         </p>
-                        <p style={{ margin: "2px 0 0", fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
-                          {lastResult.isLastTurn
-                            ? (isFr ? "Dernière question" : "Last question")
-                            : (isFr ? "Question suivante dans 3s…" : "Next question in 3s…")}
-                        </p>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {[
-                        { icon: "✔", text: lastResult.evaluation.what_was_good,    col: "#10B981" },
-                        { icon: "✘", text: lastResult.evaluation.what_was_missing, col: "#EF4444" },
-                      ].filter(r => r.text).map(row => (
-                        <div key={row.icon} style={{ display: "flex", gap: 8 }}>
-                          <span style={{ color: row.col, fontSize: 13, flexShrink: 0 }}>{row.icon}</span>
-                          <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,0.55)", lineHeight: 1.5 }}>
-                            {row.text}
-                          </p>
-                        </div>
-                      ))}
+                      )}
                     </div>
                   </div>
-                )}
+                  {t.evaluation && (
+                    <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+                      <p style={{ margin: 0, fontSize: 12, color: "rgba(16,185,129,0.9)" }}>✔ {t.evaluation.what_was_good}</p>
+                      <p style={{ margin: 0, fontSize: 12, color: "rgba(239,68,68,0.9)"  }}>✘ {t.evaluation.what_was_missing}</p>
+                      <p style={{ margin: 0, fontSize: 12, color: "rgba(99,179,237,0.9)"  }}>★ {t.evaluation.ideal_answer_summary}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
 
-                {/* Error */}
-                {error && (
-                  <div style={{
-                    width: "100%", padding: "10px 14px",
-                    background: "rgba(239,68,68,0.1)",
-                    border: "1px solid rgba(239,68,68,0.25)",
-                    borderRadius: 9, fontSize: 12, color: "#FCA5A5",
-                  }}>
-                    {error}
-                  </div>
-                )}
-              </div>
-            )}
+            <button
+              onClick={() => { stopMic(); window.speechSynthesis?.cancel(); onClose(); }}
+              style={{
+                marginTop: 40, padding: "13px 36px", borderRadius: 9999,
+                background: "#fff", color: "#111827",
+                border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer",
+                boxShadow: "0 4px 20px rgba(255,255,255,0.2)",
+              }}
+            >{isFr ? "Terminer" : "Finish"}</button>
           </div>
+        ) : (
 
-          {/* ── BOTTOM BAR (mic controls) */}
-          {!isSummary && (
+          /* ── Main interview UI */
+          <div style={{
+            flex: 1, display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "space-between",
+            padding: "0 24px 24px",
+            overflowY: "auto",
+          }}>
+
+            {/* ── Center zone: avatar + question */}
             <div style={{
-              flexShrink: 0,
-              padding: "16px 24px 22px",
-              borderTop: "1px solid rgba(255,255,255,0.06)",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 16,
+              flex: 1, display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+              textAlign: "center", gap: 32, padding: "32px 0",
+              maxWidth: 640, width: "100%",
             }}>
-              {/* Progress pips */}
-              <div style={{ display: "flex", gap: 5" }}>
-                {Array.from({ length: totalTurns }).map((_, i) => (
-                  <div key={i} style={{
-                    width: 6, height: 6, borderRadius: "50%",
-                    background: i < turn - 1
-                      ? "#10B981"
-                      : i === turn - 1
-                      ? "#fff"
-                      : "rgba(255,255,255,0.15)",
-                    transition: "background 300ms ease",
-                  }} />
-                ))}
+
+              {/* Avatar */}
+              <AvatarRing speaking={isAiActive} amplitude={amplitude} />
+
+              {/* Phase label */}
+              <p style={{
+                margin: 0, fontSize: 12, fontWeight: 500,
+                color: "rgba(255,255,255,0.35)",
+                letterSpacing: "0.1em", textTransform: "uppercase",
+                animation: "live-fade-in 300ms ease",
+              }}>{phaseLabel}</p>
+
+              {/* Question text */}
+              {phase !== "loading" && currentQ && (
+                <p style={{
+                  margin: 0, fontSize: "clamp(16px, 2.5vw, 20px)",
+                  fontWeight: 500, color: "rgba(255,255,255,0.92)",
+                  lineHeight: 1.65, letterSpacing: "-0.01em",
+                  animation: "live-fade-in 400ms ease",
+                }}>{currentQ}</p>
+              )}
+
+              {/* Loading spinner */}
+              {phase === "loading" && (
+                <div style={{
+                  width: 32, height: 32, borderRadius: "50%",
+                  border: "3px solid rgba(255,255,255,0.1)",
+                  borderTopColor: "rgba(255,255,255,0.7)",
+                  animation: "live-spin 0.8s linear infinite",
+                }} />
+              )}
+
+              {/* Thinking dots */}
+              {phase === "thinking" && (
+                <div style={{ display: "flex", gap: 8 }}>
+                  {[0, 1, 2].map(i => (
+                    <div key={i} style={{
+                      width: 8, height: 8, borderRadius: "50%",
+                      background: "rgba(255,255,255,0.5)",
+                      animation: `live-pulse 1.2s ease ${i * 0.2}s infinite`,
+                    }} />
+                  ))}
+                </div>
+              )}
+
+              {/* Per-turn feedback flash */}
+              {phase === "feedback" && lastEval && (
+                <div style={{
+                  background: "rgba(255,255,255,0.05)",
+                  border: `1px solid ${scoreColor(lastEval.score)}40`,
+                  borderRadius: 14, padding: "16px 24px",
+                  display: "flex", alignItems: "center", gap: 16,
+                  animation: "live-fade-in 300ms ease",
+                }}>
+                  <ScoreRing score={lastEval.score} size={52} />
+                  <div style={{ textAlign: "left" }}>
+                    <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: scoreColor(lastEval.score) }}>
+                      {lastEval.verdict}
+                    </p>
+                    <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,0.5)", maxWidth: 320 }}>
+                      {lastEval.what_was_good}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Hint */}
+              {hint && (phase === "user_turn" || phase === "recording") && (
+                <div>
+                  <button
+                    onClick={() => setShowHint(v => !v)}
+                    style={{
+                      background: "none", border: "none", cursor: "pointer",
+                      fontSize: 12, color: "rgba(255,255,255,0.3)",
+                      textDecoration: "underline", textDecorationStyle: "dotted",
+                    }}
+                  >{showHint ? (isFr ? "Masquer l'indice" : "Hide hint") : (isFr ? "Voir l'indice" : "Show hint")}</button>
+                  {showHint && (
+                    <p style={{
+                      margin: "8px 0 0", fontSize: 13, color: "rgba(255,255,255,0.45)",
+                      fontStyle: "italic", maxWidth: 480, lineHeight: 1.55,
+                      animation: "live-fade-in 200ms ease",
+                    }}>{hint}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Live transcript */}
+              {phase === "recording" && transcript && (
+                <div style={{
+                  maxWidth: 540, padding: "14px 18px",
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: 12,
+                  animation: "live-fade-in 200ms ease",
+                }}>
+                  <p style={{ margin: 0, fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 1.6, textAlign: "left" }}>
+                    {transcript}
+                    <span style={{ animation: "live-pulse 1s ease infinite", display: "inline-block", marginLeft: 2 }}>|</span>
+                  </p>
+                </div>
+              )}
+
+              {/* Error */}
+              {error && (
+                <p style={{ fontSize: 13, color: "#EF4444", margin: 0 }}>{error}</p>
+              )}
+            </div>
+
+            {/* ── Bottom bar */}
+            <div style={{
+              width: "100%", maxWidth: 640,
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 20,
+              flexShrink: 0,
+            }}>
+
+              {/* Waveform + timer row */}
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                width: "100%",
+              }}>
+                <WaveBars active={phase === "recording"} amplitude={amplitude} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.05em" }}>
+                  {formatTime(elapsed)}
+                </span>
+                <div style={{ width: 52, display: "flex", justifyContent: "flex-end" }}>
+                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.25)" }}>
+                    {turnNumber}/{meta.total_turns}
+                  </span>
+                </div>
               </div>
 
               {/* Mic button */}
-              <button
-                disabled={phase !== "user_turn" && phase !== "recording"}
-                onClick={() => {
-                  if (phase === "user_turn")  startRecording();
-                  if (phase === "recording")  stopRecording();
-                }}
-                style={{
-                  width: 60, height: 60, borderRadius: "50%",
-                  border: "none",
-                  background: phase === "recording"
-                    ? "#EF4444"
-                    : phase === "user_turn"
-                    ? "#fff"
-                    : "rgba(255,255,255,0.08)",
-                  cursor: (phase === "user_turn" || phase === "recording") ? "pointer" : "default",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "background 200ms ease, transform 100ms ease",
-                  transform: phase === "recording" ? "scale(1.1)" : "scale(1)",
-                  boxShadow: phase === "recording"
-                    ? "0 0 20px rgba(239,68,68,0.5)"
-                    : phase === "user_turn"
-                    ? "0 0 16px rgba(255,255,255,0.25)"
-                    : "none",
-                }}
-              >
-                {phase === "recording" ? (
-                  // Stop icon
-                  <div style={{ width: 18, height: 18, borderRadius: 3, background: "#fff" }} />
-                ) : (
-                  // Mic icon
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <rect x="9" y="2" width="6" height="12" rx="3"
-                      fill={phase === "user_turn" ? "#111827" : "rgba(255,255,255,0.3)"} />
-                    <path d="M5 10a7 7 0 0014 0" stroke={phase === "user_turn" ? "#111827" : "rgba(255,255,255,0.3)"}
-                      strokeWidth="2" strokeLinecap="round" />
-                    <path d="M12 19v3" stroke={phase === "user_turn" ? "#111827" : "rgba(255,255,255,0.3)"}
-                      strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                )}
-              </button>
+              {(phase === "user_turn" || phase === "recording") && (
+                <button
+                  onClick={phase === "user_turn" ? startRecording : stopRecording}
+                  style={{
+                    width: 72, height: 72, borderRadius: "50%",
+                    background: phase === "recording"
+                      ? "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)"
+                      : "linear-gradient(135deg, #fff 0%, #E5E7EB 100%)",
+                    border: "none", cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    boxShadow: phase === "recording"
+                      ? "0 0 0 8px rgba(239,68,68,0.15), 0 8px 32px rgba(239,68,68,0.4)"
+                      : "0 4px 20px rgba(255,255,255,0.2)",
+                    transition: "all 200ms ease",
+                    animation: phase === "recording" ? "live-pulse 2s ease infinite" : "none",
+                  }}
+                >
+                  {phase === "recording" ? (
+                    /* Stop square */
+                    <div style={{ width: 20, height: 20, borderRadius: 4, background: "#fff" }} />
+                  ) : (
+                    /* Mic icon */
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                      <rect x="9" y="3" width="6" height="11" rx="3" fill="#111827" />
+                      <path d="M5 11a7 7 0 0 0 14 0" stroke="#111827" strokeWidth="2" strokeLinecap="round" />
+                      <line x1="12" y1="18" x2="12" y2="21" stroke="#111827" strokeWidth="2" strokeLinecap="round" />
+                      <line x1="9"  y1="21" x2="15" y2="21" stroke="#111827" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  )}
+                </button>
+              )}
 
-              {/* Waveform */}
-              <WaveformBars amplitude={amplitude} active={phase === "recording"} />
+              {/* Keyboard hint */}
+              {(phase === "user_turn" || phase === "recording") && (
+                <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,0.2)" }}>
+                  {isFr
+                    ? "Espace pour démarrer / arrêter \u00b7 Échap pour quitter"
+                    : "Space to start / stop \u00b7 Escape to end"
+                  }
+                </p>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </>
   );
