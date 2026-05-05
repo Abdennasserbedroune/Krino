@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import Groq from "groq-sdk";
 
-export const maxDuration = 60;
+export const maxDuration = 30;
 
-const MODEL        = "openai/gpt-oss-120b:free";
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const TIMEOUT_MS   = 45_000;
+const MODEL = "qwen-qwen3-32b";
 
 interface EvaluateBody {
   question:      string;
@@ -42,6 +41,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ detail: "Your answer is too short. Please write a proper response." }, { status: 400 });
     }
 
+    // Hard gate — instant 0 without calling the model
     if (isJunkAnswer(answer)) {
       return NextResponse.json({
         evaluation: {
@@ -54,8 +54,9 @@ export async function POST(req: NextRequest) {
       }, { status: 200 });
     }
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) return NextResponse.json({ detail: "OpenRouter API key not configured." }, { status: 500 });
+    if (!process.env.GROQ_API_KEY) {
+      return NextResponse.json({ detail: "Groq API key not configured." }, { status: 500 });
+    }
 
     const systemPrompt = [
       "You are a senior technical interviewer evaluating a candidate answer. Be direct, honest, specific.",
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
       "5. Behavioral: STAR structure, specificity, measurable impact.",
       "6. System Design: scope, trade-offs, scalability, components.",
       "7. Score: 90-100 impressive; 70-89 good; 50-69 passable; 30-49 incomplete; <30 insufficient.",
-      "8. Output ONLY a raw JSON object. No markdown, no extra text.",
+      "8. Output ONLY a valid JSON object. No markdown, no extra text.",
     ].join("\n");
 
     const userPrompt = [
@@ -82,59 +83,23 @@ export async function POST(req: NextRequest) {
       'Return JSON: { "score": 0-100, "verdict": "Excellent|Good|Needs Work|Insufficient", "what_was_good": "specific or N/A", "what_was_missing": "specific gaps", "ideal_answer_summary": "2-3 sentences" }',
     ].join("\n");
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-    let responseText: string;
-    let responseOk: boolean;
-    let responseStatus: number;
+    const resp = await groq.chat.completions.create({
+      model:           MODEL,
+      messages:        [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+      temperature:     0.1,
+      response_format: { type: "json_object" },
+      max_tokens:      600,
+    });
 
-    try {
-      const res = await fetch(OPENROUTER_URL, {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type":  "application/json",
-          "HTTP-Referer":  "https://pathwise-liart.vercel.app",
-          "X-Title":       "Krino Interview Prep",
-        },
-        body: JSON.stringify({
-          model:       MODEL,
-          messages:    [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
-          temperature: 0.1,
-          max_tokens:  600,
-        }),
-      });
-      responseText   = await res.text();
-      responseOk     = res.ok;
-      responseStatus = res.status;
-    } catch (err) {
-      const isTimeout = (err as Error)?.name === "AbortError";
-      console.error(`[evaluate] ${isTimeout ? "TIMED OUT" : "fetch error"}:`, (err as Error).message);
-      return NextResponse.json(
-        { detail: isTimeout ? "AI is taking too long. Please try again." : "Network error. Please try again." },
-        { status: 504 },
-      );
-    } finally {
-      clearTimeout(timer);
-    }
-
-    if (!responseOk) {
-      console.error(`[evaluate] OpenRouter error [${responseStatus}]:`, responseText.slice(0, 300));
-      return NextResponse.json({ detail: `AI error (${responseStatus}). Please try again.` }, { status: 502 });
-    }
-
-    let parsed: { choices?: { message?: { content?: string } }[] };
-    try { parsed = JSON.parse(responseText); }
-    catch { return NextResponse.json({ detail: "Unexpected AI response. Please try again." }, { status: 500 }); }
-
-    const raw     = parsed?.choices?.[0]?.message?.content ?? "";
-    const cleaned = raw.replace(/^```[\w]*\n?/m, "").replace(/```$/m, "").trim();
+    const raw = resp.choices[0]?.message?.content ?? "";
+    if (!raw) return NextResponse.json({ detail: "Model returned empty response. Please try again." }, { status: 500 });
 
     let evaluation: unknown;
-    try { evaluation = JSON.parse(cleaned); }
-    catch {
+    try {
+      evaluation = JSON.parse(raw);
+    } catch {
       console.error("[evaluate] JSON parse failed. Raw:", raw.slice(0, 300));
       return NextResponse.json({ detail: "Failed to parse AI evaluation. Please try again." }, { status: 500 });
     }
