@@ -1,7 +1,7 @@
 """Versioned v1 API routes for Pathwise backend."""
 from fastapi import APIRouter
 
-from app.api.v1 import auth, cv, chat, recruiter, tracker, cv_builder, pipeline
+from app.api.v1 import auth, cv, chat, recruiter, tracker, cv_builder, pipeline, interview_prep
 
 router = APIRouter()
 
@@ -13,6 +13,7 @@ router.include_router(recruiter.router)
 router.include_router(tracker.router)
 router.include_router(cv_builder.router)
 router.include_router(pipeline.router)
+router.include_router(interview_prep.router)
 
 
 @router.get("/status", tags=["meta"], summary="API status")

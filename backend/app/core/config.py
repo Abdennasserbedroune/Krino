@@ -33,7 +33,13 @@ class Settings(BaseSettings):
     # Groq API
     GROQ_API_KEY: str = ""  # Required - set in .env or .env.local
     GROQ_MODEL: str = "llama-3.1-8b-instant"
-    
+
+    # HuggingFace (TTS — parler-tts-mini fallback)
+    HF_API_TOKEN: str = ""  # set in .env or .env.local
+
+    # NVIDIA (TTS — magpie-tts-zeroshot, primary when approved)
+    NVIDIA_API_KEY: str = ""  # set in .env or .env.local
+
     @field_validator('ALLOWED_FILE_TYPES')
     @classmethod
     def parse_allowed_file_types(cls, v):
