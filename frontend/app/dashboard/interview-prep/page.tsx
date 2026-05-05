@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Question {
@@ -24,7 +24,16 @@ interface AnswerState {
   evaluation: Evaluation | null;
   evaluating: boolean;
   submitted: boolean;
+  evalError: string;
 }
+
+const EMPTY_ANSWER: AnswerState = {
+  text: "",
+  evaluation: null,
+  evaluating: false,
+  submitted: false,
+  evalError: "",
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function difficultyColor(d: string) {
@@ -60,14 +69,31 @@ function scoreBar(score: number) {
   );
 }
 
-// ─── PDF export (client-side, no lib needed) ──────────────────────────────────
-function exportToPDF(
+function formatElapsed(s: number) {
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
+// ─── Elapsed timer hook ───────────────────────────────────────────────────────
+function useElapsedTimer(active: boolean) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!active) { setElapsed(0); return; }
+    setElapsed(0);
+    const id = setInterval(() => setElapsed(e => e + 1), 1000);
+    return () => clearInterval(id);
+  }, [active]);
+  return elapsed;
+}
+
+// ─── Export ───────────────────────────────────────────────────────────────────
+function exportToTxt(
   questions: Question[],
   answers: Record<number, AnswerState>,
   meta: { job_title: string; company_name: string }
 ) {
   const lines: string[] = [];
-  lines.push(`INTERVIEW PREP SESSION`);
+  lines.push("INTERVIEW PREP SESSION");
   lines.push(`Role: ${meta.job_title}${meta.company_name ? ` @ ${meta.company_name}` : ""}`);
   lines.push(`Date: ${new Date().toLocaleDateString()}`);
   lines.push("");
@@ -80,7 +106,7 @@ function exportToPDF(
     lines.push(q.question);
     lines.push("");
     if (ans?.text) {
-      lines.push(`Your Answer:`);
+      lines.push("Your Answer:");
       lines.push(ans.text);
       lines.push("");
     }
@@ -105,9 +131,68 @@ function exportToPDF(
   URL.revokeObjectURL(url);
 }
 
+// ─── Generating overlay ───────────────────────────────────────────────────────
+const STEPS = [
+  "Analysing role & company…",
+  "Crafting technical questions…",
+  "Calibrating difficulty levels…",
+  "Adding hints & context…",
+  "Almost ready…",
+];
+
+function GeneratingOverlay({ elapsed }: { elapsed: number }) {
+  const step = Math.min(Math.floor(elapsed / 8), STEPS.length - 1);
+  const dots = ".".repeat((elapsed % 3) + 1);
+
+  return (
+    <div style={{
+      background: "#fff",
+      border: "1px solid rgba(17,24,39,0.08)",
+      borderRadius: 14,
+      padding: "36px 28px",
+      marginBottom: 32,
+      boxShadow: "0 1px 4px rgba(17,24,39,0.05)",
+      textAlign: "center",
+    }}>
+      {/* Spinner */}
+      <div style={{
+        width: 44,
+        height: 44,
+        borderRadius: "50%",
+        border: "3px solid #E5E7EB",
+        borderTopColor: "#111827",
+        animation: "spin 0.9s linear infinite",
+        margin: "0 auto 20px",
+      }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+      <p style={{ fontSize: 15, fontWeight: 600, color: "#111827", margin: "0 0 6px" }}>
+        {STEPS[step]}{dots}
+      </p>
+      <p style={{ fontSize: 13, color: "#9CA3AF", margin: "0 0 20px" }}>
+        Large models take 15–40 s. Hang tight.
+      </p>
+
+      {/* Progress bar */}
+      <div style={{ width: "100%", height: 4, background: "#F3F4F6", borderRadius: 99, overflow: "hidden" }}>
+        <div style={{
+          height: "100%",
+          background: "#111827",
+          borderRadius: 99,
+          width: `${Math.min((elapsed / 40) * 100, 95)}%`,
+          transition: "width 1s linear",
+        }} />
+      </div>
+
+      <p style={{ fontSize: 12, color: "#D1D5DB", marginTop: 8 }}>
+        {formatElapsed(elapsed)} elapsed
+      </p>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function InterviewPrepPage() {
-  // Form state
   const [jobTitle,        setJobTitle]        = useState("");
   const [companyName,     setCompanyName]     = useState("");
   const [jobField,        setJobField]        = useState("");
@@ -115,15 +200,26 @@ export default function InterviewPrepPage() {
   const [techStack,       setTechStack]       = useState("");
   const [extraContext,    setExtraContext]     = useState("");
 
-  // Session state
-  const [questions,    setQuestions]    = useState<Question[]>([]);
-  const [answers,      setAnswers]      = useState<Record<number, AnswerState>>({});
-  const [generating,   setGenerating]   = useState(false);
-  const [error,        setError]        = useState("");
-  const [sessionMeta,  setSessionMeta]  = useState({ job_title: "", company_name: "" });
+  const [questions,   setQuestions]   = useState<Question[]>([]);
+  // answers keyed by question.id — always initialised from EMPTY_ANSWER
+  const [answers,     setAnswers]     = useState<Record<number, AnswerState>>({});
+  const [generating,  setGenerating]  = useState(false);
+  const [error,       setError]       = useState("");
+  const [sessionMeta, setSessionMeta] = useState({ job_title: "", company_name: "" });
   const sessionRef = useRef<HTMLDivElement>(null);
 
-  // ── Generate questions ───────────────────────────────────────────────────
+  const elapsed = useElapsedTimer(generating);
+
+  // ── helpers ──
+  function getAns(id: number): AnswerState {
+    return answers[id] ?? { ...EMPTY_ANSWER };
+  }
+
+  function setAns(id: number, patch: Partial<AnswerState>) {
+    setAnswers(prev => ({ ...prev, [id]: { ...(prev[id] ?? { ...EMPTY_ANSWER }), ...patch } }));
+  }
+
+  // ── Generate questions ────────────────────────────────────────────────────
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
     if (!jobTitle.trim() || !jobField.trim()) {
@@ -160,12 +256,17 @@ export default function InterviewPrepPage() {
     }
   }
 
-  // ── Submit + evaluate one answer ─────────────────────────────────────────
+  // ── Evaluate one answer ───────────────────────────────────────────────────
   async function handleEvaluate(q: Question) {
-    const ans = answers[q.id];
-    if (!ans?.text?.trim()) return;
+    const ans = getAns(q.id);
+    const text = (ans.text ?? "").trim();
+    if (!text) return;
 
-    setAnswers(prev => ({ ...prev, [q.id]: { ...prev[q.id], evaluating: true, submitted: true } }));
+    // Snapshot job_title from form directly — sessionMeta may not be set yet
+    // if user somehow edits form after generating (defensive)
+    const jobTitleForEval = sessionMeta.job_title || jobTitle.trim() || "Software Engineer";
+
+    setAns(q.id, { evaluating: true, submitted: true, evalError: "" });
 
     try {
       const res  = await fetch("/api/v1/interview-prep/evaluate", {
@@ -173,27 +274,24 @@ export default function InterviewPrepPage() {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
           question:      q.question,
-          answer:        ans.text,
-          job_title:     sessionMeta.job_title,
+          answer:        text,
+          job_title:     jobTitleForEval,
           question_type: q.type,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setAnswers(prev => ({ ...prev, [q.id]: { ...prev[q.id], evaluating: false } }));
+        setAns(q.id, { evaluating: false, evalError: data.detail || "Evaluation failed. Please try again." });
         return;
       }
-      setAnswers(prev => ({
-        ...prev,
-        [q.id]: { ...prev[q.id], evaluation: data.evaluation, evaluating: false },
-      }));
+      setAns(q.id, { evaluation: data.evaluation, evaluating: false, evalError: "" });
     } catch {
-      setAnswers(prev => ({ ...prev, [q.id]: { ...prev[q.id], evaluating: false } }));
+      setAns(q.id, { evaluating: false, evalError: "Network error. Please try again." });
     }
   }
 
-  const answeredCount  = Object.values(answers).filter(a => a.evaluation).length;
-  const averageScore   = answeredCount > 0
+  const answeredCount = Object.values(answers).filter(a => a.evaluation).length;
+  const averageScore  = answeredCount > 0
     ? Math.round(Object.values(answers).filter(a => a.evaluation).reduce((s, a) => s + (a.evaluation?.score ?? 0), 0) / answeredCount)
     : null;
 
@@ -201,7 +299,7 @@ export default function InterviewPrepPage() {
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "0 0 80px" }}>
 
-      {/* ── Header ── */}
+      {/* Header */}
       <div style={{ marginBottom: 32 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, color: "#111827", margin: 0, letterSpacing: "-0.02em" }}>
           Interview Prep
@@ -211,34 +309,30 @@ export default function InterviewPrepPage() {
         </p>
       </div>
 
-      {/* ── Form ── */}
+      {/* Form */}
       <form onSubmit={handleGenerate} style={{
         background: "#fff",
         border: "1px solid rgba(17,24,39,0.08)",
         borderRadius: 14,
         padding: "28px 28px 24px",
-        marginBottom: 32,
+        marginBottom: generating ? 0 : 32,
         boxShadow: "0 1px 4px rgba(17,24,39,0.05)",
       }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-          <Field label="Job Title *" value={jobTitle} onChange={setJobTitle} placeholder="e.g. Senior Backend Engineer" />
-          <Field label="Company Name" value={companyName} onChange={setCompanyName} placeholder="e.g. Stripe (optional)" />
-          <Field label="Job Field / Domain *" value={jobField} onChange={setJobField} placeholder="e.g. Fintech, AI/ML, E-commerce" />
+          <Field label="Job Title *"         value={jobTitle}        onChange={setJobTitle}        placeholder="e.g. Senior Backend Engineer" />
+          <Field label="Company Name"        value={companyName}     onChange={setCompanyName}     placeholder="e.g. Stripe (optional)" />
+          <Field label="Job Field / Domain *" value={jobField}       onChange={setJobField}        placeholder="e.g. Fintech, AI/ML, E-commerce" />
           <div>
             <label style={labelStyle}>Experience Level *</label>
-            <select
-              value={experienceLevel}
-              onChange={e => setExperienceLevel(e.target.value)}
-              style={inputStyle}
-            >
+            <select value={experienceLevel} onChange={e => setExperienceLevel(e.target.value)} style={inputStyle}>
               <option>Junior</option>
               <option>Mid</option>
               <option>Senior</option>
               <option>Lead / Staff</option>
             </select>
           </div>
-          <Field label="Tech Stack / Tools" value={techStack} onChange={setTechStack} placeholder="e.g. Python, PostgreSQL, Kubernetes" />
-          <Field label="Extra Context" value={extraContext} onChange={setExtraContext} placeholder="e.g. Backend-heavy role, lots of distributed systems" />
+          <Field label="Tech Stack / Tools"  value={techStack}       onChange={setTechStack}       placeholder="e.g. Python, PostgreSQL, Kubernetes" />
+          <Field label="Extra Context"       value={extraContext}    onChange={setExtraContext}    placeholder="e.g. Backend-heavy, distributed systems" />
         </div>
 
         {error && (
@@ -251,28 +345,30 @@ export default function InterviewPrepPage() {
           type="submit"
           disabled={generating}
           style={{
-            width: "100%",
-            padding: "12px 0",
+            width: "100%", padding: "12px 0",
             background: generating ? "#9CA3AF" : "#111827",
-            color: "#fff",
-            border: "none",
-            borderRadius: 9999,
-            fontSize: 14,
-            fontWeight: 600,
+            color: "#fff", border: "none", borderRadius: 9999,
+            fontSize: 14, fontWeight: 600,
             cursor: generating ? "not-allowed" : "pointer",
-            transition: "background 150ms ease",
-            letterSpacing: "0.01em",
+            transition: "background 150ms ease", letterSpacing: "0.01em",
           }}
         >
-          {generating ? "Generating questions…" : "Generate 10 Interview Questions"}
+          {generating ? `Generating… (${formatElapsed(elapsed)})` : "Generate 10 Interview Questions"}
         </button>
       </form>
 
-      {/* ── Session ── */}
-      {questions.length > 0 && (
-        <div ref={sessionRef}>
+      {/* Generating overlay */}
+      {generating && (
+        <div style={{ marginTop: 20 }}>
+          <GeneratingOverlay elapsed={elapsed} />
+        </div>
+      )}
 
-          {/* Progress bar */}
+      {/* Session */}
+      {!generating && questions.length > 0 && (
+        <div ref={sessionRef} style={{ marginTop: 32 }}>
+
+          {/* Toolbar */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
             <span style={{ fontSize: 13, color: "#6B7280" }}>
               {answeredCount} / {questions.length} answered
@@ -283,35 +379,29 @@ export default function InterviewPrepPage() {
               )}
             </span>
             <button
-              onClick={() => exportToPDF(questions, answers, sessionMeta)}
+              onClick={() => exportToTxt(questions, answers, sessionMeta)}
               style={{
-                fontSize: 12,
-                fontWeight: 500,
-                padding: "6px 14px",
-                borderRadius: 9999,
-                border: "1px solid rgba(17,24,39,0.15)",
-                background: "#fff",
-                cursor: "pointer",
-                color: "#374151",
+                fontSize: 12, fontWeight: 500, padding: "6px 14px",
+                borderRadius: 9999, border: "1px solid rgba(17,24,39,0.15)",
+                background: "#fff", cursor: "pointer", color: "#374151",
               }}
             >
               ↓ Save as .txt
             </button>
           </div>
 
-          {/* Questions */}
+          {/* Question cards */}
           {questions.map((q, idx) => {
-            const ans      = answers[q.id] || { text: "", evaluation: null, evaluating: false, submitted: false };
+            const ans       = getAns(q.id);
             const diffStyle = difficultyColor(q.difficulty);
             const typStyle  = typeColor(q.type);
+            const canSubmit = (ans.text ?? "").trim().length > 0 && !ans.evaluating && !ans.evaluation;
 
             return (
               <div key={q.id} style={{
                 background: "#fff",
                 border: "1px solid rgba(17,24,39,0.08)",
-                borderRadius: 14,
-                marginBottom: 20,
-                overflow: "hidden",
+                borderRadius: 14, marginBottom: 20, overflow: "hidden",
                 boxShadow: "0 1px 4px rgba(17,24,39,0.05)",
               }}>
                 {/* Question header */}
@@ -334,42 +424,37 @@ export default function InterviewPrepPage() {
                 <div style={{ padding: "0 22px 18px" }}>
                   <textarea
                     value={ans.text}
-                    onChange={e => setAnswers(prev => ({
-                      ...prev,
-                      [q.id]: { ...( prev[q.id] || { text: "", evaluation: null, evaluating: false, submitted: false }), text: e.target.value },
-                    }))}
-                    disabled={ans.submitted && !!ans.evaluation}
+                    onChange={e => setAns(q.id, { text: e.target.value })}
+                    disabled={!!ans.evaluation}
                     placeholder="Type your answer here…"
                     rows={4}
                     style={{
-                      width: "100%",
-                      resize: "vertical",
-                      padding: "10px 12px",
-                      borderRadius: 8,
-                      border: "1px solid rgba(17,24,39,0.12)",
-                      fontSize: 13,
-                      color: "#111827",
-                      background: ans.submitted && ans.evaluation ? "#F9FAFB" : "#fff",
-                      outline: "none",
-                      fontFamily: "'Inter', sans-serif",
+                      width: "100%", resize: "vertical", padding: "10px 12px",
+                      borderRadius: 8, border: "1px solid rgba(17,24,39,0.12)",
+                      fontSize: 13, color: "#111827",
+                      background: ans.evaluation ? "#F9FAFB" : "#fff",
+                      outline: "none", fontFamily: "'Inter', sans-serif",
                       boxSizing: "border-box",
                     }}
                   />
 
+                  {/* Eval error */}
+                  {ans.evalError && (
+                    <p style={{ fontSize: 12, color: "#991B1B", marginTop: 6 }}>{ans.evalError}</p>
+                  )}
+
+                  {/* Submit button — only shown when no evaluation yet */}
                   {!ans.evaluation && (
                     <button
                       onClick={() => handleEvaluate(q)}
-                      disabled={!ans.text?.trim() || ans.evaluating}
+                      disabled={!canSubmit}
                       style={{
-                        marginTop: 10,
-                        padding: "8px 20px",
-                        background: ans.evaluating || !ans.text?.trim() ? "#E5E7EB" : "#111827",
-                        color: ans.evaluating || !ans.text?.trim() ? "#9CA3AF" : "#fff",
-                        border: "none",
-                        borderRadius: 9999,
-                        fontSize: 13,
-                        fontWeight: 500,
-                        cursor: ans.evaluating || !ans.text?.trim() ? "not-allowed" : "pointer",
+                        marginTop: 10, padding: "8px 20px",
+                        background: !canSubmit ? "#E5E7EB" : "#111827",
+                        color: !canSubmit ? "#9CA3AF" : "#fff",
+                        border: "none", borderRadius: 9999,
+                        fontSize: 13, fontWeight: 500,
+                        cursor: !canSubmit ? "not-allowed" : "pointer",
                         transition: "background 150ms ease",
                       }}
                     >
@@ -380,8 +465,7 @@ export default function InterviewPrepPage() {
                   {/* Feedback */}
                   {ans.evaluation && (
                     <div style={{
-                      marginTop: 14,
-                      padding: "16px 18px",
+                      marginTop: 14, padding: "16px 18px",
                       background: "#F9FAFB",
                       border: "1px solid rgba(17,24,39,0.07)",
                       borderRadius: 10,
@@ -396,9 +480,9 @@ export default function InterviewPrepPage() {
                         <div style={{ flex: 1 }}>{scoreBar(ans.evaluation.score)}</div>
                       </div>
 
-                      <FeedbackRow icon="✔" label="What was good" text={ans.evaluation.what_was_good} color="#065F46" />
-                      <FeedbackRow icon="✘" label="What was missing" text={ans.evaluation.what_was_missing} color="#991B1B" />
-                      <FeedbackRow icon="★" label="Ideal answer" text={ans.evaluation.ideal_answer_summary} color="#1D4ED8" />
+                      <FeedbackRow icon="✔" label="What was good"    text={ans.evaluation.what_was_good}       color="#065F46" />
+                      <FeedbackRow icon="✘" label="What was missing" text={ans.evaluation.what_was_missing}    color="#991B1B" />
+                      <FeedbackRow icon="★" label="Ideal answer"     text={ans.evaluation.ideal_answer_summary} color="#1D4ED8" />
 
                       <details style={{ marginTop: 12 }}>
                         <summary style={{ fontSize: 12, color: "#6B7280", cursor: "pointer", userSelect: "none" }}>Show hint</summary>
@@ -416,26 +500,17 @@ export default function InterviewPrepPage() {
   );
 }
 
-// ─── Small reusable components ───────────────────────────────────────────────
+// ─── Reusable components ──────────────────────────────────────────────────────
 const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: 12,
-  fontWeight: 600,
-  color: "#374151",
-  marginBottom: 6,
-  letterSpacing: "0.02em",
+  display: "block", fontSize: 12, fontWeight: 600,
+  color: "#374151", marginBottom: 6, letterSpacing: "0.02em",
 };
 
 const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "9px 12px",
-  border: "1px solid rgba(17,24,39,0.12)",
-  borderRadius: 8,
-  fontSize: 13,
-  color: "#111827",
-  background: "#fff",
-  outline: "none",
-  boxSizing: "border-box",
+  width: "100%", padding: "9px 12px",
+  border: "1px solid rgba(17,24,39,0.12)", borderRadius: 8,
+  fontSize: 13, color: "#111827", background: "#fff",
+  outline: "none", boxSizing: "border-box",
   fontFamily: "'Inter', sans-serif",
 };
 
@@ -447,8 +522,7 @@ function Field({ label, value, onChange, placeholder }: {
     <div>
       <label style={labelStyle}>{label}</label>
       <input
-        type="text"
-        value={value}
+        type="text" value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         style={inputStyle}
