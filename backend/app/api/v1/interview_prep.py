@@ -1,42 +1,32 @@
-"""Interview preparation endpoints.
+"""Interview preparation endpoints — practice mode + live interview mode."""
+import asyncio
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from pydantic import BaseModel
+from typing import Any, Dict, List, Optional
 
-Routes:
-  POST /api/v1/interview-prep/generate      — generate 10 questions
-  POST /api/v1/interview-prep/evaluate      — evaluate a single answer
-  POST /api/v1/interview-prep/live/start    — start a live voice session
-  POST /api/v1/interview-prep/live/answer   — submit a voice answer, get next question + TTS
-"""
-from __future__ import annotations
-
-from typing import Any, Optional
-
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
-
+from app.core.security import get_current_supabase_user
+from app.db.models.user import User
 from app.services.ai.interview_service import (
+    generate_interview_questions,
     evaluate_interview_answer,
     generate_followup_question,
-    generate_interview_questions,
 )
-from app.services.ai.tts_service import TTSResult, synthesize_speech
+from app.services.ai.tts_service import synthesize_speech
+from app.services.ai.stt_service import transcribe_audio
 
 router = APIRouter(prefix="/interview-prep", tags=["interview-prep"])
 
 
-# ─── Schemas ─────────────────────────────────────────────────────────────────────────
+# ── Schemas ───────────────────────────────────────────────────────────────────
 
 class GenerateRequest(BaseModel):
     job_title:        str
     job_field:        str
-    experience_level: str        = "Mid"
-    company_name:     str        = ""
-    tech_stack:       str        = ""
-    extra_context:    str        = ""
-    language:         str        = "en"
-
-
-class GenerateResponse(BaseModel):
-    questions: list[dict[str, Any]]
+    experience_level: str = "Mid"
+    company_name:     str = ""
+    tech_stack:       str = ""
+    extra_context:    str = ""
+    language:         str = "en"
 
 
 class EvaluateRequest(BaseModel):
@@ -47,10 +37,6 @@ class EvaluateRequest(BaseModel):
     language:      str = "en"
 
 
-class EvaluateResponse(BaseModel):
-    evaluation: dict[str, Any]
-
-
 class LiveStartRequest(BaseModel):
     job_title:        str
     job_field:        str
@@ -58,62 +44,18 @@ class LiveStartRequest(BaseModel):
     company_name:     str = ""
     tech_stack:       str = ""
     language:         str = "en"
+    total_turns:      int = 5
+    tts_enabled:      bool = True
 
 
-class LiveStartResponse(BaseModel):
-    question:        str
-    question_type:   str
-    hint:            str
-    turn_number:     int
-    audio_b64:       str        = ""
-    audio_format:    str        = "wav"
-    use_browser_tts: bool       = False
+# ── Practice mode: generate questions ────────────────────────────────────────
 
-
-class ConversationTurn(BaseModel):
-    role:    str   # "assistant" | "user"
-    content: str
-
-
-class LiveAnswerRequest(BaseModel):
-    job_title:             str
-    job_field:             str
-    last_question:         str
-    last_question_type:    str = "Technical"
-    answer_text:           str
-    conversation_history:  list[ConversationTurn] = Field(default_factory=list)
-    turn_number:           int  = 1
-    language:              str  = "en"
-
-
-class LiveAnswerResponse(BaseModel):
-    # Evaluation of the answer just submitted
-    evaluation:      dict[str, Any]
-    # Next question (None if session is complete)
-    next_question:        Optional[str]  = None
-    next_question_type:   Optional[str]  = None
-    next_hint:            Optional[str]  = None
-    next_turn_number:     Optional[int]  = None
-    session_complete:     bool           = False
-    # TTS for next question
-    audio_b64:            str            = ""
-    audio_format:         str            = "wav"
-    use_browser_tts:      bool           = False
-
-
-# ─── Config ──────────────────────────────────────────────────────────────────────────
-
-MAX_LIVE_TURNS = 8   # max follow-up questions in a live session
-
-
-# ─── Routes ──────────────────────────────────────────────────────────────────────────
-
-@router.post("/generate", response_model=GenerateResponse)
-async def generate_questions(payload: GenerateRequest) -> GenerateResponse:
-    """Generate 10 tailored interview questions for a given role."""
-    if not payload.job_title.strip() or not payload.job_field.strip():
-        raise HTTPException(status_code=422, detail="job_title and job_field are required.")
-
+@router.post("/generate")
+async def generate_questions(
+    payload: GenerateRequest,
+    current_user: User = Depends(get_current_supabase_user),
+) -> Dict[str, Any]:
+    """Generate 10 targeted interview questions for a given role."""
     questions = generate_interview_questions(
         job_title=payload.job_title,
         job_field=payload.job_field,
@@ -123,22 +65,19 @@ async def generate_questions(payload: GenerateRequest) -> GenerateResponse:
         extra_context=payload.extra_context,
         language=payload.language,
     )
-
     if not questions:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to generate questions. The AI service may be temporarily busy. Please try again.",
-        )
-
-    return GenerateResponse(questions=questions)
+        raise HTTPException(status_code=500, detail="Failed to generate questions. Please retry.")
+    return {"questions": questions}
 
 
-@router.post("/evaluate", response_model=EvaluateResponse)
-async def evaluate_answer(payload: EvaluateRequest) -> EvaluateResponse:
-    """Evaluate a single interview answer and return scored feedback."""
-    if not payload.answer.strip():
-        raise HTTPException(status_code=422, detail="answer cannot be empty.")
+# ── Practice mode: evaluate answer ───────────────────────────────────────────
 
+@router.post("/evaluate")
+async def evaluate_answer(
+    payload: EvaluateRequest,
+    current_user: User = Depends(get_current_supabase_user),
+) -> Dict[str, Any]:
+    """Evaluate a candidate's answer to one interview question."""
     evaluation = evaluate_interview_answer(
         question=payload.question,
         answer=payload.answer,
@@ -146,22 +85,22 @@ async def evaluate_answer(payload: EvaluateRequest) -> EvaluateResponse:
         question_type=payload.question_type,
         language=payload.language,
     )
+    return {"evaluation": evaluation}
 
-    return EvaluateResponse(evaluation=evaluation)
 
+# ── Live interview: start session ─────────────────────────────────────────────
 
-@router.post("/live/start", response_model=LiveStartResponse)
-async def live_start(payload: LiveStartRequest) -> LiveStartResponse:
-    """Start a live voice interview session.
+@router.post("/live/start")
+async def live_start(
+    payload: LiveStartRequest,
+    current_user: User = Depends(get_current_supabase_user),
+) -> Dict[str, Any]:
+    """Start a live interview session.
 
-    Generates the opening question and synthesises it to audio.
-    The first question is always a warm-up (Medium difficulty, Behavioral or Technical)
-    to ease the candidate in.
+    Generates the first question and optionally synthesizes it to speech.
+    Returns: { question_text, audio_b64, mime_type, use_browser_tts, turn: 1, total_turns }
     """
-    if not payload.job_title.strip() or not payload.job_field.strip():
-        raise HTTPException(status_code=422, detail="job_title and job_field are required.")
-
-    # Generate opening question — use the standard generator, take the first result
+    # Generate opening question
     questions = generate_interview_questions(
         job_title=payload.job_title,
         job_field=payload.job_field,
@@ -170,85 +109,138 @@ async def live_start(payload: LiveStartRequest) -> LiveStartResponse:
         tech_stack=payload.tech_stack,
         language=payload.language,
     )
-
     if not questions:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to generate opening question. Please try again.",
-        )
+        raise HTTPException(status_code=500, detail="Failed to generate opening question.")
 
-    opening = questions[0]
-    question_text = opening.get("question", "")
+    first_q = questions[0]["question"]
 
-    # TTS
-    tts: TTSResult = synthesize_speech(question_text, payload.language)
+    # TTS (async, non-blocking)
+    audio_b64      = None
+    mime_type      = "audio/wav"
+    use_browser_tts = True
 
-    return LiveStartResponse(
-        question=question_text,
-        question_type=opening.get("type", "Technical"),
-        hint=opening.get("hint", ""),
-        turn_number=1,
-        audio_b64=tts.audio_b64,
-        audio_format=tts.audio_format,
-        use_browser_tts=tts.use_browser_tts,
-    )
+    if payload.tts_enabled:
+        tts_result = await synthesize_speech(first_q, payload.language)
+        audio_b64       = tts_result.audio_b64
+        mime_type       = tts_result.mime_type
+        use_browser_tts = tts_result.use_browser_tts
+
+    return {
+        "question_text":   first_q,
+        "audio_b64":       audio_b64,
+        "mime_type":       mime_type,
+        "use_browser_tts": use_browser_tts,
+        "turn":            1,
+        "total_turns":     payload.total_turns,
+        "all_questions":   [q["question"] for q in questions],  # stored client-side for context
+    }
 
 
-@router.post("/live/answer", response_model=LiveAnswerResponse)
-async def live_answer(payload: LiveAnswerRequest) -> LiveAnswerResponse:
-    """Submit an answer in a live session.
+# ── Live interview: submit answer ─────────────────────────────────────────────
 
-    1. Evaluates the submitted answer
-    2. If turns remain, generates a follow-up question + TTS
-    3. If MAX_LIVE_TURNS reached, marks session complete
+@router.post("/live/answer")
+async def live_answer(
+    audio:              UploadFile = File(...),
+    question_text:      str = Form(...),
+    job_title:          str = Form(...),
+    job_field:          str = Form(...),
+    experience_level:   str = Form("Mid"),
+    question_type:      str = Form("Technical"),
+    turn_number:        int = Form(1),
+    total_turns:        int = Form(5),
+    language:           str = Form("en"),
+    tts_enabled:        bool = Form(True),
+    conversation_json:  str = Form("[]"),  # JSON string of prior turns
+    current_user: User = Depends(get_current_supabase_user),
+) -> Dict[str, Any]:
+    """Process one turn of a live interview.
+
+    Steps (parallelised where possible):
+      1. Read audio bytes
+      2. STT via Nemotron Omni → transcript
+      3. Evaluate transcript
+      4. Generate follow-up question (if turns remain)
+      5. TTS follow-up
+
+    Returns full turn result + next question audio.
     """
-    if not payload.answer_text.strip():
-        raise HTTPException(status_code=422, detail="answer_text cannot be empty.")
+    import json as _json
 
-    # 1. Evaluate the answer
-    evaluation = evaluate_interview_answer(
-        question=payload.last_question,
-        answer=payload.answer_text,
-        job_title=payload.job_title,
-        question_type=payload.last_question_type,
-        language=payload.language,
+    # 1. Read audio
+    audio_bytes = await audio.read()
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="Empty audio file.")
+
+    # 2. STT
+    stt_result = await transcribe_audio(audio_bytes, language)
+    transcript = stt_result.transcript
+
+    if not stt_result.success or not transcript.strip():
+        # STT failed — still evaluate with empty answer so session continues
+        transcript = ""
+        stt_error  = stt_result.error or "Transcription failed"
+    else:
+        stt_error = None
+
+    # 3. Parse conversation history
+    try:
+        conversation_history: List[Dict[str, str]] = _json.loads(conversation_json)
+    except Exception:
+        conversation_history = []
+
+    # 4. Evaluate + generate next question in parallel
+    is_last_turn = (turn_number >= total_turns)
+
+    eval_task     = asyncio.to_thread(
+        evaluate_interview_answer,
+        question=question_text,
+        answer=transcript or "(no answer provided)",
+        job_title=job_title,
+        question_type=question_type,
+        language=language,
     )
 
-    # 2. Session complete?
-    next_turn = payload.turn_number + 1
-    if payload.turn_number >= MAX_LIVE_TURNS:
-        return LiveAnswerResponse(
-            evaluation=evaluation,
-            session_complete=True,
+    if not is_last_turn:
+        # Build history including current turn for context
+        updated_history = conversation_history + [
+            {"role": "assistant", "content": question_text},
+            {"role": "user",      "content": transcript or "(no answer)"},
+        ]
+        followup_task = asyncio.to_thread(
+            generate_followup_question,
+            job_title=job_title,
+            job_field=job_field,
+            experience_level=experience_level,
+            conversation_history=updated_history,
+            last_evaluation={},  # filled after eval resolves
+            turn_number=turn_number + 1,
+            total_turns=total_turns,
+            language=language,
         )
+        evaluation, next_question_text = await asyncio.gather(eval_task, followup_task)
+    else:
+        evaluation     = await eval_task
+        next_question_text = None
 
-    # 3. Generate follow-up
-    history = [
-        {"role": t.role, "content": t.content}
-        for t in payload.conversation_history
-    ]
-    followup = generate_followup_question(
-        job_title=payload.job_title,
-        job_field=payload.job_field,
-        conversation_history=history,
-        last_answer=payload.answer_text,
-        last_question=payload.last_question,
-        language=payload.language,
-    )
+    # 5. TTS for next question
+    audio_b64       = None
+    mime_type       = "audio/wav"
+    use_browser_tts = True
 
-    next_q_text = followup.get("question", "Can you elaborate further?")
+    if next_question_text and tts_enabled:
+        tts_result      = await synthesize_speech(next_question_text, language)
+        audio_b64       = tts_result.audio_b64
+        mime_type       = tts_result.mime_type
+        use_browser_tts = tts_result.use_browser_tts
 
-    # 4. TTS for follow-up
-    tts: TTSResult = synthesize_speech(next_q_text, payload.language)
-
-    return LiveAnswerResponse(
-        evaluation=evaluation,
-        next_question=next_q_text,
-        next_question_type=followup.get("type", "Technical"),
-        next_hint=followup.get("hint", ""),
-        next_turn_number=next_turn,
-        session_complete=False,
-        audio_b64=tts.audio_b64,
-        audio_format=tts.audio_format,
-        use_browser_tts=tts.use_browser_tts,
-    )
+    return {
+        "transcript":        transcript,
+        "stt_error":         stt_error,
+        "evaluation":        evaluation,
+        "next_question":     next_question_text,
+        "audio_b64":         audio_b64,
+        "mime_type":         mime_type,
+        "use_browser_tts":   use_browser_tts,
+        "turn":              turn_number,
+        "is_last_turn":      is_last_turn,
+    }

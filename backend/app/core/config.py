@@ -8,37 +8,40 @@ from pathlib import Path
 class Settings(BaseSettings):
     model_config = ConfigDict(
         case_sensitive=True,
-        env_file=(".env.local", ".env"),  # Try .env.local first, then .env
-        extra="allow"  # Allow extra environment variables
+        env_file=(".env.local", ".env"),
+        extra="allow"
     )
-    
+
     # Application
     PROJECT_NAME: str = "Krino"
     API_V1_STR: str = "/api/v1"
-    SECRET_KEY: str = "your_secret_key_here_at_least_32_chars"  # Required - Change this in production!
+    SECRET_KEY: str = "your_secret_key_here_at_least_32_chars"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
-    
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
+
     # CORS
     FRONTEND_URL: str = "http://localhost:3000"
-    
+
     # Database
     DATABASE_URL: str = "sqlite:///./pathwise.db"
-    
+
     # File Storage
     UPLOAD_DIR: str = "/tmp/uploads" if os.environ.get("VERCEL") or os.environ.get("RENDER") else "uploads"
-    MAX_UPLOAD_SIZE: int = 5 * 1024 * 1024  # 5MB
+    MAX_UPLOAD_SIZE: int = 5 * 1024 * 1024
     ALLOWED_FILE_TYPES: Union[str, list[str]] = "pdf,docx,doc,txt"
-    
+
     # Groq API
-    GROQ_API_KEY: str = ""  # Required - set in .env or .env.local
+    GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "llama-3.1-8b-instant"
 
-    # HuggingFace (TTS — parler-tts-mini fallback)
-    HF_API_TOKEN: str = ""  # set in .env or .env.local
+    # OpenRouter (Nemotron STT)
+    OPENROUTER_API_KEY: str = ""
 
-    # NVIDIA (TTS — magpie-tts-zeroshot, primary when approved)
-    NVIDIA_API_KEY: str = ""  # set in .env or .env.local
+    # HuggingFace (Parler-TTS)
+    HF_API_TOKEN: str = ""
+
+    # NVIDIA Magpie TTS (optional, fallback to HF if not set)
+    NVIDIA_API_KEY: str = ""
 
     @field_validator('ALLOWED_FILE_TYPES')
     @classmethod
@@ -46,12 +49,11 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [x.strip() for x in v.split(',')]
         return v
-        
+
 settings = Settings()
 
-# Create uploads directory if it doesn't exist (may fail on serverless/read-only filesystems)
 try:
     upload_path = Path(settings.UPLOAD_DIR)
     upload_path.mkdir(parents=True, exist_ok=True)
 except OSError:
-    pass  # Read-only filesystem (e.g., Vercel) - /tmp/uploads will be created on demand
+    pass

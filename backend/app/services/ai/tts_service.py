@@ -1,185 +1,147 @@
-"""Text-to-Speech service for Live Interview Mode.
+"""Text-to-speech pipeline with fallback chain.
 
-Fallback chain:
-  1. NVIDIA magpie-tts-zeroshot  (when NVIDIA_API_KEY is set)
-  2. HuggingFace parler-tts-mini (when HF_API_TOKEN is set)
-  3. Returns use_browser_tts=True flag — frontend uses SpeechSynthesis
+Priority:
+  1. NVIDIA Magpie-TTS (when API key is available)
+  2. HuggingFace Parler-TTS-Mini (free inference API)
+  3. Returns use_browser_tts=True flag so frontend uses SpeechSynthesis
 
 All functions return a TTSResult dataclass.
 """
-from __future__ import annotations
-
 import base64
-import io
-import os
-import time
-from dataclasses import dataclass, field
-from typing import Optional
-
 import httpx
-
+from dataclasses import dataclass
+from typing import Optional
 from app.core.config import settings
 
 
-# ─── Result type ───────────────────────────────────────────────────────────────────
 @dataclass
 class TTSResult:
-    audio_b64: str = ""           # base64-encoded wav/mp3 — empty if browser fallback
-    audio_format: str = "wav"     # mime type hint for frontend
-    use_browser_tts: bool = False  # True → frontend falls back to SpeechSynthesis
-    provider: str = "none"        # which provider succeeded
-    error: str = ""               # last error message for debugging
+    audio_b64: Optional[str]   # base64-encoded wav/mp3 bytes
+    mime_type: str             # "audio/wav" or "audio/mpeg"
+    use_browser_tts: bool      # True = no audio, tell frontend to use SpeechSynthesis
+    error: Optional[str] = None
 
 
-# ─── Voice descriptions (Parler-TTS uses text descriptions, not reference audio) ──
-_VOICE_EN = (
-    "A clear, professional male voice speaking at a measured, calm pace. "
-    "The tone is confident and authoritative, like a senior technical interviewer. "
-    "Studio-quality recording with no background noise."
+# ── Parler-TTS via HuggingFace Inference API ──────────────────────────────────
+
+PARLER_MODEL = "parler-tts/parler-tts-mini-v1"
+HF_INFERENCE_URL = f"https://api-inference.huggingface.co/models/{PARLER_MODEL}"
+
+# Professional interviewer voice description for Parler-TTS
+VOICE_DESC_EN = (
+    "A clear, calm, professional male voice with a neutral accent. "
+    "Speaks at a measured pace, neither too fast nor too slow. "
+    "High quality recording, no background noise."
 )
-_VOICE_FR = (
-    "Une voix masculine claire et professionnelle, parlant à un rythme calme et mesuré. "
-    "Le ton est confiant et autoritaire, comme un intervieweur technique senior. "
-    "Enregistrement de qualité studio sans bruit de fond."
+VOICE_DESC_FR = (
+    "Une voix masculine claire, calme et professionnelle avec un accent neutre. "
+    "Parle à un rythme mesuré, ni trop vite ni trop lentement. "
+    "Enregistrement de haute qualité, sans bruit de fond."
 )
 
-# Parler-TTS model on HuggingFace
-_HF_MODEL      = "parler-tts/parler-tts-mini-v1"
-_HF_API_URL    = f"https://api-inference.huggingface.co/models/{_HF_MODEL}"
-_HF_TIMEOUT    = 30.0  # seconds — model may need cold-start
-_HF_MAX_RETRY  = 2
-_HF_RETRY_WAIT = 20    # seconds to wait if model is loading
 
-# NVIDIA magpie-tts endpoint
-_NVIDIA_TTS_URL = "https://api.nvcf.nvidia.com/v2/nvcf/pexec/functions/877c3f32-90e7-4945-ab58-e789d33aa0bd"
-_NVIDIA_TIMEOUT = 25.0
+async def _tts_parler(text: str, language: str = "en") -> TTSResult:
+    """Call HuggingFace Parler-TTS inference API."""
+    if not settings.HF_API_TOKEN:
+        return TTSResult(audio_b64=None, mime_type="audio/wav", use_browser_tts=True, error="No HF token")
 
+    description = VOICE_DESC_FR if language == "fr" else VOICE_DESC_EN
 
-# ─── Internal helpers ───────────────────────────────────────────────────────────────
-
-def _nvidia_tts(text: str, language: str) -> TTSResult:
-    """Call NVIDIA magpie-tts-zeroshot.
-
-    Requires NVIDIA_API_KEY in env.
-    Needs a short reference audio clip for voice cloning —
-    we use a bundled 6-second clip stored as b64 in this file.
-    """
-    api_key = getattr(settings, "NVIDIA_API_KEY", "") or os.environ.get("NVIDIA_API_KEY", "")
-    if not api_key:
-        return TTSResult(error="NVIDIA_API_KEY not set", use_browser_tts=False)
-
-    # Bundled reference voice clip (6s professional male voice — replace with real clip)
-    # For now we skip NVIDIA if no reference clip is available
-    ref_clip_path = os.path.join(os.path.dirname(__file__), "voices", "interviewer_ref.wav")
-    if not os.path.exists(ref_clip_path):
-        return TTSResult(error="Reference voice clip not found", use_browser_tts=False)
-
-    with open(ref_clip_path, "rb") as f:
-        ref_b64 = base64.b64encode(f.read()).decode()
+    payload = {
+        "inputs": text,
+        "parameters": {"description": description},
+    }
+    headers = {"Authorization": f"Bearer {settings.HF_API_TOKEN}"}
 
     try:
-        with httpx.Client(timeout=_NVIDIA_TIMEOUT) as client:
-            resp = client.post(
-                _NVIDIA_TTS_URL,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "text": text[:400],  # magpie max ~20s ≈ 400 chars
-                    "voice_reference_audio": ref_b64,
-                    "language": "fr-FR" if language == "fr" else "en-US",
-                },
-            )
-        if resp.status_code == 200:
-            audio_b64 = base64.b64encode(resp.content).decode()
-            return TTSResult(audio_b64=audio_b64, audio_format="wav", provider="nvidia")
-        return TTSResult(error=f"NVIDIA TTS HTTP {resp.status_code}: {resp.text[:200]}")
+        async with httpx.AsyncClient(timeout=45.0) as client:
+            resp = await client.post(HF_INFERENCE_URL, json=payload, headers=headers)
+
+        if resp.status_code == 503:
+            # Model loading — common on free tier, return browser fallback
+            print("[tts_service] Parler-TTS model loading (503) — using browser TTS")
+            return TTSResult(audio_b64=None, mime_type="audio/wav", use_browser_tts=True, error="model_loading")
+
+        if resp.status_code != 200:
+            print(f"[tts_service] Parler-TTS error {resp.status_code}: {resp.text[:200]}")
+            return TTSResult(audio_b64=None, mime_type="audio/wav", use_browser_tts=True, error=f"HF {resp.status_code}")
+
+        audio_bytes = resp.content
+        audio_b64   = base64.b64encode(audio_bytes).decode("utf-8")
+        return TTSResult(audio_b64=audio_b64, mime_type="audio/flac", use_browser_tts=False)
+
     except Exception as e:
-        return TTSResult(error=f"NVIDIA TTS exception: {e}")
+        print(f"[tts_service] Parler-TTS exception: {e}")
+        return TTSResult(audio_b64=None, mime_type="audio/wav", use_browser_tts=True, error=str(e))
 
 
-def _hf_parler_tts(text: str, language: str) -> TTSResult:
-    """Call HuggingFace parler-tts-mini-v1 Inference API.
+# ── NVIDIA Magpie-TTS ─────────────────────────────────────────────────────────
 
-    Parler-TTS takes a text description of the voice — no reference clip needed.
-    Returns wav bytes.
-    """
-    hf_token = getattr(settings, "HF_API_TOKEN", "") or os.environ.get("HF_API_TOKEN", "")
-    if not hf_token:
-        return TTSResult(error="HF_API_TOKEN not set")
+async def _tts_nvidia(text: str, language: str = "en") -> TTSResult:
+    """Call NVIDIA Magpie-TTS NIM endpoint."""
+    if not settings.NVIDIA_API_KEY:
+        return TTSResult(audio_b64=None, mime_type="audio/wav", use_browser_tts=True, error="No NVIDIA key")
 
-    voice_desc = _VOICE_FR if language == "fr" else _VOICE_EN
-    payload = {
-        "inputs": text[:500],
-        "parameters": {
-            "description": voice_desc,
-        },
-    }
+    # Load the bundled reference voice clip
+    import os
+    voice_file = os.path.join(
+        os.path.dirname(__file__),
+        "voices",
+        "interviewer-fr.wav" if language == "fr" else "interviewer-en.wav",
+    )
+    try:
+        with open(voice_file, "rb") as f:
+            voice_b64 = base64.b64encode(f.read()).decode("utf-8")
+    except FileNotFoundError:
+        print(f"[tts_service] Voice file not found: {voice_file} — falling back to Parler")
+        return TTSResult(audio_b64=None, mime_type="audio/wav", use_browser_tts=True, error="voice_file_missing")
+
+    url = "https://api.nvcf.nvidia.com/v2/nvcf/pexec/functions/0f4b3e80-e2c3-4f24-9fe3-3b8dde3dd4d4"
     headers = {
-        "Authorization": f"Bearer {hf_token}",
-        "Content-Type": "application/json",
+        "Authorization": f"Bearer {settings.NVIDIA_API_KEY}",
+        "Content-Type":  "application/json",
+    }
+    payload = {
+        "text":                    text,
+        "voice_reference_audio":   voice_b64,
+        "voice_reference_format":  "wav",
+        "output_format":           "wav",
     }
 
-    for attempt in range(_HF_MAX_RETRY):
-        try:
-            with httpx.Client(timeout=_HF_TIMEOUT) as client:
-                resp = client.post(_HF_API_URL, headers=headers, json=payload)
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(url, json=payload, headers=headers)
 
-            if resp.status_code == 200:
-                audio_b64 = base64.b64encode(resp.content).decode()
-                return TTSResult(audio_b64=audio_b64, audio_format="wav", provider="parler-tts")
+        if resp.status_code != 200:
+            print(f"[tts_service] NVIDIA Magpie error {resp.status_code}: {resp.text[:200]}")
+            return TTSResult(audio_b64=None, mime_type="audio/wav", use_browser_tts=True, error=f"NVIDIA {resp.status_code}")
 
-            if resp.status_code == 503:
-                # Model is loading — wait and retry
-                body = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
-                wait = body.get("estimated_time", _HF_RETRY_WAIT)
-                print(f"[tts_service] HF model loading, waiting {wait}s (attempt {attempt+1})")
-                time.sleep(min(float(wait), 30))
-                continue
+        audio_b64 = base64.b64encode(resp.content).decode("utf-8")
+        return TTSResult(audio_b64=audio_b64, mime_type="audio/wav", use_browser_tts=False)
 
-            return TTSResult(error=f"HF TTS HTTP {resp.status_code}: {resp.text[:200]}")
-
-        except Exception as e:
-            return TTSResult(error=f"HF TTS exception: {e}")
-
-    return TTSResult(error="HF TTS: model did not load in time")
+    except Exception as e:
+        print(f"[tts_service] NVIDIA Magpie exception: {e}")
+        return TTSResult(audio_b64=None, mime_type="audio/wav", use_browser_tts=True, error=str(e))
 
 
-# ─── Public API ────────────────────────────────────────────────────────────────────────
+# ── Public entry point ────────────────────────────────────────────────────────
 
-def synthesize_speech(text: str, language: str = "en") -> TTSResult:
-    """Main TTS entry point — tries providers in priority order.
+async def synthesize_speech(text: str, language: str = "en") -> TTSResult:
+    """Try TTS providers in order, return first success.
 
-    Priority:
-      1. NVIDIA magpie-tts  (best quality, needs key + reference clip)
-      2. HF parler-tts-mini (good quality, needs HF token only)
-      3. Browser fallback   (always works, zero cost)
+    Chain: NVIDIA Magpie → HF Parler-TTS → browser fallback
     """
-    # Sanitise input
-    text = (text or "").strip()
-    if not text:
-        return TTSResult(use_browser_tts=True, provider="none", error="Empty text")
-
-    # 1. Try NVIDIA
-    nvidia_key = getattr(settings, "NVIDIA_API_KEY", "") or os.environ.get("NVIDIA_API_KEY", "")
-    if nvidia_key:
-        result = _nvidia_tts(text, language)
-        if result.audio_b64:
+    # 1. NVIDIA (only if key present)
+    if settings.NVIDIA_API_KEY:
+        result = await _tts_nvidia(text, language)
+        if not result.use_browser_tts:
             return result
-        print(f"[tts_service] NVIDIA failed: {result.error} — falling back to HF")
 
-    # 2. Try HuggingFace parler-tts
-    hf_token = getattr(settings, "HF_API_TOKEN", "") or os.environ.get("HF_API_TOKEN", "")
-    if hf_token:
-        result = _hf_parler_tts(text, language)
-        if result.audio_b64:
+    # 2. HuggingFace Parler-TTS
+    if settings.HF_API_TOKEN:
+        result = await _tts_parler(text, language)
+        if not result.use_browser_tts:
             return result
-        print(f"[tts_service] HF Parler-TTS failed: {result.error} — falling back to browser")
 
     # 3. Browser fallback
-    return TTSResult(
-        use_browser_tts=True,
-        provider="browser",
-        error="All TTS providers unavailable — using browser SpeechSynthesis",
-    )
+    return TTSResult(audio_b64=None, mime_type="audio/wav", use_browser_tts=True)
