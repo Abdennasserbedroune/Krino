@@ -1,10 +1,11 @@
-"""Versioned v1 API routes for Krino backend."""
+"""Versioned v1 API routes for Pathwise backend."""
 from fastapi import APIRouter
 
 from app.api.v1 import auth, cv, chat, recruiter, tracker, cv_builder, pipeline, interview_prep
 
 router = APIRouter()
 
+# Mount sub-routers
 router.include_router(auth.router)
 router.include_router(cv.router)
 router.include_router(chat.router)
