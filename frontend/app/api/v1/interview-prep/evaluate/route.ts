@@ -14,6 +14,17 @@ interface EvaluateBody {
   question_type: string;
 }
 
+// Words/patterns that indicate a non-serious answer
+const JUNK_PATTERNS = [
+  /^(lol+|lmao|haha|hehe|idk|ok|okay|yes|no|nope|yep|sure|hmm+|ugh+|meh|wtf|omg|😂|🤣|\.+|\?+|!+|test|hi|hello|bye|whatever|idc|asdf|qwerty|1234|fuck|shit|dunno|nothing|none|n\/a)$/i,
+  /^(.{1,4})$/, // answers under 5 chars
+];
+
+function isJunkAnswer(answer: string): boolean {
+  const trimmed = answer.trim().toLowerCase();
+  return JUNK_PATTERNS.some(p => p.test(trimmed));
+}
+
 async function callOpenRouter(
   apiKey: string,
   model: string,
@@ -31,8 +42,11 @@ async function callOpenRouter(
     body: JSON.stringify({
       model,
       messages:    [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
-      temperature: 0.15,
-      max_tokens:  800,
+      temperature: 0.1,
+      max_tokens:  700,
+      // Disable extended thinking / reasoning mode
+      reasoning: { effort: "none" },
+      extra_body: { thinking: { type: "disabled" } },
     }),
   });
   const text = await res.text();
@@ -51,67 +65,76 @@ export async function POST(req: NextRequest) {
     if (!question?.trim() || !answer?.trim()) {
       return NextResponse.json({ detail: "question and answer are required." }, { status: 400 });
     }
-    if (answer.trim().length < 10) {
-      return NextResponse.json({ detail: "Answer is too short to evaluate." }, { status: 400 });
+    if (answer.trim().length < 15) {
+      return NextResponse.json({ detail: "Your answer is too short to evaluate. Please write a proper response." }, { status: 400 });
+    }
+
+    // Hard gate: reject junk/joke answers server-side before hitting the model
+    if (isJunkAnswer(answer)) {
+      return NextResponse.json({
+        evaluation: {
+          score: 0,
+          verdict: "Insufficient",
+          what_was_good: "No substantive answer was provided.",
+          what_was_missing: "A real, thoughtful response that addresses the question directly. Joke or filler answers score 0 and waste your prep time.",
+          ideal_answer_summary: "Please write a genuine answer to get useful feedback. Even a rough attempt is better than nothing — the AI will guide you from there.",
+        },
+      }, { status: 200 });
     }
 
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) return NextResponse.json({ detail: "OpenRouter API key not configured." }, { status: 500 });
 
-    const systemPrompt =
-      "You are a senior technical interviewer evaluating a candidate's answer. Be direct, specific, and honest — like a mentor who wants the candidate to improve.\n\n" +
-      "RULES:\n" +
-      "1. Base your evaluation only on what the candidate wrote — don't assume knowledge they didn't show.\n" +
-      "2. For technical/coding questions: check correctness, depth, edge cases, and efficiency awareness.\n" +
-      "3. For behavioral questions: check STAR structure, specificity, and real impact demonstrated.\n" +
-      "4. For system design: check scope, trade-offs, scalability awareness, and component reasoning.\n" +
-      "5. Score from 0-100. Be calibrated: 90+ means genuinely impressive, 50-70 means passable but weak, <40 means likely to fail.\n" +
-      "6. Return ONLY a valid JSON object — no markdown, no text outside the JSON.";
+    const systemPrompt = [
+      "You are a senior technical interviewer evaluating a candidate's answer. Be direct, honest, and specific — like a mentor who wants the candidate to genuinely improve.",
+      "",
+      "STRICT EVALUATION RULES:",
+      "1. Evaluate ONLY what the candidate actually wrote. Never reward what they did NOT say.",
+      "2. If the answer is gibberish, irrelevant, a joke, or clearly not serious: score it 0, verdict = Insufficient. Do not pretend it has merit.",
+      "3. If the answer is vague or off-topic but shows some effort: score 10-30, explain what was missing.",
+      "4. Technical/Coding: check correctness, depth, edge cases, efficiency awareness.",
+      "5. Behavioral: check STAR structure, specificity, real measurable impact.",
+      "6. System Design: check scope, trade-offs, scalability reasoning, component breakdown.",
+      "7. Score calibration: 90-100 = genuinely impressive and complete; 70-89 = good with minor gaps; 50-69 = passable but weak; 30-49 = incomplete; <30 = insufficient.",
+      "8. Output ONLY a raw JSON object. No markdown, no text outside the JSON.",
+    ].join("\n");
 
-    const userPrompt =
-      `Role being interviewed for: ${(job_title || "Software Engineer").trim()}\n` +
-      `Question type: ${(question_type || "Technical").trim()}\n\n` +
-      `QUESTION:\n${question.trim()}\n\n` +
-      `CANDIDATE'S ANSWER:\n${answer.trim()}\n\n` +
-      "Return a JSON object with exactly these keys:\n" +
-      "{\n" +
-      '  "score": integer 0-100,\n' +
-      '  "verdict": "one of: Excellent | Good | Needs Work | Insufficient",\n' +
-      '  "what_was_good": "1-2 sentences on what they got right — cite their words",\n' +
-      '  "what_was_missing": "1-2 sentences on what a strong answer would include that was absent or weak",\n' +
-      '  "ideal_answer_summary": "2-3 sentences: what the ideal answer looks like for this specific question"\n' +
-      "}";
+    const userPrompt = [
+      `Role: ${(job_title || "Software Engineer").trim()}`,
+      `Question type: ${(question_type || "Technical").trim()}`,
+      "",
+      `QUESTION: ${question.trim()}`,
+      "",
+      `CANDIDATE ANSWER: ${answer.trim()}`,
+      "",
+      'Return JSON: { "score": 0-100, "verdict": "Excellent|Good|Needs Work|Insufficient", "what_was_good": "specific praise or N/A if none", "what_was_missing": "specific gaps", "ideal_answer_summary": "2-3 sentences on the ideal answer" }',
+    ].join("\n");
 
-    // ── Try primary, fall back if it fails ─────────────────────────────────
     let result = await callOpenRouter(apiKey, PRIMARY_MODEL, systemPrompt, userPrompt);
 
     if (!result.ok) {
-      console.error(`[interview-prep/evaluate] Primary model (${PRIMARY_MODEL}) failed [${result.status}]:`, result.text);
-      console.log(`[interview-prep/evaluate] Trying fallback: ${FALLBACK_MODEL}`);
+      console.error(`[evaluate] Primary failed [${result.status}]:`, result.text.slice(0, 300));
       result = await callOpenRouter(apiKey, FALLBACK_MODEL, systemPrompt, userPrompt);
     }
 
     if (!result.ok) {
-      console.error(`[interview-prep/evaluate] Fallback also failed [${result.status}]:`, result.text);
-      return NextResponse.json(
-        { detail: `AI evaluation error (${result.status}): ${result.text.slice(0, 200)}` },
-        { status: 502 },
-      );
+      console.error(`[evaluate] Fallback also failed [${result.status}]:`, result.text.slice(0, 300));
+      return NextResponse.json({ detail: `AI error (${result.status}). Please try again.` }, { status: 502 });
     }
 
     let parsed: { choices?: { message?: { content?: string } }[] };
-    try { parsed = JSON.parse(result.text); } catch {
-      return NextResponse.json({ detail: "Unexpected response from AI. Please try again." }, { status: 500 });
+    try { parsed = JSON.parse(result.text); }
+    catch {
+      return NextResponse.json({ detail: "Unexpected AI response. Please try again." }, { status: 500 });
     }
 
     const raw     = parsed?.choices?.[0]?.message?.content ?? "";
     const cleaned = raw.replace(/^```[\w]*\n?/m, "").replace(/```$/m, "").trim();
 
     let evaluation: unknown;
-    try {
-      evaluation = JSON.parse(cleaned);
-    } catch {
-      console.error("[interview-prep/evaluate] JSON parse failed. Raw:", raw.slice(0, 300));
+    try { evaluation = JSON.parse(cleaned); }
+    catch {
+      console.error("[evaluate] JSON parse failed. Raw:", raw.slice(0, 300));
       return NextResponse.json({ detail: "Failed to parse AI evaluation. Please try again." }, { status: 500 });
     }
 
@@ -119,7 +142,7 @@ export async function POST(req: NextRequest) {
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[interview-prep/evaluate] unhandled:", msg);
+    console.error("[evaluate] unhandled:", msg);
     return NextResponse.json({ detail: msg || "Internal Server Error" }, { status: 500 });
   }
 }
