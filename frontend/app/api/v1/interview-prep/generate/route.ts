@@ -4,7 +4,7 @@ import Groq from "groq-sdk";
 
 export const maxDuration = 60;
 
-const MODEL = "qwen-qwen3-32b";
+const MODEL = "qwen/qwen3-32b";
 
 interface GenerateBody {
   job_title: string;
@@ -80,23 +80,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ detail: "Model returned empty response. Please try again." }, { status: 500 });
     }
 
-    // Groq json_object mode may return { questions: [...] } or a raw array
     let questions: unknown[];
     try {
       const parsed = JSON.parse(raw);
-      // Handle both { questions: [...] } and direct array
       if (Array.isArray(parsed)) {
         questions = parsed;
       } else if (Array.isArray(parsed?.questions)) {
         questions = parsed.questions;
       } else {
-        // Try to find any array value in the top-level object
         const arr = Object.values(parsed as Record<string, unknown>).find(v => Array.isArray(v));
-        if (arr) {
-          questions = arr as unknown[];
-        } else {
-          throw new Error("No array found in response");
-        }
+        if (arr) { questions = arr as unknown[]; }
+        else { throw new Error("No array found in response"); }
       }
     } catch {
       console.error("[generate] JSON parse failed. Raw:", raw.slice(0, 400));

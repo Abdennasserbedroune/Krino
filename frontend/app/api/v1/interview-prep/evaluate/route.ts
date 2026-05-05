@@ -4,7 +4,7 @@ import Groq from "groq-sdk";
 
 export const maxDuration = 30;
 
-const MODEL = "qwen-qwen3-32b";
+const MODEL = "qwen/qwen3-32b";
 
 interface EvaluateBody {
   question:      string;
@@ -41,7 +41,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ detail: "Your answer is too short. Please write a proper response." }, { status: 400 });
     }
 
-    // Hard gate — instant 0 without calling the model
     if (isJunkAnswer(answer)) {
       return NextResponse.json({
         evaluation: {
@@ -97,9 +96,8 @@ export async function POST(req: NextRequest) {
     if (!raw) return NextResponse.json({ detail: "Model returned empty response. Please try again." }, { status: 500 });
 
     let evaluation: unknown;
-    try {
-      evaluation = JSON.parse(raw);
-    } catch {
+    try { evaluation = JSON.parse(raw); }
+    catch {
       console.error("[evaluate] JSON parse failed. Raw:", raw.slice(0, 300));
       return NextResponse.json({ detail: "Failed to parse AI evaluation. Please try again." }, { status: 500 });
     }
