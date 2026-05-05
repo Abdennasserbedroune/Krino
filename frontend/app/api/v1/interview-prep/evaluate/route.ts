@@ -3,9 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 60;
 
-const PRIMARY_MODEL  = "nvidia/nemotron-3-super-120b-a12b:free";
-const FALLBACK_MODEL = "z-ai/glm-4.5-air:free";
+const PRIMARY_MODEL  = "z-ai/glm-4.5-air:free";
+const FALLBACK_MODEL = "nvidia/nemotron-3-super-120b-a12b:free";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+const TIMEOUT_MS     = 20_000; // 20s per attempt for evaluate (smaller output)
 
 interface EvaluateBody {
   question:      string;
@@ -14,15 +15,17 @@ interface EvaluateBody {
   question_type: string;
 }
 
-// Words/patterns that indicate a non-serious answer
 const JUNK_PATTERNS = [
-  /^(lol+|lmao|haha|hehe|idk|ok|okay|yes|no|nope|yep|sure|hmm+|ugh+|meh|wtf|omg|😂|🤣|\.+|\?+|!+|test|hi|hello|bye|whatever|idc|asdf|qwerty|1234|fuck|shit|dunno|nothing|none|n\/a)$/i,
-  /^(.{1,4})$/, // answers under 5 chars
+  /^(lol+|lmao|haha|hehe|idk|ok|okay|yes|no|nope|yep|sure|hmm+|ugh+|meh|wtf|omg|test|hi|hello|bye|whatever|idc|asdf|qwerty|1234|dunno|nothing|none|n\/a)$/i,
+  /^[^a-zA-Z0-9]{1,10}$/, // only symbols/emojis
+  /^.{1,9}$/,              // under 10 chars
 ];
 
 function isJunkAnswer(answer: string): boolean {
-  const trimmed = answer.trim().toLowerCase();
-  return JUNK_PATTERNS.some(p => p.test(trimmed));
+  const t = answer.trim().toLowerCase();
+  // Also catch repeated words like "lol lol lol" or "haha haha"
+  const deduped = [...new Set(t.split(/\s+/))].join(" ");
+  return JUNK_PATTERNS.some(p => p.test(t)) || JUNK_PATTERNS.some(p => p.test(deduped));
 }
 
 async function callOpenRouter(
@@ -31,26 +34,35 @@ async function callOpenRouter(
   systemPrompt: string,
   userPrompt: string,
 ): Promise<{ ok: boolean; text: string; status: number }> {
-  const res = await fetch(OPENROUTER_URL, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type":  "application/json",
-      "HTTP-Referer":  "https://pathwise-liart.vercel.app",
-      "X-Title":       "Krino Interview Prep",
-    },
-    body: JSON.stringify({
-      model,
-      messages:    [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
-      temperature: 0.1,
-      max_tokens:  700,
-      // Disable extended thinking / reasoning mode
-      reasoning: { effort: "none" },
-      extra_body: { thinking: { type: "disabled" } },
-    }),
-  });
-  const text = await res.text();
-  return { ok: res.ok, text, status: res.status };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+  try {
+    const res = await fetch(OPENROUTER_URL, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type":  "application/json",
+        "HTTP-Referer":  "https://pathwise-liart.vercel.app",
+        "X-Title":       "Krino Interview Prep",
+      },
+      body: JSON.stringify({
+        model,
+        messages:    [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+        temperature: 0.1,
+        max_tokens:  600,
+      }),
+    });
+    const text = await res.text();
+    return { ok: res.ok, text, status: res.status };
+  } catch (err) {
+    const isTimeout = (err as Error)?.name === "AbortError";
+    console.error(`[evaluate] ${model} ${isTimeout ? "TIMED OUT" : "fetch error"}:`, (err as Error).message);
+    return { ok: false, text: isTimeout ? "timeout" : String(err), status: 0 };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -66,18 +78,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ detail: "question and answer are required." }, { status: 400 });
     }
     if (answer.trim().length < 15) {
-      return NextResponse.json({ detail: "Your answer is too short to evaluate. Please write a proper response." }, { status: 400 });
+      return NextResponse.json({ detail: "Your answer is too short. Please write a proper response." }, { status: 400 });
     }
 
-    // Hard gate: reject junk/joke answers server-side before hitting the model
+    // Hard gate — instant 0 without calling the model
     if (isJunkAnswer(answer)) {
       return NextResponse.json({
         evaluation: {
           score: 0,
           verdict: "Insufficient",
-          what_was_good: "No substantive answer was provided.",
-          what_was_missing: "A real, thoughtful response that addresses the question directly. Joke or filler answers score 0 and waste your prep time.",
-          ideal_answer_summary: "Please write a genuine answer to get useful feedback. Even a rough attempt is better than nothing — the AI will guide you from there.",
+          what_was_good: "N/A — no substantive answer was provided.",
+          what_was_missing: "A real, thoughtful response that addresses the question. Joke or filler answers score 0.",
+          ideal_answer_summary: "Write a genuine attempt — even rough — and the AI will give you useful, specific feedback to improve.",
         },
       }, { status: 200 });
     }
@@ -86,16 +98,16 @@ export async function POST(req: NextRequest) {
     if (!apiKey) return NextResponse.json({ detail: "OpenRouter API key not configured." }, { status: 500 });
 
     const systemPrompt = [
-      "You are a senior technical interviewer evaluating a candidate's answer. Be direct, honest, and specific — like a mentor who wants the candidate to genuinely improve.",
+      "You are a senior technical interviewer evaluating a candidate answer. Be direct, honest, and specific.",
       "",
-      "STRICT EVALUATION RULES:",
-      "1. Evaluate ONLY what the candidate actually wrote. Never reward what they did NOT say.",
-      "2. If the answer is gibberish, irrelevant, a joke, or clearly not serious: score it 0, verdict = Insufficient. Do not pretend it has merit.",
-      "3. If the answer is vague or off-topic but shows some effort: score 10-30, explain what was missing.",
-      "4. Technical/Coding: check correctness, depth, edge cases, efficiency awareness.",
-      "5. Behavioral: check STAR structure, specificity, real measurable impact.",
-      "6. System Design: check scope, trade-offs, scalability reasoning, component breakdown.",
-      "7. Score calibration: 90-100 = genuinely impressive and complete; 70-89 = good with minor gaps; 50-69 = passable but weak; 30-49 = incomplete; <30 = insufficient.",
+      "EVALUATION RULES:",
+      "1. Evaluate ONLY what the candidate actually wrote. Never credit knowledge they did not demonstrate.",
+      "2. Gibberish, jokes, irrelevant text, or non-answers = score 0, verdict Insufficient. No exceptions.",
+      "3. Vague but genuine effort = score 10-35, explain what was missing.",
+      "4. Technical/Coding: check correctness, depth, edge cases, efficiency.",
+      "5. Behavioral: check STAR structure, specificity, measurable impact.",
+      "6. System Design: check scope, trade-offs, scalability, component reasoning.",
+      "7. Score guide: 90-100 = impressive & complete; 70-89 = good minor gaps; 50-69 = passable but weak; 30-49 = incomplete; <30 = insufficient.",
       "8. Output ONLY a raw JSON object. No markdown, no text outside the JSON.",
     ].join("\n");
 
@@ -107,26 +119,24 @@ export async function POST(req: NextRequest) {
       "",
       `CANDIDATE ANSWER: ${answer.trim()}`,
       "",
-      'Return JSON: { "score": 0-100, "verdict": "Excellent|Good|Needs Work|Insufficient", "what_was_good": "specific praise or N/A if none", "what_was_missing": "specific gaps", "ideal_answer_summary": "2-3 sentences on the ideal answer" }',
+      'Return JSON: { "score": 0-100, "verdict": "Excellent|Good|Needs Work|Insufficient", "what_was_good": "specific or N/A", "what_was_missing": "specific gaps", "ideal_answer_summary": "2-3 sentences" }',
     ].join("\n");
 
+    console.log(`[evaluate] Trying primary: ${PRIMARY_MODEL}`);
     let result = await callOpenRouter(apiKey, PRIMARY_MODEL, systemPrompt, userPrompt);
 
     if (!result.ok) {
-      console.error(`[evaluate] Primary failed [${result.status}]:`, result.text.slice(0, 300));
+      console.log(`[evaluate] Primary failed (${result.status}), trying fallback: ${FALLBACK_MODEL}`);
       result = await callOpenRouter(apiKey, FALLBACK_MODEL, systemPrompt, userPrompt);
     }
 
     if (!result.ok) {
-      console.error(`[evaluate] Fallback also failed [${result.status}]:`, result.text.slice(0, 300));
-      return NextResponse.json({ detail: `AI error (${result.status}). Please try again.` }, { status: 502 });
+      return NextResponse.json({ detail: "AI evaluation unavailable. Please try again." }, { status: 502 });
     }
 
     let parsed: { choices?: { message?: { content?: string } }[] };
     try { parsed = JSON.parse(result.text); }
-    catch {
-      return NextResponse.json({ detail: "Unexpected AI response. Please try again." }, { status: 500 });
-    }
+    catch { return NextResponse.json({ detail: "Unexpected AI response. Please try again." }, { status: 500 }); }
 
     const raw     = parsed?.choices?.[0]?.message?.content ?? "";
     const cleaned = raw.replace(/^```[\w]*\n?/m, "").replace(/```$/m, "").trim();
