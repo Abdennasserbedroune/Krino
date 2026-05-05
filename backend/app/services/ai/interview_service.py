@@ -1,223 +1,333 @@
-"""Groq-powered interview question generation and answer evaluation."""
+"""Interview preparation AI service — question generation and answer evaluation.
+
+All public functions accept a `language` parameter ('en' | 'fr').
+When 'fr', every AI response including JSON values is produced in French.
+"""
+from __future__ import annotations
+
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+
 from app.services.ai.groq_client import get_groq_client
 from app.core.config import settings
+from app.services.ai.language_utils import get_language_directive
 
 
-# ── Question generation ───────────────────────────────────────────────────────
+# ─── Question types per level ─────────────────────────────────────────────────
+_LEVEL_TYPE_MAP: Dict[str, List[str]] = {
+    "Junior":     ["Technical", "Behavioral", "Coding", "Behavioral", "Technical",
+                   "Behavioral", "Technical", "Coding", "Behavioral", "Technical"],
+    "Mid":        ["Technical", "Coding", "System Design", "Behavioral", "Technical",
+                   "Coding", "Behavioral", "Technical", "Case Study", "Behavioral"],
+    "Senior":     ["System Design", "Coding", "Technical", "Behavioral", "System Design",
+                   "Coding", "Case Study", "Technical", "Behavioral", "System Design"],
+    "Lead / Staff": ["System Design", "Case Study", "Behavioral", "System Design", "Technical",
+                     "Case Study", "Behavioral", "System Design", "Coding", "Case Study"],
+}
+
+_DIFFICULTY_MAP: Dict[str, List[str]] = {
+    "Junior":     ["Easy",   "Easy",   "Easy",   "Medium", "Easy",
+                   "Medium", "Medium", "Medium", "Easy",   "Medium"],
+    "Mid":        ["Medium", "Medium", "Medium", "Easy",   "Hard",
+                   "Medium", "Medium", "Hard",   "Medium", "Easy"],
+    "Senior":     ["Hard",   "Hard",   "Hard",   "Medium", "Hard",
+                   "Hard",   "Hard",   "Medium", "Hard",   "Hard"],
+    "Lead / Staff": ["Hard", "Hard",   "Hard",   "Hard",   "Hard",
+                     "Hard",   "Hard",   "Hard",   "Hard",   "Hard"],
+}
+
+_FR_DIFFICULTY: Dict[str, str] = {
+    "Easy": "Facile", "Medium": "Moyen", "Hard": "Difficile",
+}
+_FR_TYPE: Dict[str, str] = {
+    "Technical":     "Technique",
+    "Coding":        "Codage",
+    "System Design": "Conception Système",
+    "Behavioral":    "Comportemental",
+    "Case Study":    "Étude de cas",
+}
+
+
+def _localise_questions(questions: List[Dict], language: str) -> List[Dict]:
+    """Translate difficulty/type labels to French when needed."""
+    if language != "fr":
+        return questions
+    for q in questions:
+        q["difficulty"] = _FR_DIFFICULTY.get(q.get("difficulty", ""), q.get("difficulty", ""))
+        q["type"]       = _FR_TYPE.get(q.get("type", ""), q.get("type", ""))
+    return questions
+
+
+# ─── Question generation ──────────────────────────────────────────────────────
 
 def generate_interview_questions(
-    job_title: str,
-    job_field: str,
-    experience_level: str = "Mid",
-    company_name: str = "",
-    tech_stack: str = "",
-    extra_context: str = "",
-    language: str = "en",
+    job_title:        str,
+    job_field:        str,
+    experience_level: str  = "Mid",
+    company_name:     str  = "",
+    tech_stack:       str  = "",
+    extra_context:    str  = "",
+    language:         str  = "en",
 ) -> List[Dict[str, Any]]:
-    """Generate 10 targeted interview questions via Groq.
+    """Generate 10 interview questions tailored to the role and level.
 
-    Returns a list of dicts with keys:
-        id, question, type, difficulty, hint
+    Returns a list of dicts: { id, question, type, difficulty, hint }
     """
-    client = get_groq_client()
+    client        = get_groq_client()
+    lang_dir      = get_language_directive(language)
+    level         = experience_level if experience_level in _LEVEL_TYPE_MAP else "Mid"
+    types         = _LEVEL_TYPE_MAP[level]
+    difficulties  = _DIFFICULTY_MAP[level]
 
     company_line  = f"Company: {company_name}\n" if company_name else ""
-    stack_line    = f"Tech stack / tools: {tech_stack}\n" if tech_stack else ""
-    context_line  = f"Extra context: {extra_context}\n" if extra_context else ""
-    lang_note     = "Respond entirely in French. All JSON string values must be in French.\n" if language == "fr" else ""
+    stack_line    = f"Tech stack: {tech_stack}\n"  if tech_stack   else ""
+    extra_line    = f"Extra context: {extra_context}\n" if extra_context else ""
+    fr_note       = "\nAll question text and hint values MUST be in French.\n" if language == "fr" else ""
 
-    # Difficulty distribution by level
-    diff_map = {
-        "Junior":     "5 Easy, 4 Medium, 1 Hard",
-        "Mid":        "2 Easy, 5 Medium, 3 Hard",
-        "Senior":     "1 Easy, 3 Medium, 6 Hard",
-        "Lead / Staff": "0 Easy, 2 Medium, 8 Hard",
-    }
-    diff_dist = diff_map.get(experience_level, "2 Easy, 5 Medium, 3 Hard")
+    # Build the question spec list so the model knows exactly what to produce
+    spec_lines = []
+    for i, (t, d) in enumerate(zip(types, difficulties), 1):
+        spec_lines.append(f"  Q{i}: type={t}, difficulty={d}")
+    spec_block = "\n".join(spec_lines)
 
     system_prompt = (
-        "You are a senior technical interviewer with 15 years of experience across multiple industries.\n"
-        "Your questions must be specific, realistic, and match the seniority level exactly.\n"
+        "You are a senior technical interviewer with 15+ years of experience hiring "
+        "across all engineering and business domains.\n"
+        "Generate exactly 10 interview questions that are realistic, specific, and "
+        "appropriate for the role and experience level.\n"
         "Rules:\n"
-        "- Mix question types: Coding, Technical, System Design, Behavioral, Case Study\n"
-        "- Coding questions for technical roles MUST include a concrete problem or bug to solve\n"
-        "- System Design questions must be scoped to the company size and tech stack\n"
-        "- Behavioral questions must follow STAR method framing\n"
-        "- Each hint must be a genuine, non-obvious interviewer tip (not a rephrasing of the question)\n"
-        "- Return ONLY valid JSON — no markdown, no explanation outside JSON"
+        "- Coding questions must include actual code snippets, bugs to find, or algorithms to design\n"
+        "- System Design questions must name specific systems (e.g. design Twitter's feed, not 'a social app')\n"
+        "- Behavioral questions must follow STAR-method framing\n"
+        "- Each hint is a single sentence guiding the approach, NOT the answer\n"
+        "- Never produce generic filler questions"
+        + lang_dir
     )
 
     user_prompt = (
-        f"{lang_note}"
         f"Role: {job_title}\n"
         f"Field: {job_field}\n"
-        f"Level: {experience_level}\n"
-        f"{company_line}{stack_line}{context_line}"
-        f"Difficulty distribution: {diff_dist}\n\n"
-        "Generate exactly 10 interview questions. Return a JSON object with a single key \'questions\' "
-        "containing an array of 10 objects. Each object must have these exact keys:\n"
-        "  id: integer 1-10\n"
-        "  question: string — the full question text\n"
-        "  type: one of: Coding, Technical, System Design, Behavioral, Case Study\n"
-        "  difficulty: one of: Easy, Medium, Hard\n"
-        "  hint: string — a concrete interviewer tip for answering this specific question\n"
+        f"Level: {level}\n"
+        f"{company_line}{stack_line}{extra_line}"
+        f"{fr_note}"
+        f"\nProduce exactly these 10 questions in this order:\n{spec_block}\n\n"
+        "Return a JSON object with key 'questions' containing an array of 10 objects.\n"
+        "Each object: { \"id\": number, \"question\": string, \"type\": string, "
+        "\"difficulty\": string, \"hint\": string }\n"
+        "Keep the type and difficulty values exactly as specified in the spec above."
     )
 
     try:
         response = client.chat.completions.create(
-            model=settings.GROQ_MODEL,
-            messages=[
+            model    = settings.GROQ_MODEL,
+            messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": user_prompt},
             ],
-            temperature=0.7,
-            response_format={"type": "json_object"},
-            max_tokens=3000,
+            temperature     = 0.7,
+            response_format = {"type": "json_object"},
+            max_tokens      = 4000,
         )
-        content = response.choices[0].message.content.strip()
-        data = json.loads(content)
+        data      = json.loads(response.choices[0].message.content.strip())
         questions = data.get("questions", [])
-        # Ensure ids are sequential ints
-        for i, q in enumerate(questions):
-            q["id"] = i + 1
-        return questions
+        # Ensure IDs are sequential ints
+        for i, q in enumerate(questions, 1):
+            q["id"] = i
+        return _localise_questions(questions, language)
     except Exception as e:
-        print(f"[interview_service] generate_questions failed: {e}")
-        return []
+        print(f"[interview_service] generate_interview_questions failed: {e}")
+        raise
 
 
-# ── Answer evaluation ─────────────────────────────────────────────────────────
+# ─── Answer evaluation ────────────────────────────────────────────────────────
 
 def evaluate_interview_answer(
-    question: str,
-    answer: str,
-    job_title: str,
-    question_type: str = "Technical",
-    language: str = "en",
+    question:      str,
+    answer:        str,
+    job_title:     str  = "Software Engineer",
+    question_type: str  = "Technical",
+    language:      str  = "en",
 ) -> Dict[str, Any]:
-    """Evaluate a candidate answer and return structured feedback.
+    """Evaluate a candidate's answer to an interview question.
 
-    Returns a dict with keys:
-        score (0-100), verdict, what_was_good,
-        what_was_missing, ideal_answer_summary
+    Returns: { score: int 0-100, verdict: str, what_was_good: str,
+               what_was_missing: str, ideal_answer_summary: str }
     """
-    client = get_groq_client()
-
-    lang_note = "Respond entirely in French. All JSON string values must be in French.\n" if language == "fr" else ""
+    client   = get_groq_client()
+    lang_dir = get_language_directive(language)
+    fr_note  = "\nAll string values in the JSON MUST be in French.\n" if language == "fr" else ""
 
     system_prompt = (
-        "You are a brutally honest but constructive senior interviewer.\n"
-        "Evaluate the candidate's answer to the given interview question.\n"
-        "Rules:\n"
-        "- Score 0-100: 0-40 poor, 41-65 average, 66-80 good, 81-100 excellent\n"
-        "- verdict must be one short punchy sentence (max 10 words)\n"
-        "- what_was_good: specific strengths, reference exact phrases from the answer\n"
-        "- what_was_missing: concrete gaps — name the missing concept/framework/detail\n"
-        "- ideal_answer_summary: what a perfect answer would have included (2-3 sentences)\n"
-        "- Return ONLY valid JSON"
+        "You are a strict but fair senior interviewer evaluating a candidate's answer.\n"
+        "Scoring guide:\n"
+        "  90-100 : Exceptional — complete, specific, well-structured, shows mastery\n"
+        "  70-89  : Strong — covers key points, minor gaps\n"
+        "  50-69  : Adequate — hits basics but lacks depth or specifics\n"
+        "  30-49  : Weak — misses important aspects or too vague\n"
+        "  0-29   : Poor — incorrect, off-topic, or no real answer\n"
+        "Be honest. Do not inflate scores. Reference specifics from the answer."
+        + lang_dir
     )
 
     user_prompt = (
-        f"{lang_note}"
-        f"Role being interviewed for: {job_title}\n"
-        f"Question type: {question_type}\n\n"
-        f"Question: {question}\n\n"
-        f"Candidate answer: {answer}\n\n"
+        f"Job title: {job_title}\n"
+        f"Question type: {question_type}\n"
+        f"{fr_note}"
+        f"=== QUESTION ===\n{question}\n\n"
+        f"=== CANDIDATE ANSWER ===\n{answer}\n\n"
+        "Evaluate and return a JSON object with exactly these keys:\n"
+        "- score: integer 0-100\n"
+        "- verdict: short label (e.g. 'Strong', 'Needs work', 'Excellent', 'Weak')\n"
+        "- what_was_good: 1-2 sentences on what the candidate did well\n"
+        "- what_was_missing: 1-2 sentences on what was lacking or incorrect\n"
+        "- ideal_answer_summary: 2-3 sentences describing what a great answer would include"
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model    = settings.GROQ_MODEL,
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user",   "content": user_prompt},
+            ],
+            temperature     = 0.2,
+            response_format = {"type": "json_object"},
+            max_tokens      = 800,
+        )
+        return json.loads(response.choices[0].message.content.strip())
+    except Exception as e:
+        print(f"[interview_service] evaluate_interview_answer failed: {e}")
+        raise
+
+
+# ─── Live interview — first question ─────────────────────────────────────────
+
+def generate_live_opening(
+    job_title:        str,
+    job_field:        str,
+    experience_level: str = "Mid",
+    company_name:     str = "",
+    tech_stack:       str = "",
+    language:         str = "en",
+) -> Dict[str, Any]:
+    """Generate the AI interviewer's opening message and first question.
+
+    Returns: { greeting: str, first_question: str, question_type: str, hint: str }
+    """
+    client   = get_groq_client()
+    lang_dir = get_language_directive(language)
+    company_line = f" at {company_name}" if company_name else ""
+    fr_note  = "\nAll string values MUST be in French.\n" if language == "fr" else ""
+
+    system_prompt = (
+        "You are a warm but professional interviewer conducting a real job interview.\n"
+        "Start with a brief, natural greeting (1 sentence), then ask the first interview question.\n"
+        "The question must be appropriate for the role and level."
+        + lang_dir
+    )
+
+    user_prompt = (
+        f"Role: {job_title}{company_line}\n"
+        f"Field: {job_field}\n"
+        f"Level: {experience_level}\n"
+        f"{f'Tech stack: {tech_stack}' if tech_stack else ''}"
+        f"\n{fr_note}"
         "Return a JSON object with exactly these keys:\n"
-        "  score: integer 0-100\n"
-        "  verdict: string\n"
-        "  what_was_good: string\n"
-        "  what_was_missing: string\n"
-        "  ideal_answer_summary: string\n"
+        "- greeting: the opening sentence (e.g. 'Thanks for joining today — let's get started.')\n"
+        "- first_question: the first interview question\n"
+        "- question_type: one of Technical / Coding / System Design / Behavioral / Case Study\n"
+        "- hint: one-sentence hint for the interviewee (shown optionally)"
     )
 
     try:
         response = client.chat.completions.create(
-            model=settings.GROQ_MODEL,
-            messages=[
+            model    = settings.GROQ_MODEL,
+            messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": user_prompt},
             ],
-            temperature=0.3,
-            response_format={"type": "json_object"},
-            max_tokens=800,
+            temperature     = 0.7,
+            response_format = {"type": "json_object"},
+            max_tokens      = 600,
         )
-        content = response.choices[0].message.content.strip()
-        return json.loads(content)
+        return json.loads(response.choices[0].message.content.strip())
     except Exception as e:
-        print(f"[interview_service] evaluate_answer failed: {e}")
-        return {
-            "score": 0,
-            "verdict": "Evaluation failed — please retry.",
-            "what_was_good": "",
-            "what_was_missing": "",
-            "ideal_answer_summary": str(e),
-        }
+        print(f"[interview_service] generate_live_opening failed: {e}")
+        raise
 
 
-# ── Live interview — follow-up question generation ────────────────────────────
+# ─── Live interview — follow-up question after answer ────────────────────────
 
-def generate_followup_question(
-    job_title: str,
-    job_field: str,
-    experience_level: str,
-    conversation_history: List[Dict[str, str]],
-    last_evaluation: Dict[str, Any],
-    turn_number: int,
-    total_turns: int,
-    language: str = "en",
-) -> str:
-    """Generate a contextual follow-up question based on conversation history.
+def generate_live_followup(
+    job_title:     str,
+    history:       List[Dict[str, str]],  # [{role: "ai"|"user", content: str}]
+    last_answer:   str,
+    evaluation:    Dict[str, Any],
+    language:      str = "en",
+    turn_number:   int = 1,
+    total_turns:   int = 5,
+) -> Dict[str, Any]:
+    """Generate AI interviewer's follow-up after evaluating the candidate's answer.
 
-    Returns plain question text (not JSON).
+    Returns: { response: str, next_question: str, question_type: str,
+               hint: str, is_last: bool }
     """
-    client = get_groq_client()
+    client   = get_groq_client()
+    lang_dir = get_language_directive(language)
+    fr_note  = "\nAll string values MUST be in French.\n" if language == "fr" else ""
+    is_last  = turn_number >= total_turns
 
-    lang_note = "Respond entirely in French.\n" if language == "fr" else ""
+    history_text = "\n".join(
+        f"{'Interviewer' if h['role'] == 'ai' else 'Candidate'}: {h['content']}"
+        for h in history[-6:]  # last 3 turns max
+    )
 
-    history_text = ""
-    for turn in conversation_history[-6:]:  # last 3 exchanges max
-        role  = "Interviewer" if turn["role"] == "assistant" else "Candidate"
-        history_text += f"{role}: {turn['content']}\n\n"
-
-    gaps = last_evaluation.get("what_was_missing", "")
-    score = last_evaluation.get("score", 50)
+    closing_instruction = (
+        "This is the LAST question. After the response key write a natural closing "
+        "sentence in the 'next_question' field (e.g. 'That\'s all from my side — thank you for your time.') "
+        "and set is_last to true."
+        if is_last else
+        f"This is turn {turn_number} of {total_turns}. Ask the next logical interview question."
+    )
 
     system_prompt = (
-        "You are a senior interviewer conducting a live technical interview.\n"
-        "Based on the conversation so far, generate ONE natural follow-up question.\n"
-        "Rules:\n"
-        "- If the last answer had gaps, probe those gaps specifically\n"
-        "- If the last answer was strong (score > 75), escalate difficulty\n"
-        "- Keep the question conversational — this is a dialogue, not a quiz\n"
-        "- Never repeat a question already asked\n"
-        f"- This is turn {turn_number} of {total_turns} — "
-        + ("wrap up with a final reflective question" if turn_number >= total_turns - 1 else "keep building depth") +
-        "\n- Return ONLY the question text, no preamble, no numbering"
+        "You are a professional interviewer conducting a live interview.\n"
+        "After each candidate answer:\n"
+        "1. Give a brief, natural acknowledgement (1 sentence — NOT a full evaluation)\n"
+        "2. Ask the next interview question or close the interview\n"
+        "Keep the tone professional and conversational."
+        + lang_dir
     )
 
     user_prompt = (
-        f"{lang_note}"
-        f"Role: {job_title} | Field: {job_field} | Level: {experience_level}\n"
-        f"Previous answer score: {score}/100\n"
-        f"Gaps identified: {gaps}\n\n"
-        f"=== CONVERSATION SO FAR ===\n{history_text}\n"
-        "Generate the next interview question:"
+        f"Job title: {job_title}\n"
+        f"Candidate score on last answer: {evaluation.get('score', 'N/A')}/100\n"
+        f"{fr_note}"
+        f"=== CONVERSATION SO FAR ===\n{history_text}\n\n"
+        f"=== LAST ANSWER ===\n{last_answer}\n\n"
+        f"{closing_instruction}\n\n"
+        "Return JSON with exactly these keys:\n"
+        "- response: brief acknowledgement of the last answer (1 sentence, natural)\n"
+        "- next_question: next question OR closing sentence if is_last\n"
+        "- question_type: Technical / Coding / System Design / Behavioral / Case Study\n"
+        "- hint: one-sentence hint (empty string if is_last)\n"
+        "- is_last: boolean"
     )
 
     try:
         response = client.chat.completions.create(
-            model=settings.GROQ_MODEL,
-            messages=[
+            model    = settings.GROQ_MODEL,
+            messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": user_prompt},
             ],
-            temperature=0.8,
-            max_tokens=200,
+            temperature     = 0.7,
+            response_format = {"type": "json_object"},
+            max_tokens      = 600,
         )
-        return response.choices[0].message.content.strip()
+        data = json.loads(response.choices[0].message.content.strip())
+        data["is_last"] = bool(data.get("is_last", is_last))
+        return data
     except Exception as e:
-        print(f"[interview_service] generate_followup failed: {e}")
-        return "Can you elaborate on your previous answer?"
+        print(f"[interview_service] generate_live_followup failed: {e}")
+        raise
