@@ -3,12 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 60;
 
-// GLM-4.5-Air: fast, huge context, free — primary
-// Nvidia nemotron: powerful but slow on free tier — fallback
-const PRIMARY_MODEL  = "z-ai/glm-4.5-air:free";
-const FALLBACK_MODEL = "nvidia/nemotron-3-super-120b-a12b:free";
+const MODEL        = "openai/gpt-oss-120b:free";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const TIMEOUT_MS     = 25_000; // 25s per attempt → leaves room for fallback within 60s
+const TIMEOUT_MS   = 50_000;
 
 interface GenerateBody {
   job_title: string;
@@ -17,43 +14,6 @@ interface GenerateBody {
   experience_level: string;
   tech_stack?: string;
   extra_context?: string;
-}
-
-async function callOpenRouter(
-  apiKey: string,
-  model: string,
-  systemPrompt: string,
-  userPrompt: string,
-): Promise<{ ok: boolean; text: string; status: number }> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
-  try {
-    const res = await fetch(OPENROUTER_URL, {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type":  "application/json",
-        "HTTP-Referer":  "https://pathwise-liart.vercel.app",
-        "X-Title":       "Krino Interview Prep",
-      },
-      body: JSON.stringify({
-        model,
-        messages:    [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
-        temperature: 0.2,
-        max_tokens:  2000,
-      }),
-    });
-    const text = await res.text();
-    return { ok: res.ok, text, status: res.status };
-  } catch (err) {
-    const isTimeout = (err as Error)?.name === "AbortError";
-    console.error(`[generate] ${model} ${isTimeout ? "TIMED OUT" : "fetch error"}:`, (err as Error).message);
-    return { ok: false, text: isTimeout ? "timeout" : String(err), status: 0 };
-  } finally {
-    clearTimeout(timer);
-  }
 }
 
 export async function POST(req: NextRequest) {
@@ -73,23 +33,23 @@ export async function POST(req: NextRequest) {
     if (!apiKey) return NextResponse.json({ detail: "OpenRouter API key not configured." }, { status: 500 });
 
     const companyCtx = company_name?.trim()
-      ? `The company is "${company_name.trim()}". Use your knowledge of this company (tech stack, products, engineering culture, scale challenges) to write questions that feel specifically tailored to them.`
+      ? `The company is "${company_name.trim()}". Use your knowledge of this company (tech stack, products, culture, scale challenges) to write questions tailored to them.`
       : "No specific company provided. Focus on the role and field rigorously.";
 
-    const techCtx  = body.tech_stack?.trim()   ? `Candidate's tech stack: "${body.tech_stack.trim()}". Frame technical questions around these tools.` : "";
+    const techCtx  = body.tech_stack?.trim()   ? `Candidate's tech stack: "${body.tech_stack.trim()}". Frame questions around these tools.` : "";
     const extraCtx = body.extra_context?.trim() ? `Extra context: "${body.extra_context.trim()}"` : "";
 
     const systemPrompt = [
-      "You are a senior technical interviewer generating 10 interview questions. Be fast and direct.",
+      "You are a senior technical interviewer. Generate 10 interview questions immediately.",
       "",
-      "STRICT RULES:",
+      "RULES:",
       "1. NO generic questions (no 'Tell me about yourself', no strengths/weaknesses, no HR filler).",
-      "2. Every question must be scenario-based, technical, or case-study — rooted in real job challenges.",
-      "3. Engineering roles: include coding/algorithm, system design, debugging, architecture trade-offs.",
-      "4. Non-engineering roles: include domain KPIs, case studies, process design, metrics-driven decisions.",
-      `5. Experience calibration: Junior = fundamentals; Mid = trade-offs + ownership; Senior = architecture + leadership.`,
+      "2. Every question must be scenario-based, technical, or case-study rooted in real job challenges.",
+      "3. Engineering: include coding/algorithm, system design, debugging, architecture trade-offs.",
+      "4. Non-engineering: include KPIs, case studies, process design, metrics-driven decisions.",
+      "5. Calibrate to level: Junior = fundamentals; Mid = trade-offs + ownership; Senior = architecture + leadership.",
       `6. ${companyCtx}`,
-      "7. Output ONLY a raw JSON array of exactly 10 objects. Zero markdown, zero text outside the JSON.",
+      "7. Output ONLY a raw JSON array of exactly 10 objects. No markdown, no text outside the JSON.",
       "",
       "Schema: { \"id\": 1-10, \"question\": string, \"type\": \"Technical|System Design|Behavioral|Case Study|Coding\", \"difficulty\": \"Easy|Medium|Hard\", \"hint\": string }",
     ].join("\n");
@@ -101,34 +61,62 @@ export async function POST(req: NextRequest) {
       techCtx,
       extraCtx,
       "",
-      "Output the JSON array now. No preamble.",
+      "Output the JSON array now.",
     ].filter(Boolean).join("\n");
 
-    // Try primary (GLM-4.5-Air, fast)
-    console.log(`[generate] Trying primary: ${PRIMARY_MODEL}`);
-    let result = await callOpenRouter(apiKey, PRIMARY_MODEL, systemPrompt, userPrompt);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-    // Fall back to Nvidia if primary fails or times out
-    if (!result.ok) {
-      console.log(`[generate] Primary failed (${result.status}), trying fallback: ${FALLBACK_MODEL}`);
-      result = await callOpenRouter(apiKey, FALLBACK_MODEL, systemPrompt, userPrompt);
+    let responseText: string;
+    let responseOk: boolean;
+    let responseStatus: number;
+
+    try {
+      const res = await fetch(OPENROUTER_URL, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type":  "application/json",
+          "HTTP-Referer":  "https://pathwise-liart.vercel.app",
+          "X-Title":       "Krino Interview Prep",
+        },
+        body: JSON.stringify({
+          model:       MODEL,
+          messages:    [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+          temperature: 0.2,
+          max_tokens:  2000,
+        }),
+      });
+      responseText   = await res.text();
+      responseOk     = res.ok;
+      responseStatus = res.status;
+    } catch (err) {
+      const isTimeout = (err as Error)?.name === "AbortError";
+      console.error(`[generate] ${isTimeout ? "TIMED OUT after 50s" : "fetch error"}:`, (err as Error).message);
+      return NextResponse.json(
+        { detail: isTimeout ? "AI is taking too long. Please try again." : "Network error reaching AI. Please try again." },
+        { status: 504 },
+      );
+    } finally {
+      clearTimeout(timer);
     }
 
-    if (!result.ok) {
-      console.error(`[generate] Both models failed. Last status: ${result.status}`);
-      return NextResponse.json({ detail: "Both AI models are unavailable. Please try again in a moment." }, { status: 502 });
+    if (!responseOk) {
+      console.error(`[generate] OpenRouter error [${responseStatus}]:`, responseText.slice(0, 300));
+      return NextResponse.json({ detail: `AI error (${responseStatus}). Please try again.` }, { status: 502 });
     }
 
     let parsed: { choices?: { message?: { content?: string } }[] };
-    try { parsed = JSON.parse(result.text); }
+    try { parsed = JSON.parse(responseText); }
     catch {
-      console.error("[generate] Envelope parse failed:", result.text.slice(0, 200));
-      return NextResponse.json({ detail: "Unexpected AI response format. Please try again." }, { status: 500 });
+      console.error("[generate] Envelope parse failed:", responseText.slice(0, 200));
+      return NextResponse.json({ detail: "Unexpected AI response. Please try again." }, { status: 500 });
     }
 
     const raw = parsed?.choices?.[0]?.message?.content ?? "";
     if (!raw) {
-      console.error("[generate] Empty content. Full:", result.text.slice(0, 400));
+      console.error("[generate] Empty content:", responseText.slice(0, 400));
       return NextResponse.json({ detail: "Model returned empty response. Please try again." }, { status: 500 });
     }
 
