@@ -11,10 +11,11 @@ interface EvaluateBody {
   answer:        string;
   job_title:     string;
   question_type: string;
+  language?:     string; // "en" | "fr"
 }
 
 const JUNK_PATTERNS = [
-  /^(lol+|lmao|haha|hehe|idk|ok|okay|yes|no|nope|yep|sure|hmm+|ugh+|meh|wtf|omg|test|hi|hello|bye|whatever|idc|asdf|qwerty|1234|dunno|nothing|none|n\/a)$/i,
+  /^(lol+|lmao|haha|hehe|idk|ok|okay|yes|no|nope|yep|sure|hmm+|ugh+|meh|wtf|omg|test|hi|hello|bye|whatever|idc|asdf|qwerty|1234|dunno|nothing|none|n\/a|oui|non|ouais|bof|rien)$/i,
   /^[^a-zA-Z0-9]{1,10}$/,
   /^.{1,9}$/,
 ];
@@ -33,22 +34,34 @@ export async function POST(req: NextRequest) {
 
     const body = (await req.json()) as EvaluateBody;
     const { question, answer, job_title, question_type } = body;
+    const lang = body.language === "fr" ? "fr" : "en";
+    const isFr = lang === "fr";
 
     if (!question?.trim() || !answer?.trim()) {
-      return NextResponse.json({ detail: "question and answer are required." }, { status: 400 });
+      return NextResponse.json(
+        { detail: isFr ? "La question et la réponse sont requises." : "question and answer are required." },
+        { status: 400 },
+      );
     }
     if (answer.trim().length < 15) {
-      return NextResponse.json({ detail: "Your answer is too short. Please write a proper response." }, { status: 400 });
+      return NextResponse.json(
+        { detail: isFr ? "Votre réponse est trop courte. Rédigez une vraie réponse." : "Your answer is too short. Please write a proper response." },
+        { status: 400 },
+      );
     }
 
     if (isJunkAnswer(answer)) {
       return NextResponse.json({
         evaluation: {
           score: 0,
-          verdict: "Insufficient",
-          what_was_good: "N/A — no substantive answer was provided.",
-          what_was_missing: "A real, thoughtful response that addresses the question. Joke or filler answers score 0.",
-          ideal_answer_summary: "Write a genuine attempt and the AI will give you specific, useful feedback to improve.",
+          verdict: isFr ? "Insuffisant" : "Insufficient",
+          what_was_good: isFr ? "N/A — aucune réponse substantielle fournie." : "N/A — no substantive answer was provided.",
+          what_was_missing: isFr
+            ? "Une vraie réponse réfléchie qui adresse la question. Les réponses vides ou humoristiques obtiennent 0."
+            : "A real, thoughtful response that addresses the question. Joke or filler answers score 0.",
+          ideal_answer_summary: isFr
+            ? "Rédigez une vraie tentative et l'IA vous donnera un feedback spécifique et utile pour progresser."
+            : "Write a genuine attempt and the AI will give you specific, useful feedback to improve.",
         },
       }, { status: 200 });
     }
@@ -57,29 +70,60 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ detail: "Groq API key not configured." }, { status: 500 });
     }
 
+    const langInstruction = isFr
+      ? "IMPORTANT : Tu dois répondre ENTIÈREMENT en français. Tous les champs JSON doivent être en français."
+      : "IMPORTANT: Respond entirely in English.";
+
+    const verdictValues = isFr
+      ? '"Excellent|Bien|À améliorer|Insuffisant"'
+      : '"Excellent|Good|Needs Work|Insufficient"';
+
     const systemPrompt = [
-      "You are a senior technical interviewer evaluating a candidate answer. Be direct, honest, specific.",
+      langInstruction,
       "",
-      "RULES:",
-      "1. Evaluate ONLY what the candidate wrote. Never credit knowledge they did not demonstrate.",
-      "2. Gibberish, jokes, irrelevant or non-answers = score 0, verdict Insufficient. No exceptions.",
-      "3. Vague but genuine effort = 10-35, explain gaps.",
-      "4. Technical/Coding: correctness, depth, edge cases, efficiency.",
-      "5. Behavioral: STAR structure, specificity, measurable impact.",
-      "6. System Design: scope, trade-offs, scalability, components.",
-      "7. Score: 90-100 impressive; 70-89 good; 50-69 passable; 30-49 incomplete; <30 insufficient.",
-      "8. Output ONLY a valid JSON object. No markdown, no extra text.",
+      isFr
+        ? "Tu es un interviewer technique senior qui évalue la réponse d'un candidat. Sois direct, honnête et spécifique."
+        : "You are a senior technical interviewer evaluating a candidate answer. Be direct, honest, specific.",
+      "",
+      isFr ? "RÈGLES :" : "RULES:",
+      isFr
+        ? "1. Évalue UNIQUEMENT ce que le candidat a écrit. Ne crédite jamais des connaissances qu'il n'a pas démontrées."
+        : "1. Evaluate ONLY what the candidate wrote. Never credit knowledge they did not demonstrate.",
+      isFr
+        ? "2. Charabia, blagues, hors-sujet ou non-réponses = score 0, verdict Insuffisant. Sans exception."
+        : "2. Gibberish, jokes, irrelevant or non-answers = score 0, verdict Insufficient. No exceptions.",
+      isFr
+        ? "3. Effort vague mais sincère = 10-35, expliquer les lacunes."
+        : "3. Vague but genuine effort = 10-35, explain gaps.",
+      isFr
+        ? "4. Technique/Code : exactitude, profondeur, edge cases, efficacité."
+        : "4. Technical/Coding: correctness, depth, edge cases, efficiency.",
+      isFr
+        ? "5. Comportemental : structure STAR, spécificité, impact mesurable."
+        : "5. Behavioral: STAR structure, specificity, measurable impact.",
+      isFr
+        ? "6. Conception système : périmètre, trade-offs, scalabilité, composants."
+        : "6. System Design: scope, trade-offs, scalability, components.",
+      isFr
+        ? "7. Score : 90-100 impressionnant ; 70-89 bien ; 50-69 passable ; 30-49 incomplet ; <30 insuffisant."
+        : "7. Score: 90-100 impressive; 70-89 good; 50-69 passable; 30-49 incomplete; <30 insufficient.",
+      isFr
+        ? "8. Retourner UNIQUEMENT un objet JSON valide. Pas de markdown, pas de texte en dehors du JSON."
+        : "8. Output ONLY a valid JSON object. No markdown, no extra text.",
     ].join("\n");
 
     const userPrompt = [
-      `Role: ${(job_title || "Software Engineer").trim()}`,
-      `Question type: ${(question_type || "Technical").trim()}`,
+      `${isFr ? "Poste" : "Role"}: ${(job_title || "Software Engineer").trim()}`,
+      `${isFr ? "Type de question" : "Question type"}: ${(question_type || "Technical").trim()}`,
       "",
-      `QUESTION: ${question.trim()}`,
+      `${isFr ? "QUESTION" : "QUESTION"}: ${question.trim()}`,
       "",
-      `CANDIDATE ANSWER: ${answer.trim()}`,
+      `${isFr ? "RÉPONSE DU CANDIDAT" : "CANDIDATE ANSWER"}: ${answer.trim()}`,
       "",
-      'Return JSON: { "score": 0-100, "verdict": "Excellent|Good|Needs Work|Insufficient", "what_was_good": "specific or N/A", "what_was_missing": "specific gaps", "ideal_answer_summary": "2-3 sentences" }',
+      `${isFr
+        ? `Retourner JSON : { "score": 0-100, "verdict": ${verdictValues}, "what_was_good": "éloge spécifique ou N/A", "what_was_missing": "lacunes spécifiques", "ideal_answer_summary": "2-3 phrases" }`
+        : `Return JSON: { "score": 0-100, "verdict": ${verdictValues}, "what_was_good": "specific or N/A", "what_was_missing": "specific gaps", "ideal_answer_summary": "2-3 sentences" }`
+      }`,
     ].join("\n");
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -93,13 +137,12 @@ export async function POST(req: NextRequest) {
     });
 
     const raw = resp.choices[0]?.message?.content ?? "";
-    if (!raw) return NextResponse.json({ detail: "Model returned empty response. Please try again." }, { status: 500 });
+    if (!raw) return NextResponse.json({ detail: isFr ? "Réponse vide du modèle. Réessayez." : "Model returned empty response. Please try again." }, { status: 500 });
 
     let evaluation: unknown;
     try { evaluation = JSON.parse(raw); }
     catch {
-      console.error("[evaluate] JSON parse failed. Raw:", raw.slice(0, 300));
-      return NextResponse.json({ detail: "Failed to parse AI evaluation. Please try again." }, { status: 500 });
+      return NextResponse.json({ detail: isFr ? "Échec d'analyse de l'évaluation IA. Réessayez." : "Failed to parse AI evaluation. Please try again." }, { status: 500 });
     }
 
     return NextResponse.json({ evaluation }, { status: 200 });

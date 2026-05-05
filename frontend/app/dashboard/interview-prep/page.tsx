@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Question {
@@ -37,8 +38,8 @@ const EMPTY_ANSWER: AnswerState = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function difficultyColor(d: string) {
-  if (d === "Hard")   return { bg: "#FEE2E2", color: "#991B1B" };
-  if (d === "Medium") return { bg: "#FEF3C7", color: "#92400E" };
+  if (d === "Hard" || d === "Difficile")   return { bg: "#FEE2E2", color: "#991B1B" };
+  if (d === "Medium" || d === "Moyen") return { bg: "#FEF3C7", color: "#92400E" };
   return                     { bg: "#D1FAE5", color: "#065F46" };
 }
 
@@ -49,14 +50,19 @@ function typeColor(t: string) {
     "Technical":     { bg: "#E0F2FE", color: "#0C4A6E" },
     "Behavioral":    { bg: "#FCE7F3", color: "#831843" },
     "Case Study":    { bg: "#F0FDF4", color: "#14532D" },
+    // French variants
+    "Technique":         { bg: "#E0F2FE", color: "#0C4A6E" },
+    "Conception Système":{ bg: "#DBEAFE", color: "#1E3A8A" },
+    "Comportemental":    { bg: "#FCE7F3", color: "#831843" },
+    "Étude de cas":      { bg: "#F0FDF4", color: "#14532D" },
   };
   return map[t] || { bg: "#F3F4F6", color: "#374151" };
 }
 
 function verdictColor(v: string) {
-  if (v === "Excellent")   return "#065F46";
-  if (v === "Good")        return "#1D4ED8";
-  if (v === "Needs Work")  return "#92400E";
+  if (v === "Excellent")                     return "#065F46";
+  if (v === "Good" || v === "Bien")           return "#1D4ED8";
+  if (v === "Needs Work" || v === "À améliorer") return "#92400E";
   return "#991B1B";
 }
 
@@ -132,15 +138,23 @@ function exportToTxt(
 }
 
 // ─── Generating overlay ───────────────────────────────────────────────────────
-const STEPS = [
+const STEPS_EN = [
   "Analysing role & company…",
   "Crafting technical questions…",
   "Calibrating difficulty levels…",
   "Adding hints & context…",
   "Almost ready…",
 ];
+const STEPS_FR = [
+  "Analyse du poste et de l'entreprise…",
+  "Rédaction des questions techniques…",
+  "Calibration des niveaux de difficulté…",
+  "Ajout des indices et du contexte…",
+  "Presque prêt…",
+];
 
-function GeneratingOverlay({ elapsed }: { elapsed: number }) {
+function GeneratingOverlay({ elapsed, locale }: { elapsed: number; locale: string }) {
+  const STEPS = locale === "fr" ? STEPS_FR : STEPS_EN;
   const step = Math.min(Math.floor(elapsed / 8), STEPS.length - 1);
   const dots = ".".repeat((elapsed % 3) + 1);
 
@@ -154,13 +168,9 @@ function GeneratingOverlay({ elapsed }: { elapsed: number }) {
       boxShadow: "0 1px 4px rgba(17,24,39,0.05)",
       textAlign: "center",
     }}>
-      {/* Spinner */}
       <div style={{
-        width: 44,
-        height: 44,
-        borderRadius: "50%",
-        border: "3px solid #E5E7EB",
-        borderTopColor: "#111827",
+        width: 44, height: 44, borderRadius: "50%",
+        border: "3px solid #E5E7EB", borderTopColor: "#111827",
         animation: "spin 0.9s linear infinite",
         margin: "0 auto 20px",
       }} />
@@ -170,22 +180,19 @@ function GeneratingOverlay({ elapsed }: { elapsed: number }) {
         {STEPS[step]}{dots}
       </p>
       <p style={{ fontSize: 13, color: "#9CA3AF", margin: "0 0 20px" }}>
-        Large models take 15–40 s. Hang tight.
+        {locale === "fr" ? "Préparation en cours, patientez…" : "Large models take 10–30s. Hang tight."}
       </p>
 
-      {/* Progress bar */}
       <div style={{ width: "100%", height: 4, background: "#F3F4F6", borderRadius: 99, overflow: "hidden" }}>
         <div style={{
-          height: "100%",
-          background: "#111827",
-          borderRadius: 99,
+          height: "100%", background: "#111827", borderRadius: 99,
           width: `${Math.min((elapsed / 40) * 100, 95)}%`,
           transition: "width 1s linear",
         }} />
       </div>
 
       <p style={{ fontSize: 12, color: "#D1D5DB", marginTop: 8 }}>
-        {formatElapsed(elapsed)} elapsed
+        {formatElapsed(elapsed)} {locale === "fr" ? "écoulé" : "elapsed"}
       </p>
     </div>
   );
@@ -193,6 +200,8 @@ function GeneratingOverlay({ elapsed }: { elapsed: number }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function InterviewPrepPage() {
+  const { apiLanguage } = useLanguage();
+
   const [jobTitle,        setJobTitle]        = useState("");
   const [companyName,     setCompanyName]     = useState("");
   const [jobField,        setJobField]        = useState("");
@@ -201,7 +210,6 @@ export default function InterviewPrepPage() {
   const [extraContext,    setExtraContext]     = useState("");
 
   const [questions,   setQuestions]   = useState<Question[]>([]);
-  // answers keyed by question.id — always initialised from EMPTY_ANSWER
   const [answers,     setAnswers]     = useState<Record<number, AnswerState>>({});
   const [generating,  setGenerating]  = useState(false);
   const [error,       setError]       = useState("");
@@ -210,7 +218,8 @@ export default function InterviewPrepPage() {
 
   const elapsed = useElapsedTimer(generating);
 
-  // ── helpers ──
+  const isFr = apiLanguage === "fr";
+
   function getAns(id: number): AnswerState {
     return answers[id] ?? { ...EMPTY_ANSWER };
   }
@@ -219,11 +228,10 @@ export default function InterviewPrepPage() {
     setAnswers(prev => ({ ...prev, [id]: { ...(prev[id] ?? { ...EMPTY_ANSWER }), ...patch } }));
   }
 
-  // ── Generate questions ────────────────────────────────────────────────────
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
     if (!jobTitle.trim() || !jobField.trim()) {
-      setError("Job title and field are required.");
+      setError(isFr ? "Le titre du poste et le domaine sont requis." : "Job title and field are required.");
       return;
     }
     setError("");
@@ -242,28 +250,26 @@ export default function InterviewPrepPage() {
           experience_level: experienceLevel,
           tech_stack:       techStack.trim(),
           extra_context:    extraContext.trim(),
+          language:         apiLanguage,
         }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.detail || "Failed to generate questions."); return; }
+      if (!res.ok) { setError(data.detail || (isFr ? "Échec de la génération des questions." : "Failed to generate questions.")); return; }
       setQuestions(data.questions || []);
       setSessionMeta({ job_title: jobTitle.trim(), company_name: companyName.trim() });
       setTimeout(() => sessionRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } catch {
-      setError("Network error. Please try again.");
+      setError(isFr ? "Erreur réseau. Veuillez réessayer." : "Network error. Please try again.");
     } finally {
       setGenerating(false);
     }
   }
 
-  // ── Evaluate one answer ───────────────────────────────────────────────────
   async function handleEvaluate(q: Question) {
     const ans = getAns(q.id);
     const text = (ans.text ?? "").trim();
     if (!text) return;
 
-    // Snapshot job_title from form directly — sessionMeta may not be set yet
-    // if user somehow edits form after generating (defensive)
     const jobTitleForEval = sessionMeta.job_title || jobTitle.trim() || "Software Engineer";
 
     setAns(q.id, { evaluating: true, submitted: true, evalError: "" });
@@ -277,16 +283,17 @@ export default function InterviewPrepPage() {
           answer:        text,
           job_title:     jobTitleForEval,
           question_type: q.type,
+          language:      apiLanguage,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setAns(q.id, { evaluating: false, evalError: data.detail || "Evaluation failed. Please try again." });
+        setAns(q.id, { evaluating: false, evalError: data.detail || (isFr ? "Évaluation échouée. Réessayez." : "Evaluation failed. Please try again.") });
         return;
       }
       setAns(q.id, { evaluation: data.evaluation, evaluating: false, evalError: "" });
     } catch {
-      setAns(q.id, { evaluating: false, evalError: "Network error. Please try again." });
+      setAns(q.id, { evaluating: false, evalError: isFr ? "Erreur réseau. Veuillez réessayer." : "Network error. Please try again." });
     }
   }
 
@@ -295,17 +302,19 @@ export default function InterviewPrepPage() {
     ? Math.round(Object.values(answers).filter(a => a.evaluation).reduce((s, a) => s + (a.evaluation?.score ?? 0), 0) / answeredCount)
     : null;
 
-  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "0 0 80px" }}>
 
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, color: "#111827", margin: 0, letterSpacing: "-0.02em" }}>
-          Interview Prep
+          {isFr ? "Préparation aux entretiens" : "Interview Prep"}
         </h1>
         <p style={{ fontSize: 14, color: "#6B7280", marginTop: 6, marginBottom: 0 }}>
-          Fill in the role details and get 10 tailored technical questions. Answer each one, then get instant AI feedback.
+          {isFr
+            ? "Renseignez les détails du poste et obtenez 10 questions techniques ciblées. Répondez à chacune, puis recevez un feedback IA instantané."
+            : "Fill in the role details and get 10 tailored technical questions. Answer each one, then get instant AI feedback."
+          }
         </p>
       </div>
 
@@ -319,20 +328,20 @@ export default function InterviewPrepPage() {
         boxShadow: "0 1px 4px rgba(17,24,39,0.05)",
       }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-          <Field label="Job Title *"         value={jobTitle}        onChange={setJobTitle}        placeholder="e.g. Senior Backend Engineer" />
-          <Field label="Company Name"        value={companyName}     onChange={setCompanyName}     placeholder="e.g. Stripe (optional)" />
-          <Field label="Job Field / Domain *" value={jobField}       onChange={setJobField}        placeholder="e.g. Fintech, AI/ML, E-commerce" />
+          <Field label={isFr ? "Intitulé du poste *"   : "Job Title *"}          value={jobTitle}        onChange={setJobTitle}        placeholder={isFr ? "ex. Ingénieur Backend Senior" : "e.g. Senior Backend Engineer"} />
+          <Field label={isFr ? "Nom de l'entreprise"   : "Company Name"}         value={companyName}     onChange={setCompanyName}     placeholder={isFr ? "ex. Stripe (optionnel)"       : "e.g. Stripe (optional)"} />
+          <Field label={isFr ? "Domaine / Secteur *"   : "Job Field / Domain *"} value={jobField}        onChange={setJobField}        placeholder={isFr ? "ex. Fintech, IA/ML, E-commerce" : "e.g. Fintech, AI/ML, E-commerce"} />
           <div>
-            <label style={labelStyle}>Experience Level *</label>
+            <label style={labelStyle}>{isFr ? "Niveau d'expérience *" : "Experience Level *"}</label>
             <select value={experienceLevel} onChange={e => setExperienceLevel(e.target.value)} style={inputStyle}>
-              <option>Junior</option>
-              <option>Mid</option>
-              <option>Senior</option>
-              <option>Lead / Staff</option>
+              <option value="Junior">Junior</option>
+              <option value="Mid">{isFr ? "Intermédiaire" : "Mid"}</option>
+              <option value="Senior">Senior</option>
+              <option value="Lead / Staff">Lead / Staff</option>
             </select>
           </div>
-          <Field label="Tech Stack / Tools"  value={techStack}       onChange={setTechStack}       placeholder="e.g. Python, PostgreSQL, Kubernetes" />
-          <Field label="Extra Context"       value={extraContext}    onChange={setExtraContext}    placeholder="e.g. Backend-heavy, distributed systems" />
+          <Field label={isFr ? "Stack technique"       : "Tech Stack / Tools"}   value={techStack}       onChange={setTechStack}       placeholder={isFr ? "ex. Python, PostgreSQL, Kubernetes" : "e.g. Python, PostgreSQL, Kubernetes"} />
+          <Field label={isFr ? "Contexte supplémentaire" : "Extra Context"}      value={extraContext}    onChange={setExtraContext}    placeholder={isFr ? "ex. Backend intensif, systèmes distribués" : "e.g. Backend-heavy, distributed systems"} />
         </div>
 
         {error && (
@@ -353,28 +362,28 @@ export default function InterviewPrepPage() {
             transition: "background 150ms ease", letterSpacing: "0.01em",
           }}
         >
-          {generating ? `Generating… (${formatElapsed(elapsed)})` : "Generate 10 Interview Questions"}
+          {generating
+            ? `${isFr ? "Génération…" : "Generating…"} (${formatElapsed(elapsed)})`
+            : (isFr ? "Générer 10 questions d'entretien" : "Generate 10 Interview Questions")
+          }
         </button>
       </form>
 
-      {/* Generating overlay */}
       {generating && (
         <div style={{ marginTop: 20 }}>
-          <GeneratingOverlay elapsed={elapsed} />
+          <GeneratingOverlay elapsed={elapsed} locale={apiLanguage} />
         </div>
       )}
 
-      {/* Session */}
       {!generating && questions.length > 0 && (
         <div ref={sessionRef} style={{ marginTop: 32 }}>
 
-          {/* Toolbar */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
             <span style={{ fontSize: 13, color: "#6B7280" }}>
-              {answeredCount} / {questions.length} answered
+              {answeredCount} / {questions.length} {isFr ? "répondues" : "answered"}
               {averageScore !== null && (
                 <span style={{ marginLeft: 12, fontWeight: 600, color: averageScore >= 70 ? "#065F46" : averageScore >= 50 ? "#92400E" : "#991B1B" }}>
-                  Avg score: {averageScore}/100
+                  {isFr ? "Score moyen" : "Avg score"}: {averageScore}/100
                 </span>
               )}
             </span>
@@ -386,11 +395,10 @@ export default function InterviewPrepPage() {
                 background: "#fff", cursor: "pointer", color: "#374151",
               }}
             >
-              ↓ Save as .txt
+              ↓ {isFr ? "Enregistrer en .txt" : "Save as .txt"}
             </button>
           </div>
 
-          {/* Question cards */}
           {questions.map((q, idx) => {
             const ans       = getAns(q.id);
             const diffStyle = difficultyColor(q.difficulty);
@@ -404,7 +412,6 @@ export default function InterviewPrepPage() {
                 borderRadius: 14, marginBottom: 20, overflow: "hidden",
                 boxShadow: "0 1px 4px rgba(17,24,39,0.05)",
               }}>
-                {/* Question header */}
                 <div style={{ padding: "18px 22px 14px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF" }}>Q{idx + 1}</span>
@@ -415,18 +422,17 @@ export default function InterviewPrepPage() {
                       {q.difficulty}
                     </span>
                   </div>
-                  <p style={{ fontSize: 15, fontWeight: 500, color: "#111827", margin: 0, lineHeight: 1.55 }}>
+                  <p style={{ fontSize: 15, fontWeight: 500, color: "#111827", margin: 0, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
                     {q.question}
                   </p>
                 </div>
 
-                {/* Answer area */}
                 <div style={{ padding: "0 22px 18px" }}>
                   <textarea
                     value={ans.text}
                     onChange={e => setAns(q.id, { text: e.target.value })}
                     disabled={!!ans.evaluation}
-                    placeholder="Type your answer here…"
+                    placeholder={isFr ? "Écrivez votre réponse ici…" : "Type your answer here…"}
                     rows={4}
                     style={{
                       width: "100%", resize: "vertical", padding: "10px 12px",
@@ -438,12 +444,10 @@ export default function InterviewPrepPage() {
                     }}
                   />
 
-                  {/* Eval error */}
                   {ans.evalError && (
                     <p style={{ fontSize: 12, color: "#991B1B", marginTop: 6 }}>{ans.evalError}</p>
                   )}
 
-                  {/* Submit button — only shown when no evaluation yet */}
                   {!ans.evaluation && (
                     <button
                       onClick={() => handleEvaluate(q)}
@@ -458,11 +462,13 @@ export default function InterviewPrepPage() {
                         transition: "background 150ms ease",
                       }}
                     >
-                      {ans.evaluating ? "Evaluating…" : "Submit Answer"}
+                      {ans.evaluating
+                        ? (isFr ? "Évaluation…" : "Evaluating…")
+                        : (isFr ? "Soumettre la réponse" : "Submit Answer")
+                      }
                     </button>
                   )}
 
-                  {/* Feedback */}
                   {ans.evaluation && (
                     <div style={{
                       marginTop: 14, padding: "16px 18px",
@@ -480,12 +486,14 @@ export default function InterviewPrepPage() {
                         <div style={{ flex: 1 }}>{scoreBar(ans.evaluation.score)}</div>
                       </div>
 
-                      <FeedbackRow icon="✔" label="What was good"    text={ans.evaluation.what_was_good}       color="#065F46" />
-                      <FeedbackRow icon="✘" label="What was missing" text={ans.evaluation.what_was_missing}    color="#991B1B" />
-                      <FeedbackRow icon="★" label="Ideal answer"     text={ans.evaluation.ideal_answer_summary} color="#1D4ED8" />
+                      <FeedbackRow icon="✔" label={isFr ? "Ce qui était bien"    : "What was good"}    text={ans.evaluation.what_was_good}        color="#065F46" />
+                      <FeedbackRow icon="✘" label={isFr ? "Ce qui manquait"     : "What was missing"} text={ans.evaluation.what_was_missing}     color="#991B1B" />
+                      <FeedbackRow icon="★" label={isFr ? "Réponse idéale"      : "Ideal answer"}     text={ans.evaluation.ideal_answer_summary}  color="#1D4ED8" />
 
                       <details style={{ marginTop: 12 }}>
-                        <summary style={{ fontSize: 12, color: "#6B7280", cursor: "pointer", userSelect: "none" }}>Show hint</summary>
+                        <summary style={{ fontSize: 12, color: "#6B7280", cursor: "pointer", userSelect: "none" }}>
+                          {isFr ? "Afficher l'indice" : "Show hint"}
+                        </summary>
                         <p style={{ fontSize: 12, color: "#6B7280", marginTop: 6, marginBottom: 0, fontStyle: "italic" }}>{q.hint}</p>
                       </details>
                     </div>

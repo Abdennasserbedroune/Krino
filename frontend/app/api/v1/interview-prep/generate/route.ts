@@ -13,6 +13,7 @@ interface GenerateBody {
   experience_level: string;
   tech_stack?: string;
   extra_context?: string;
+  language?: string; // "en" | "fr"
 }
 
 export async function POST(req: NextRequest) {
@@ -23,9 +24,14 @@ export async function POST(req: NextRequest) {
 
     const body = (await req.json()) as GenerateBody;
     const { job_title, company_name, job_field, experience_level } = body;
+    const lang = body.language === "fr" ? "fr" : "en";
+    const isFr = lang === "fr";
 
     if (!job_title?.trim() || !job_field?.trim() || !experience_level?.trim()) {
-      return NextResponse.json({ detail: "job_title, job_field, and experience_level are required." }, { status: 400 });
+      return NextResponse.json(
+        { detail: isFr ? "Intitulé du poste, domaine et niveau sont requis." : "job_title, job_field, and experience_level are required." },
+        { status: 400 },
+      );
     }
 
     if (!process.env.GROQ_API_KEY) {
@@ -35,69 +41,111 @@ export async function POST(req: NextRequest) {
     const level = experience_level.trim().toLowerCase();
     const isJunior = level.includes("junior") || level.includes("entry");
     const isSenior = level.includes("senior") || level.includes("lead") || level.includes("staff") || level.includes("principal");
-    const isMid    = !isJunior && !isSenior;
 
     const companyCtx = company_name?.trim()
-      ? `The target company is "${company_name.trim()}". You know this company's real tech stack, engineering culture, scale, products, and known engineering challenges. Every question must feel like it was written specifically for an interview at THIS company — reference their domain, their scale, their known problems where relevant.`
-      : "No specific company. Make questions deeply role-specific and field-specific.";
+      ? isFr
+        ? `L'entreprise cible est "${company_name.trim()}". Utilise ta connaissance de cette entreprise (stack, culture, produits, défis d'ingénierie à leur échelle) pour que chaque question soit clairement liée à CETTE entreprise.`
+        : `The target company is "${company_name.trim()}". Use your knowledge of this company (tech stack, products, culture, scale challenges) to make every question feel specifically tailored to THIS company.`
+      : isFr
+        ? "Aucune entreprise spécifique. Concentre-toi rigoureusement sur le rôle et le domaine."
+        : "No specific company. Make questions deeply role-specific and field-specific.";
 
     const techCtx = body.tech_stack?.trim()
-      ? `The candidate's tech stack is: ${body.tech_stack.trim()}. At least 3 questions must directly involve one or more of these specific technologies — including bugs, edge cases, or design decisions around them.`
+      ? isFr
+        ? `La stack du candidat est : ${body.tech_stack.trim()}. Au moins 3 questions doivent impliquer directement une ou plusieurs de ces technologies spécifiques — bugs, edge cases, ou décisions de conception.`
+        : `The candidate's tech stack is: ${body.tech_stack.trim()}. At least 3 questions must directly involve these technologies — bugs, edge cases, or design decisions.`
       : "";
 
     const extraCtx = body.extra_context?.trim()
-      ? `Extra context about the role or candidate: ${body.extra_context.trim()}. Use this to make questions more targeted.`
+      ? isFr
+        ? `Contexte supplémentaire : ${body.extra_context.trim()}. Utilise-le pour cibler davantage les questions.`
+        : `Extra context: ${body.extra_context.trim()}. Use this to make questions more targeted.`
       : "";
 
-    // Level-specific question mix
     const levelRules = isJunior ? [
-      "Mix: 3 coding/algorithm (implement or fix a bug in a short snippet), 2 technical concept questions, 2 debugging scenarios, 2 behavioral (specific past experience), 1 system design (small scale).",
-      "Difficulty: mostly Easy-Medium. No architecture or leadership questions.",
-      "Coding questions: provide a short broken code snippet (5-15 lines) and ask the candidate to find the bug or complete the function.",
-    ] : isMid ? [
-      "Mix: 2 coding (find the bug or optimize a real snippet), 2 system design (medium scale trade-offs), 2 technical depth (why X over Y, edge cases, internals), 2 behavioral (ownership, conflict, delivery), 1 debugging scenario, 1 domain case study.",
-      "Difficulty: Medium-Hard. Questions must require real experience to answer well.",
-      "Coding questions: include a real broken or inefficient snippet (10-20 lines) and ask to fix, optimize, or explain the issue and its production impact.",
-      "System design: require concrete components, trade-offs, and failure modes — not a vague 'design X'.",
+      isFr
+        ? "Mix : 3 questions de code/algorithme (implémenter ou trouver un bug dans un extrait court), 2 concepts techniques, 2 scénarios de débogage, 2 comportementaux (expérience passée spécifique), 1 conception système (petite échelle)."
+        : "Mix: 3 coding/algorithm (implement or fix a bug in a short snippet), 2 technical concepts, 2 debugging scenarios, 2 behavioral, 1 system design (small scale).",
+      isFr ? "Difficulté : surtout Facile-Moyen. Pas d'architecture ni de leadership." : "Difficulty: mostly Easy-Medium. No architecture or leadership questions.",
+      isFr
+        ? "Questions de code : fournis un extrait cassé (5-15 lignes) et demande de trouver le bug ou compléter la fonction."
+        : "Coding questions: provide a short broken code snippet (5-15 lines) and ask to find the bug or complete the function.",
+    ] : isSenior ? [
+      isFr
+        ? "Mix : 1 code difficile (bug complexe ou algorithme avec edge cases), 2 conception système avancée (distribué, pannes, haute disponibilité), 2 décisions d'architecture (trade-offs à l'échelle), 2 leadership/ownership (ambiguïté, inter-équipes, incidents), 2 expertise domaine (connaissance technique approfondie), 1 comportemental (décision technique la plus difficile prise)."
+        : "Mix: 1 hard coding (complex bug or algorithm with edge cases), 2 advanced system design (distributed, failures, HA), 2 architecture decisions (trade-offs at scale), 2 leadership/ownership, 2 domain expertise, 1 behavioral (hardest technical decision made).",
+      isFr ? "Difficulté : Difficile pour tout. Chaque question doit faire galérer un junior ou mid-level." : "Difficulty: Hard across the board. Every question should challenge junior/mid candidates.",
+      isFr
+        ? "Code : extrait non trivial avec un bug subtil (race condition, fuite mémoire, off-by-one en code concurrent) — identifier, expliquer, corriger avec implications en production."
+        : "Coding: non-trivial snippet with a subtle bug (race condition, memory leak, off-by-one in concurrent code) — identify, explain, fix with production implications.",
+      isFr
+        ? "Conception système : exiger des chiffres précis, conscience du théorème CAP, modèles de cohérence, stratégies de récupération sur pannes."
+        : "System design: demand specific numbers, CAP theorem awareness, consistency models, failure recovery strategies.",
     ] : [
-      "Mix: 1 hard coding (complex bug or algorithm with edge cases), 2 advanced system design (large scale, distributed systems, failure handling), 2 architecture decisions (trade-offs, when to use X vs Y at scale), 2 leadership/ownership (handling ambiguity, cross-team, incidents), 2 domain expertise (deep technical knowledge of the field), 1 behavioral (hardest technical decision made).",
-      "Difficulty: Hard. Every question should make a junior or mid-level candidate struggle.",
-      "Coding questions: provide a non-trivial snippet with a subtle bug (race condition, memory leak, off-by-one in concurrent code, etc.) and ask to identify, explain, and fix it with production implications.",
-      "System design: demand specific numbers, CAP theorem awareness, consistency models, and failure recovery strategies.",
-      "Architecture: ask about real decisions like 'when would you NOT use microservices' or 'how would you handle 10M concurrent WebSocket connections'.",
+      isFr
+        ? "Mix : 2 code (trouver le bug ou optimiser un extrait réel), 2 conception système (trade-offs à moyenne échelle), 2 profondeur technique (pourquoi X plutôt que Y, edge cases, internes), 2 comportementaux (ownership, conflit, livraison), 1 scénario de débogage, 1 étude de cas domaine."
+        : "Mix: 2 coding (find the bug or optimize a snippet), 2 system design (medium scale trade-offs), 2 technical depth, 2 behavioral, 1 debugging scenario, 1 domain case study.",
+      isFr ? "Difficulté : Moyen-Difficile. Les questions doivent nécessiter une vraie expérience." : "Difficulty: Medium-Hard. Questions must require real experience.",
+      isFr
+        ? "Code : extrait cassé ou inefficace (10-20 lignes), corriger, optimiser ou expliquer l'impact en production."
+        : "Coding: broken or inefficient snippet (10-20 lines), fix + explain production impact.",
     ];
 
+    const langInstruction = isFr
+      ? "IMPORTANT : Tu dois répondre ENTIÈREMENT en français. Questions, hints, types, niveaux de difficulté — tout doit être en français."
+      : "IMPORTANT: Respond entirely in English.";
+
     const systemPrompt = [
-      `You are a principal engineer and technical interviewer at a top-tier tech company conducting a ${experience_level.trim()} level interview.`,
+      langInstruction,
       "",
-      "YOUR JOB: Generate 10 interview questions that would genuinely challenge a real candidate at this level. Not textbook questions — real ones that separate good candidates from great ones.",
+      isFr
+        ? `Tu es un ingénieur principal et interviewer technique dans une entreprise de premier plan. Tu conduis un entretien de niveau ${experience_level.trim()}.`
+        : `You are a principal engineer and technical interviewer at a top-tier tech company conducting a ${experience_level.trim()} level interview.`,
       "",
-      "ABSOLUTE RULES:",
-      "1. ZERO generic or HR questions. No 'tell me about yourself', no 'what are your strengths', no 'where do you see yourself'. These are an automatic failure.",
-      "2. Coding questions MUST include an actual code snippet (broken, inefficient, or incomplete) inside the question text itself. The snippet must be realistic — not pseudo-code.",
-      "3. Every question must be specific enough that a vague answer is clearly wrong. Include enough context that the candidate knows exactly what they're being asked.",
-      "4. System design questions must specify scale, constraints, or a failure scenario — never just 'design X'.",
-      "5. Behavioral questions must ask about a SPECIFIC past situation, not hypotheticals.",
+      isFr
+        ? "TON RÔLE : Générer 10 questions d'entretien qui challengent vraiment un candidat réel à ce niveau. Pas des questions de manuel — de vraies questions qui distinguent les bons candidats des excellents."
+        : "YOUR JOB: Generate 10 interview questions that genuinely challenge a real candidate at this level. Not textbook questions — real ones that separate good from great.",
+      "",
+      isFr ? "RÈGLES ABSOLUES :" : "ABSOLUTE RULES:",
+      isFr
+        ? "1. ZÉRO question générique ou RH. Pas de 'parlez-moi de vous', pas de forces/faiblesses."
+        : "1. ZERO generic or HR questions. No 'tell me about yourself', no strengths/weaknesses.",
+      isFr
+        ? "2. Les questions de code DOIVENT inclure un vrai extrait de code (cassé, inefficace ou incomplet) dans le texte de la question."
+        : "2. Coding questions MUST include an actual code snippet (broken, inefficient, or incomplete) inside the question text.",
+      isFr
+        ? "3. Chaque question doit être assez spécifique pour qu'une réponse vague soit clairement fausse."
+        : "3. Every question must be specific enough that a vague answer is clearly wrong.",
+      isFr
+        ? "4. Les questions de conception système doivent spécifier l'échelle, les contraintes ou un scénario de panne."
+        : "4. System design questions must specify scale, constraints, or a failure scenario.",
+      isFr
+        ? "5. Les questions comportementales doivent porter sur une situation PASSÉE SPÉCIFIQUE, pas des hypothèses."
+        : "5. Behavioral questions must ask about a SPECIFIC past situation, not hypotheticals.",
       `6. ${companyCtx}`,
-      techCtx ? `7. ${techCtx}` : "7. Make questions technically deep for the field.",
+      techCtx ? `7. ${techCtx}` : isFr ? "7. Rends les questions techniquement profondes pour le domaine." : "7. Make questions technically deep for the field.",
       extraCtx ? `8. ${extraCtx}` : "",
       "",
-      "QUESTION MIX FOR THIS LEVEL:",
+      isFr ? "MIX DE QUESTIONS POUR CE NIVEAU :" : "QUESTION MIX FOR THIS LEVEL:",
       ...levelRules,
       "",
-      "OUTPUT FORMAT: A raw JSON array of exactly 10 objects. No markdown fences, no text before or after.",
-      "Schema: { \"id\": 1-10, \"question\": string (include code snippet inline if applicable, use \\n for newlines), \"type\": \"Technical|System Design|Behavioral|Case Study|Coding\", \"difficulty\": \"Easy|Medium|Hard\", \"hint\": \"1 sentence on what a strong answer must cover\" }",
+      isFr
+        ? "FORMAT DE SORTIE : Un tableau JSON brut de exactement 10 objets. Pas de balises markdown, pas de texte avant ou après."
+        : "OUTPUT FORMAT: A raw JSON array of exactly 10 objects. No markdown fences, no text before or after.",
+      isFr
+        ? 'Schéma : { "id": 1-10, "question": string (inclure l\'extrait de code inline si applicable, utiliser \\n pour les sauts de ligne), "type": "Technique|Conception Système|Comportemental|Étude de cas|Codage", "difficulty": "Facile|Moyen|Difficile", "hint": "1 phrase sur ce qu\'une bonne réponse doit couvrir" }'
+        : 'Schema: { "id": 1-10, "question": string (include code snippet inline if applicable, use \\n for newlines), "type": "Technical|System Design|Behavioral|Case Study|Coding", "difficulty": "Easy|Medium|Hard", "hint": "1 sentence on what a strong answer must cover" }',
     ].filter(Boolean).join("\n");
 
     const userPrompt = [
-      `Role: ${job_title.trim()}`,
-      `Field: ${job_field.trim()}`,
-      `Experience Level: ${experience_level.trim()}`,
-      techCtx ? `Tech Stack: ${body.tech_stack!.trim()}` : "",
-      extraCtx ? `Extra: ${body.extra_context!.trim()}` : "",
-      company_name?.trim() ? `Company: ${company_name.trim()}` : "",
+      `${isFr ? "Poste" : "Role"}: ${job_title.trim()}`,
+      `${isFr ? "Domaine" : "Field"}: ${job_field.trim()}`,
+      `${isFr ? "Niveau" : "Experience Level"}: ${experience_level.trim()}`,
+      body.tech_stack?.trim() ? `${isFr ? "Stack" : "Tech Stack"}: ${body.tech_stack.trim()}` : "",
+      body.extra_context?.trim() ? `${isFr ? "Contexte" : "Extra"}: ${body.extra_context.trim()}` : "",
+      company_name?.trim() ? `${isFr ? "Entreprise" : "Company"}: ${company_name.trim()}` : "",
       "",
-      "Generate the 10 questions now. Include real code snippets where required. Output only the JSON array.",
+      isFr ? "Génère les 10 questions maintenant. Inclure de vrais extraits de code si nécessaire. Sortie en JSON uniquement." : "Generate the 10 questions now. Include real code snippets where required. Output only the JSON array.",
     ].filter(Boolean).join("\n");
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -112,8 +160,7 @@ export async function POST(req: NextRequest) {
 
     const raw = resp.choices[0]?.message?.content ?? "";
     if (!raw) {
-      console.error("[generate] Empty content from Groq");
-      return NextResponse.json({ detail: "Model returned empty response. Please try again." }, { status: 500 });
+      return NextResponse.json({ detail: isFr ? "Le modèle n'a retourné aucun contenu. Réessayez." : "Model returned empty response. Please try again." }, { status: 500 });
     }
 
     let questions: unknown[];
@@ -126,11 +173,10 @@ export async function POST(req: NextRequest) {
       } else {
         const arr = Object.values(parsed as Record<string, unknown>).find(v => Array.isArray(v));
         if (arr) { questions = arr as unknown[]; }
-        else { throw new Error("No array found in response"); }
+        else { throw new Error("No array found"); }
       }
     } catch {
-      console.error("[generate] JSON parse failed. Raw:", raw.slice(0, 400));
-      return NextResponse.json({ detail: "Failed to parse AI response. Please try again." }, { status: 500 });
+      return NextResponse.json({ detail: isFr ? "Échec d'analyse de la réponse IA. Réessayez." : "Failed to parse AI response. Please try again." }, { status: 500 });
     }
 
     return NextResponse.json({ questions }, { status: 200 });
