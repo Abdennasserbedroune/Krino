@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
+import LiveInterviewOverlay, { LiveSessionMeta } from "./LiveInterviewOverlay";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Question {
@@ -504,10 +505,14 @@ export default function InterviewPrepPage() {
   // Phase: "setup" | "session" | "summary"
   const [phase, setPhase] = useState<"setup" | "session" | "summary">("setup");
 
+  // Live interview overlay
+  const [liveOverlayOpen, setLiveOverlayOpen] = useState(false);
+  const [liveMeta,        setLiveMeta]        = useState<LiveSessionMeta | null>(null);
+
   // Hint toggle
   const [showHint, setShowHint] = useState(false);
 
-  const elapsed    = useElapsedTimer(generating);
+  const elapsed     = useElapsedTimer(generating);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Focus textarea when switching questions
@@ -536,6 +541,25 @@ export default function InterviewPrepPage() {
 
   const answeredCount = Object.values(answers).filter(a => a.evaluation).length;
   const allDone       = questions.length > 0 && answeredCount === questions.length;
+
+  // ── Live interview launcher
+  function handleLaunchLive() {
+    if (!jobTitle.trim() || !jobField.trim()) {
+      setError(isFr ? "Le titre du poste et le domaine sont requis." : "Job title and field are required.");
+      return;
+    }
+    setError("");
+    setLiveMeta({
+      job_title:        jobTitle.trim(),
+      job_field:        jobField.trim(),
+      experience_level: experienceLevel,
+      company_name:     companyName.trim(),
+      tech_stack:       techStack.trim(),
+      language:         apiLanguage,
+      total_turns:      5,
+    });
+    setLiveOverlayOpen(true);
+  }
 
   // ── Generate
   async function handleGenerate(e: React.FormEvent) {
@@ -614,120 +638,177 @@ export default function InterviewPrepPage() {
   // ── Render setup phase
   if (phase === "setup") {
     return (
-      <div style={{ maxWidth: 680, margin: "0 auto", padding: "0 0 80px" }}>
+      <>
+        <div style={{ maxWidth: 680, margin: "0 auto", padding: "0 0 80px" }}>
 
-        {/* Page header */}
-        <div style={{ marginBottom: 32 }}>
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: 8,
-            padding: "4px 14px 4px 8px", borderRadius: 9999,
-            background: "rgba(255,255,255,0.82)",
-            backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
-            border: "1px solid rgba(17,24,39,0.09)",
-            boxShadow: "0 1px 4px rgba(17,24,39,0.06)", marginBottom: 16,
-          }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#111827", display: "inline-block" }} />
-            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "#6B7280" }}>
-              {isFr ? "Préparation aux entretiens" : "Interview Prep"}
-            </span>
+          {/* Page header */}
+          <div style={{ marginBottom: 32 }}>
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "4px 14px 4px 8px", borderRadius: 9999,
+              background: "rgba(255,255,255,0.82)",
+              backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+              border: "1px solid rgba(17,24,39,0.09)",
+              boxShadow: "0 1px 4px rgba(17,24,39,0.06)", marginBottom: 16,
+            }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#111827", display: "inline-block" }} />
+              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "#6B7280" }}>
+                {isFr ? "Préparation aux entretiens" : "Interview Prep"}
+              </span>
+            </div>
+            <h1 style={{
+              margin: 0, fontSize: "clamp(26px, 4vw, 38px)",
+              fontWeight: 500, lineHeight: 1.1, letterSpacing: "-0.025em", color: "#111827",
+            }}>
+              {isFr ? "Prêt pour l'\u200bentretien ?" : "Ready for the\u00a0interview?"}
+            </h1>
+            <p style={{ fontSize: 14, color: "#6B7280", marginTop: 8, marginBottom: 0, lineHeight: 1.6 }}>
+              {isFr
+                ? "Décrivez le poste. L'IA génère 10 questions ciblées. Répondez une par une, recevez un feedback instantané."
+                : "Describe the role. The AI generates 10 tailored questions. Answer one at a time, get instant feedback."
+              }
+            </p>
           </div>
-          <h1 style={{
-            margin: 0, fontSize: "clamp(26px, 4vw, 38px)",
-            fontWeight: 500, lineHeight: 1.1, letterSpacing: "-0.025em", color: "#111827",
-          }}>
-            {isFr ? "Prêt pour l'\u200bentretien ?" : "Ready for the\u00a0interview?"}
-          </h1>
-          <p style={{ fontSize: 14, color: "#6B7280", marginTop: 8, marginBottom: 0, lineHeight: 1.6 }}>
-            {isFr
-              ? "Décrivez le poste. L'IA génère 10 questions ciblées. Répondez une par une, recevez un feedback instantané."
-              : "Describe the role. The AI generates 10 tailored questions. Answer one at a time, get instant feedback."
-            }
-          </p>
-        </div>
 
-        {/* Form card */}
-        <div style={{
-          padding: 1, borderRadius: 20,
-          background: "linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(17,24,39,0.06) 100%)",
-        }}>
+          {/* Form card */}
           <div style={{
-            borderRadius: 19, background: "#fff",
-            boxShadow: CARD_SHADOW, padding: "32px",
+            padding: 1, borderRadius: 20,
+            background: "linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(17,24,39,0.06) 100%)",
           }}>
-            <form onSubmit={handleGenerate}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginBottom: 18 }}>
-                <FormField
-                  label={isFr ? "Intitulé du poste *" : "Job Title *"}
-                  value={jobTitle} onChange={setJobTitle}
-                  placeholder={isFr ? "ex. Ingénieur Backend Senior" : "e.g. Senior Backend Engineer"}
-                />
-                <FormField
-                  label={isFr ? "Entreprise" : "Company"}
-                  value={companyName} onChange={setCompanyName}
-                  placeholder={isFr ? "ex. Stripe (optionnel)" : "e.g. Stripe (optional)"}
-                />
-                <FormField
-                  label={isFr ? "Domaine / Secteur *" : "Job Field / Domain *"}
-                  value={jobField} onChange={setJobField}
-                  placeholder={isFr ? "ex. Fintech, IA/ML" : "e.g. Fintech, AI/ML"}
-                />
-                <div>
-                  <label style={LABEL_STYLE}>{isFr ? "Niveau d'expérience *" : "Experience Level *"}</label>
-                  <select
-                    value={experienceLevel}
-                    onChange={e => setExperienceLevel(e.target.value)}
-                    style={INPUT_STYLE}
-                  >
-                    <option value="Junior">Junior</option>
-                    <option value="Mid">{isFr ? "Intermédiaire" : "Mid"}</option>
-                    <option value="Senior">Senior</option>
-                    <option value="Lead / Staff">Lead / Staff</option>
-                  </select>
+            <div style={{
+              borderRadius: 19, background: "#fff",
+              boxShadow: CARD_SHADOW, padding: "32px",
+            }}>
+              <form onSubmit={handleGenerate}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginBottom: 18 }}>
+                  <FormField
+                    label={isFr ? "Intitulé du poste *" : "Job Title *"}
+                    value={jobTitle} onChange={setJobTitle}
+                    placeholder={isFr ? "ex. Ingénieur Backend Senior" : "e.g. Senior Backend Engineer"}
+                  />
+                  <FormField
+                    label={isFr ? "Entreprise" : "Company"}
+                    value={companyName} onChange={setCompanyName}
+                    placeholder={isFr ? "ex. Stripe (optionnel)" : "e.g. Stripe (optional)"}
+                  />
+                  <FormField
+                    label={isFr ? "Domaine / Secteur *" : "Job Field / Domain *"}
+                    value={jobField} onChange={setJobField}
+                    placeholder={isFr ? "ex. Fintech, IA/ML" : "e.g. Fintech, AI/ML"}
+                  />
+                  <div>
+                    <label style={LABEL_STYLE}>{isFr ? "Niveau d'expérience *" : "Experience Level *"}</label>
+                    <select
+                      value={experienceLevel}
+                      onChange={e => setExperienceLevel(e.target.value)}
+                      style={INPUT_STYLE}
+                    >
+                      <option value="Junior">Junior</option>
+                      <option value="Mid">{isFr ? "Intermédiaire" : "Mid"}</option>
+                      <option value="Senior">Senior</option>
+                      <option value="Lead / Staff">Lead / Staff</option>
+                    </select>
+                  </div>
+                  <FormField
+                    label={isFr ? "Stack technique" : "Tech Stack"}
+                    value={techStack} onChange={setTechStack}
+                    placeholder={isFr ? "ex. Python, PostgreSQL" : "e.g. Python, PostgreSQL"}
+                  />
+                  <FormField
+                    label={isFr ? "Contexte" : "Extra Context"}
+                    value={extraContext} onChange={setExtraContext}
+                    placeholder={isFr ? "ex. Backend distribué" : "e.g. Distributed systems"}
+                  />
                 </div>
-                <FormField
-                  label={isFr ? "Stack technique" : "Tech Stack"}
-                  value={techStack} onChange={setTechStack}
-                  placeholder={isFr ? "ex. Python, PostgreSQL" : "e.g. Python, PostgreSQL"}
-                />
-                <FormField
-                  label={isFr ? "Contexte" : "Extra Context"}
-                  value={extraContext} onChange={setExtraContext}
-                  placeholder={isFr ? "ex. Backend distribué" : "e.g. Distributed systems"}
-                />
-              </div>
 
-              {error && (
-                <div style={{
-                  color: "#991B1B", background: "#FEF2F2",
-                  padding: "10px 14px", borderRadius: 9, fontSize: 13, marginBottom: 18,
-                  border: "1px solid #FECACA",
-                }}>{error}</div>
-              )}
+                {error && (
+                  <div style={{
+                    color: "#991B1B", background: "#FEF2F2",
+                    padding: "10px 14px", borderRadius: 9, fontSize: 13, marginBottom: 18,
+                    border: "1px solid #FECACA",
+                  }}>{error}</div>
+                )}
 
-              <button
-                type="submit"
-                disabled={generating}
-                style={{
-                  width: "100%", padding: "13px 0",
-                  background: generating ? "#9CA3AF" : "#111827",
-                  color: "#fff", border: "none", borderRadius: 9999,
-                  fontSize: 14, fontWeight: 600, letterSpacing: "0.01em",
-                  cursor: generating ? "not-allowed" : "pointer",
-                  transition: "background 150ms ease",
-                  boxShadow: generating ? "none" : "0 1px 2px rgba(0,0,0,0.2), 0 4px 12px rgba(17,24,39,0.25)",
-                }}
-              >
-                {generating
-                  ? `${isFr ? "Génération…" : "Generating…"} (${formatElapsed(elapsed)})`
-                  : (isFr ? "Générer 10 questions →" : "Generate 10 Questions →")
-                }
-              </button>
-            </form>
+                {/* Primary CTA — Practice mode */}
+                <button
+                  type="submit"
+                  disabled={generating}
+                  style={{
+                    width: "100%", padding: "13px 0",
+                    background: generating ? "#9CA3AF" : "#111827",
+                    color: "#fff", border: "none", borderRadius: 9999,
+                    fontSize: 14, fontWeight: 600, letterSpacing: "0.01em",
+                    cursor: generating ? "not-allowed" : "pointer",
+                    transition: "background 150ms ease",
+                    boxShadow: generating ? "none" : "0 1px 2px rgba(0,0,0,0.2), 0 4px 12px rgba(17,24,39,0.25)",
+                  }}
+                >
+                  {generating
+                    ? `${isFr ? "Génération…" : "Generating…"} (${formatElapsed(elapsed)})`
+                    : (isFr ? "Générer 10 questions →" : "Generate 10 Questions →")
+                  }
+                </button>
 
-            {generating && <GeneratingCard elapsed={elapsed} isFr={isFr} />}
+                {/* Divider */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "18px 0" }}>
+                  <div style={{ flex: 1, height: 1, background: "rgba(17,24,39,0.08)" }} />
+                  <span style={{ fontSize: 12, color: "#9CA3AF", fontWeight: 500 }}>
+                    {isFr ? "ou" : "or"}
+                  </span>
+                  <div style={{ flex: 1, height: 1, background: "rgba(17,24,39,0.08)" }} />
+                </div>
+
+                {/* Secondary CTA — Live interview */}
+                <button
+                  type="button"
+                  disabled={generating}
+                  onClick={handleLaunchLive}
+                  style={{
+                    width: "100%", padding: "13px 0",
+                    background: "transparent",
+                    color: generating ? "#9CA3AF" : "#111827",
+                    border: `1px solid ${generating ? "rgba(17,24,39,0.1)" : "rgba(17,24,39,0.22)"}`,
+                    borderRadius: 9999,
+                    fontSize: 14, fontWeight: 600, letterSpacing: "0.01em",
+                    cursor: generating ? "not-allowed" : "pointer",
+                    transition: "all 150ms ease",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  }}
+                  onMouseEnter={e => {
+                    if (!generating) {
+                      (e.currentTarget as HTMLElement).style.background = "rgba(17,24,39,0.04)";
+                      (e.currentTarget as HTMLElement).style.borderColor = "rgba(17,24,39,0.4)";
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLElement).style.background = "transparent";
+                    (e.currentTarget as HTMLElement).style.borderColor = generating ? "rgba(17,24,39,0.1)" : "rgba(17,24,39,0.22)";
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor" />
+                    <path d="M5 11a7 7 0 0 0 14 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="12" y1="18" x2="12" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="9"  y1="21" x2="15" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                  {isFr ? "Démarrer l'entretien en direct" : "Start Live Interview"}
+                </button>
+              </form>
+
+              {generating && <GeneratingCard elapsed={elapsed} isFr={isFr} />}
+            </div>
           </div>
         </div>
-      </div>
+
+        {/* Live overlay — mounted outside the form container so it covers the full viewport */}
+        {liveOverlayOpen && liveMeta && (
+          <LiveInterviewOverlay
+            meta={liveMeta}
+            isFr={isFr}
+            onClose={() => setLiveOverlayOpen(false)}
+          />
+        )}
+      </>
     );
   }
 
