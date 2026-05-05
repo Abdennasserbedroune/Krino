@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { apiUrl } from "@/lib/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface LiveSessionMeta {
@@ -183,14 +182,11 @@ function playAudioB64(b64: string, onEnd: () => void) {
   } catch { onEnd(); }
 }
 
-// Singleton AudioContext to avoid the 6-context browser limit
 let _audioCtx: AudioContext | null = null;
 function getAudioCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
   try {
-    if (!_audioCtx || _audioCtx.state === "closed") {
-      _audioCtx = new AudioContext();
-    }
+    if (!_audioCtx || _audioCtx.state === "closed") _audioCtx = new AudioContext();
     return _audioCtx;
   } catch { return null; }
 }
@@ -226,8 +222,8 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
   const [amplitude,    setAmplitude]    = useState(0);
   const [error,        setError]        = useState("");
   const [confirmClose, setConfirmClose] = useState(false);
+  const [isMounted,    setIsMounted]    = useState(false);
 
-  const [isMounted, setIsMounted] = useState(false);
   useEffect(() => { setIsMounted(true); }, []);
 
   const timerActive = phase === "user_turn" || phase === "recording";
@@ -239,7 +235,6 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recognitionRef  = useRef<any>(null);
   const finalTransRef   = useRef("");
-  // Use a ref for history to avoid stale closures in callbacks
   const historyRef      = useRef<{ role: string; content: string }[]>([]);
   const submittingRef   = useRef(false);
   const hasFetchedRef   = useRef(false);
@@ -295,7 +290,7 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
     historyRef.current = newHistory;
 
     try {
-      const res = await fetch(apiUrl("/api/v1/interview-prep/live/answer"), {
+      const res = await fetch("/api/v1/interview-prep/live/answer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -347,12 +342,11 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
     setTranscript("");
     setError("");
 
-    // Reuse existing stream if still active
     if (!mediaStreamRef.current) {
       try {
-        const stream   = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaStreamRef.current = stream;
-        const ctx      = getAudioCtx();
+        const ctx = getAudioCtx();
         if (ctx) {
           if (ctx.state === "suspended") await ctx.resume();
           const source   = ctx.createMediaStreamSource(stream);
@@ -361,9 +355,7 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
           source.connect(analyser);
           analyserRef.current = analyser;
         }
-      } catch {
-        // mic permission denied — continue without visualizer
-      }
+      } catch { /* no visualizer — continue */ }
     }
     startAmplitudeLoop();
 
@@ -373,8 +365,7 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
     if (!SpeechRecognition) {
       setError(isFr
         ? "Reconnaissance vocale non supportée. Utilisez Chrome."
-        : "Voice recognition not supported. Use Chrome."
-      );
+        : "Voice recognition not supported. Use Chrome.");
       return;
     }
 
@@ -395,40 +386,35 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
       setTranscript(finalTransRef.current + interim);
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = setTimeout(() => {
-        if (finalTransRef.current.trim() && !submittingRef.current) {
+        if (finalTransRef.current.trim() && !submittingRef.current)
           submitAnswer(finalTransRef.current.trim());
-        }
       }, SILENCE_MS);
     };
 
     rec.onerror = (e: any) => {
-      // 'network' and 'no-speech' are transient — auto-restart, do NOT show error
       if (e.error === "network" || e.error === "no-speech" || e.error === "aborted") {
-        if (recognitionRef.current === rec && !submittingRef.current) {
-          try { rec.start(); } catch { /* already starting */ }
-        }
+        if (recognitionRef.current === rec && !submittingRef.current)
+          try { rec.start(); } catch { /* ok */ }
         return;
       }
       setError(isFr ? `Erreur micro : ${e.error}` : `Mic error: ${e.error}`);
     };
 
     rec.onend = () => {
-      if (recognitionRef.current === rec && !submittingRef.current) {
-        try { rec.start(); } catch { /* already starting */ }
-      }
+      if (recognitionRef.current === rec && !submittingRef.current)
+        try { rec.start(); } catch { /* ok */ }
     };
 
-    try { rec.start(); } catch { /* ignore */ }
+    try { rec.start(); } catch { /* ok */ }
     setPhase("recording");
   }, [isMounted, meta.language, isFr, startAmplitudeLoop, submitAnswer]);
 
-  // Load first question — guarded by hasFetchedRef to prevent double-fire
   useEffect(() => {
     if (!isMounted || hasFetchedRef.current) return;
     hasFetchedRef.current = true;
     (async () => {
       try {
-        const res = await fetch(apiUrl("/api/v1/interview-prep/live/start"), {
+        const res = await fetch("/api/v1/interview-prep/live/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -453,10 +439,7 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
           setPhase("user_turn");
         });
       } catch {
-        setError(isFr
-          ? "Erreur réseau lors du chargement de l'entretien."
-          : "Network error loading interview."
-        );
+        setError(isFr ? "Erreur réseau lors du chargement de l'entretien." : "Network error loading interview.");
         setPhase("user_turn");
       }
     })();
@@ -477,41 +460,23 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
   const isAISpeaking = phase === "ai_speaking";
   const isUserTurn   = phase === "user_turn" || phase === "recording";
 
-  // ─── SUMMARY ─────────────────────────────────────────────────────────────
   if (phase === "summary") {
     const avg = turns.length
       ? Math.round(turns.reduce((s, t) => s + (t.evaluation?.score ?? 0), 0) / turns.length)
       : 0;
     const col = scoreColor(avg);
     return (
-      <div style={{
-        position: "fixed", inset: 0, zIndex: 9999,
-        background: "rgba(17,24,39,0.55)",
-        backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
-        display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-      }}>
-        <div style={{
-          background: "#fff", borderRadius: 20, width: "100%", maxWidth: 560,
-          maxHeight: "90vh", overflowY: "auto", padding: "32px 28px",
-          boxShadow: "0 24px 64px rgba(17,24,39,0.3)",
-        }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(17,24,39,0.55)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+        <div style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 560, maxHeight: "90vh", overflowY: "auto", padding: "32px 28px", boxShadow: "0 24px 64px rgba(17,24,39,0.3)" }}>
           <div style={{ textAlign: "center", marginBottom: 28 }}>
             <ScoreRing score={avg} size={72} />
             <h2 style={{ margin: "16px 0 4px", fontSize: 22, fontWeight: 700, color: col, letterSpacing: "-0.02em" }}>
-              {avg >= 80 ? (isFr ? "Excellent" : "Excellent")
-                : avg >= 60 ? (isFr ? "Bon effort" : "Good effort")
-                : (isFr ? "À améliorer" : "Needs work")}
+              {avg >= 80 ? (isFr ? "Excellent" : "Excellent") : avg >= 60 ? (isFr ? "Bon effort" : "Good effort") : (isFr ? "À améliorer" : "Needs work")}
             </h2>
-            <p style={{ margin: 0, fontSize: 13, color: "#6B7280" }}>
-              {isFr ? `Score moyen : ${avg}/100` : `Average score: ${avg}/100`}
-            </p>
+            <p style={{ margin: 0, fontSize: 13, color: "#6B7280" }}>{isFr ? `Score moyen : ${avg}/100` : `Average score: ${avg}/100`}</p>
           </div>
           {turns.map((t, i) => (
-            <div key={i} style={{
-              marginBottom: 16, padding: "14px 16px",
-              background: "#F9FAFB", borderRadius: 12,
-              border: "1px solid rgba(17,24,39,0.07)",
-            }}>
+            <div key={i} style={{ marginBottom: 16, padding: "14px 16px", background: "#F9FAFB", borderRadius: 12, border: "1px solid rgba(17,24,39,0.07)" }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                 {t.evaluation && <ScoreRing score={t.evaluation.score} size={40} />}
                 <div style={{ flex: 1 }}>
@@ -527,82 +492,35 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
               </div>
             </div>
           ))}
-          <button onClick={onClose} style={{
-            width: "100%", marginTop: 8, padding: "12px 0",
-            background: "#111827", color: "#fff",
-            border: "none", borderRadius: 9999,
-            fontSize: 14, fontWeight: 600, cursor: "pointer",
-          }}>{isFr ? "Fermer" : "Close"}</button>
+          <button onClick={onClose} style={{ width: "100%", marginTop: 8, padding: "12px 0", background: "#111827", color: "#fff", border: "none", borderRadius: 9999, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+            {isFr ? "Fermer" : "Close"}
+          </button>
         </div>
       </div>
     );
   }
 
-  // ─── MAIN VIEW ────────────────────────────────────────────────────────────
   return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 9999,
-      background: "rgba(17,24,39,0.55)",
-      backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
-      display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-    }}>
-      <div style={{
-        background: "#fff", borderRadius: 24,
-        width: "100%", maxWidth: 480,
-        padding: "36px 32px 28px",
-        boxShadow: "0 32px 80px rgba(17,24,39,0.35)",
-        position: "relative",
-      }}>
-        {/* Close */}
-        <button onClick={() => setConfirmClose(true)} style={{
-          position: "absolute", top: 16, right: 16,
-          width: 32, height: 32, borderRadius: "50%",
-          background: "rgba(17,24,39,0.06)", border: "none", cursor: "pointer",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 16, color: "#6B7280",
-        }}>×</button>
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(17,24,39,0.55)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 480, padding: "36px 32px 28px", boxShadow: "0 32px 80px rgba(17,24,39,0.35)", position: "relative" }}>
 
-        {/* Confirm close */}
+        <button onClick={() => setConfirmClose(true)} style={{ position: "absolute", top: 16, right: 16, width: 32, height: 32, borderRadius: "50%", background: "rgba(17,24,39,0.06)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: "#6B7280" }}>×</button>
+
         {confirmClose && (
-          <div style={{
-            position: "absolute", inset: 0, borderRadius: 24, zIndex: 10,
-            background: "rgba(255,255,255,0.96)",
-            display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center", gap: 14, padding: 32,
-          }}>
-            <p style={{ margin: 0, fontWeight: 600, fontSize: 16, color: "#111827", textAlign: "center" }}>
-              {isFr ? "Quitter l'entretien ?" : "End this interview?"}
-            </p>
-            <p style={{ margin: 0, fontSize: 13, color: "#6B7280", textAlign: "center" }}>
-              {isFr ? "Votre progression sera perdue." : "Your progress will be lost."}
-            </p>
+          <div style={{ position: "absolute", inset: 0, borderRadius: 24, zIndex: 10, background: "rgba(255,255,255,0.96)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 32 }}>
+            <p style={{ margin: 0, fontWeight: 600, fontSize: 16, color: "#111827", textAlign: "center" }}>{isFr ? "Quitter l'entretien ?" : "End this interview?"}</p>
+            <p style={{ margin: 0, fontSize: 13, color: "#6B7280", textAlign: "center" }}>{isFr ? "Votre progression sera perdue." : "Your progress will be lost."}</p>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setConfirmClose(false)} style={{
-                padding: "9px 20px", borderRadius: 9999,
-                border: "1px solid rgba(17,24,39,0.15)",
-                background: "#fff", fontSize: 13, cursor: "pointer",
-              }}>{isFr ? "Continuer" : "Keep going"}</button>
-              <button onClick={() => { stopMic(); onClose(); }} style={{
-                padding: "9px 20px", borderRadius: 9999,
-                background: "#EF4444", color: "#fff",
-                border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer",
-              }}>{isFr ? "Quitter" : "End interview"}</button>
+              <button onClick={() => setConfirmClose(false)} style={{ padding: "9px 20px", borderRadius: 9999, border: "1px solid rgba(17,24,39,0.15)", background: "#fff", fontSize: 13, cursor: "pointer" }}>{isFr ? "Continuer" : "Keep going"}</button>
+              <button onClick={() => { stopMic(); onClose(); }} style={{ padding: "9px 20px", borderRadius: 9999, background: "#EF4444", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{isFr ? "Quitter" : "End interview"}</button>
             </div>
           </div>
         )}
 
-        {/* Turn dots */}
         <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <div style={{
-            display: "inline-flex", gap: 6, alignItems: "center",
-            background: "#F3F4F6", borderRadius: 9999, padding: "4px 14px",
-          }}>
+          <div style={{ display: "inline-flex", gap: 6, alignItems: "center", background: "#F3F4F6", borderRadius: 9999, padding: "4px 14px" }}>
             {Array.from({ length: meta.total_turns }).map((_, i) => (
-              <div key={i} style={{
-                width: 8, height: 8, borderRadius: "50%",
-                background: i < turnNumber - 1 ? "#10B981" : i === turnNumber - 1 ? "#111827" : "#E5E7EB",
-                transition: "background 300ms ease",
-              }} />
+              <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: i < turnNumber - 1 ? "#10B981" : i === turnNumber - 1 ? "#111827" : "#E5E7EB", transition: "background 300ms ease" }} />
             ))}
           </div>
           <p style={{ margin: "6px 0 0", fontSize: 12, color: "#9CA3AF" }}>
@@ -610,52 +528,32 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
           </p>
         </div>
 
-        {/* Avatar */}
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
           <AvatarRing speaking={isAISpeaking} amplitude={amplitude} />
         </div>
 
-        {/* Phase label */}
-        <p style={{
-          textAlign: "center", fontSize: 13, fontWeight: 600, color: "#6B7280",
-          letterSpacing: "0.08em", textTransform: "uppercase", margin: "0 0 12px",
-        }}>
-          {phase === "loading"     ? (isFr ? "Chargement…" : "Loading…")
-          : phase === "ai_speaking" ? (isFr ? "L'IA parle" : "AI Speaking")
-          : phase === "thinking"   ? (isFr ? "Réflexion…" : "Thinking…")
-          : phase === "feedback"   ? (isFr ? "Résultats" : "Feedback")
-          : (isFr ? "Votre tour" : "Your turn")}
+        <p style={{ textAlign: "center", fontSize: 13, fontWeight: 600, color: "#6B7280", letterSpacing: "0.08em", textTransform: "uppercase", margin: "0 0 12px" }}>
+          {phase === "loading" ? (isFr ? "Chargement…" : "Loading…")
+            : phase === "ai_speaking" ? (isFr ? "L'IA parle" : "AI Speaking")
+            : phase === "thinking"    ? (isFr ? "Réflexion…" : "Thinking…")
+            : phase === "feedback"    ? (isFr ? "Résultats" : "Feedback")
+            : (isFr ? "Votre tour" : "Your turn")}
         </p>
 
-        {/* Question */}
         {currentQ && (
-          <div style={{
-            background: "#F9FAFB", borderRadius: 12,
-            padding: "14px 16px", marginBottom: 16,
-            border: "1px solid rgba(17,24,39,0.06)",
-          }}>
+          <div style={{ background: "#F9FAFB", borderRadius: 12, padding: "14px 16px", marginBottom: 16, border: "1px solid rgba(17,24,39,0.06)" }}>
             <p style={{ margin: 0, fontSize: 15, color: "#111827", lineHeight: 1.6, fontWeight: 500 }}>{currentQ}</p>
             {hint && (
-              <button onClick={() => setShowHint(v => !v)} style={{
-                marginTop: 8, padding: 0, background: "none", border: "none",
-                fontSize: 11, color: "#9CA3AF", cursor: "pointer",
-                textDecoration: "underline", textDecorationStyle: "dotted",
-              }}>
+              <button onClick={() => setShowHint(v => !v)} style={{ marginTop: 8, padding: 0, background: "none", border: "none", fontSize: 11, color: "#9CA3AF", cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" }}>
                 {showHint ? (isFr ? "Masquer l'indice" : "Hide hint") : (isFr ? "Indice" : "Hint")}
               </button>
             )}
-            {showHint && hint && (
-              <p style={{ margin: "6px 0 0", fontSize: 12, color: "#6B7280", fontStyle: "italic" }}>💡 {hint}</p>
-            )}
+            {showHint && hint && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#6B7280", fontStyle: "italic" }}>💡 {hint}</p>}
           </div>
         )}
 
-        {/* Feedback */}
         {phase === "feedback" && lastEval && (
-          <div style={{
-            background: "#F0FDF4", borderRadius: 12, padding: "14px 16px", marginBottom: 16,
-            border: "1px solid #BBF7D0", display: "flex", gap: 12, alignItems: "flex-start",
-          }}>
+          <div style={{ background: "#F0FDF4", borderRadius: 12, padding: "14px 16px", marginBottom: 16, border: "1px solid #BBF7D0", display: "flex", gap: 12, alignItems: "flex-start" }}>
             <ScoreRing score={lastEval.score} size={44} />
             <div>
               <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700, color: scoreColor(lastEval.score) }}>{lastEval.verdict}</p>
@@ -664,66 +562,39 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
           </div>
         )}
 
-        {/* Transcript / waveform */}
         {isUserTurn && (
-          <div style={{
-            minHeight: 56, padding: "12px 14px",
-            background: "rgba(17,24,39,0.03)", borderRadius: 10,
-            border: "1.5px solid rgba(17,24,39,0.1)", marginBottom: 16,
-          }}>
+          <div style={{ minHeight: 56, padding: "12px 14px", background: "rgba(17,24,39,0.03)", borderRadius: 10, border: "1.5px solid rgba(17,24,39,0.1)", marginBottom: 16 }}>
             {transcript
               ? <p style={{ margin: 0, fontSize: 14, color: "#111827", lineHeight: 1.6 }}>{transcript}</p>
-              : <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <WaveBars active={phase === "recording"} amplitude={amplitude} />
-                </div>
+              : <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}><WaveBars active={phase === "recording"} amplitude={amplitude} /></div>
             }
           </div>
         )}
 
-        {/* Error */}
         {error && (
-          <div style={{
-            padding: "10px 14px", background: "#FEF2F2",
-            border: "1px solid #FECACA", borderRadius: 9,
-            fontSize: 12, color: "#991B1B", marginBottom: 12,
-            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
-          }}>
+          <div style={{ padding: "10px 14px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 9, fontSize: 12, color: "#991B1B", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <span>{error}</span>
-            <button onClick={() => { setError(""); startMic(); }} style={{
-              padding: "3px 10px", borderRadius: 9999, border: "1px solid #FECACA",
-              background: "#fff", color: "#991B1B", fontSize: 11, cursor: "pointer", flexShrink: 0,
-            }}>{isFr ? "Réessayer" : "Retry"}</button>
+            <button onClick={() => { setError(""); startMic(); }} style={{ padding: "3px 10px", borderRadius: 9999, border: "1px solid #FECACA", background: "#fff", color: "#991B1B", fontSize: 11, cursor: "pointer", flexShrink: 0 }}>
+              {isFr ? "Réessayer" : "Retry"}
+            </button>
           </div>
         )}
 
-        {/* Spinner */}
         {(phase === "loading" || phase === "thinking") && (
           <div style={{ textAlign: "center", marginBottom: 16 }}>
-            <div style={{
-              width: 36, height: 36, margin: "0 auto",
-              border: "3px solid #E5E7EB", borderTopColor: "#111827",
-              borderRadius: "50%", animation: "ipspin 0.8s linear infinite",
-            }} />
+            <div style={{ width: 36, height: 36, margin: "0 auto", border: "3px solid #E5E7EB", borderTopColor: "#111827", borderRadius: "50%", animation: "ipspin 0.8s linear infinite" }} />
             <style>{"@keyframes ipspin { to { transform: rotate(360deg); } }"}</style>
           </div>
         )}
 
-        {/* Submit */}
         {isUserTurn && transcript && (
-          <button onClick={() => submitAnswer(finalTransRef.current || transcript)} style={{
-            width: "100%", padding: "11px 0",
-            background: "#111827", color: "#fff",
-            border: "none", borderRadius: 9999,
-            fontSize: 14, fontWeight: 600, cursor: "pointer",
-            boxShadow: "0 1px 2px rgba(0,0,0,0.15), 0 4px 10px rgba(17,24,39,0.2)",
-          }}>{isFr ? "Soumettre →" : "Submit →"}</button>
+          <button onClick={() => submitAnswer(finalTransRef.current || transcript)} style={{ width: "100%", padding: "11px 0", background: "#111827", color: "#fff", border: "none", borderRadius: 9999, fontSize: 14, fontWeight: 600, cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.15), 0 4px 10px rgba(17,24,39,0.2)" }}>
+            {isFr ? "Soumettre →" : "Submit →"}
+          </button>
         )}
 
-        {/* Timer */}
         {isUserTurn && (
-          <p style={{ textAlign: "center", margin: "12px 0 0", fontSize: 12, color: "#D1D5DB" }}>
-            {formatTime(elapsed)}
-          </p>
+          <p style={{ textAlign: "center", margin: "12px 0 0", fontSize: 12, color: "#D1D5DB" }}>{formatTime(elapsed)}</p>
         )}
       </div>
     </div>
