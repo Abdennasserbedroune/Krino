@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { apiUrl } from "@/lib/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface LiveSessionMeta {
@@ -29,13 +30,13 @@ interface TurnRecord {
 }
 
 type LivePhase =
-  | "loading"      // fetching first question from backend
-  | "ai_speaking"  // AI audio playing / text being shown
-  | "user_turn"    // mic active, user speaking
-  | "recording"    // actively recording
-  | "thinking"     // waiting for backend response
-  | "feedback"     // brief per-turn score (auto-advance after 3s)
-  | "summary";     // final results
+  | "loading"
+  | "ai_speaking"
+  | "user_turn"
+  | "recording"
+  | "thinking"
+  | "feedback"
+  | "summary";
 
 interface Props {
   meta:    LiveSessionMeta;
@@ -43,7 +44,6 @@ interface Props {
   onClose: () => void;
 }
 
-// ─── Constants ───────────────────────────────────────────────────────────────────
 const SILENCE_MS       = 2500;
 const FEEDBACK_AUTO_MS = 3000;
 
@@ -51,39 +51,30 @@ function scoreColor(s: number) {
   return s >= 80 ? "#10B981" : s >= 55 ? "#F59E0B" : "#EF4444";
 }
 
-// ─── Waveform bars ──────────────────────────────────────────────────────────────────
-// Fixed bar heights driven purely by amplitude state — no Date.now() in render
-// This eliminates the React hydration mismatch (#425)
 function WaveBars({ active, amplitude = 0 }: { active: boolean; amplitude?: number }) {
   const bars = 7;
-  // Heights are seeded from amplitude only (deterministic per render)
   const heights = useMemo(() => {
     return Array.from({ length: bars }).map((_, i) => {
       if (!active) return 6;
       const phase = (i / bars) * Math.PI * 2;
       return Math.min(36, Math.max(6, 6 + amplitude * 36 + Math.sin(phase) * 8));
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, amplitude]);
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 4, height: 40 }}>
       {heights.map((h, i) => (
-        <div
-          key={i}
-          style={{
-            width: 4, borderRadius: 99,
-            background: active ? "#111827" : "#D1D5DB",
-            height: h,
-            transition: active ? "height 60ms ease" : "height 300ms ease",
-          }}
-        />
+        <div key={i} style={{
+          width: 4, borderRadius: 99,
+          background: active ? "#111827" : "#D1D5DB",
+          height: h,
+          transition: active ? "height 60ms ease" : "height 300ms ease",
+        }} />
       ))}
     </div>
   );
 }
 
-// ─── Animated avatar ring ─────────────────────────────────────────────────────────
 function AvatarRing({ speaking, amplitude = 0 }: { speaking: boolean; amplitude?: number }) {
   const scale = 1 + amplitude * 0.25;
   return (
@@ -91,24 +82,19 @@ function AvatarRing({ speaking, amplitude = 0 }: { speaking: boolean; amplitude?
       {speaking && (
         <>
           <div style={{
-            position: "absolute", inset: -12,
-            borderRadius: "50%",
+            position: "absolute", inset: -12, borderRadius: "50%",
             border: "2px solid rgba(17,24,39,0.12)",
-            transform: `scale(${scale})`,
-            transition: "transform 80ms ease",
+            transform: `scale(${scale})`, transition: "transform 80ms ease",
           }} />
           <div style={{
-            position: "absolute", inset: -24,
-            borderRadius: "50%",
+            position: "absolute", inset: -24, borderRadius: "50%",
             border: "1.5px solid rgba(17,24,39,0.06)",
-            transform: `scale(${scale * 1.08})`,
-            transition: "transform 120ms ease",
+            transform: `scale(${scale * 1.08})`, transition: "transform 120ms ease",
           }} />
         </>
       )}
       <div style={{
-        width: 120, height: 120, borderRadius: "50%",
-        background: "#111827",
+        width: 120, height: 120, borderRadius: "50%", background: "#111827",
         display: "flex", alignItems: "center", justifyContent: "center",
         boxShadow: speaking
           ? `0 0 0 6px rgba(17,24,39,0.08), 0 8px 32px rgba(17,24,39,0.3)`
@@ -134,7 +120,6 @@ function AvatarRing({ speaking, amplitude = 0 }: { speaking: boolean; amplitude?
   );
 }
 
-// ─── Score ring (mini) ────────────────────────────────────────────────────────────────────
 function ScoreRing({ score, size = 56 }: { score: number; size?: number }) {
   const r    = (size - 6) / 2;
   const circ = 2 * Math.PI * r;
@@ -155,7 +140,6 @@ function ScoreRing({ score, size = 56 }: { score: number; size?: number }) {
   );
 }
 
-// ─── Timer hook ────────────────────────────────────────────────────────────────────────
 function useTimer(active: boolean) {
   const [seconds, setSeconds] = useState(0);
   useEffect(() => {
@@ -172,7 +156,6 @@ function formatTime(s: number) {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
-// ─── Browser TTS helper ──────────────────────────────────────────────────────────────────
 function speakBrowser(text: string, lang: string, onEnd: () => void) {
   if (typeof window === "undefined" || !window.speechSynthesis) { onEnd(); return; }
   window.speechSynthesis.cancel();
@@ -185,7 +168,6 @@ function speakBrowser(text: string, lang: string, onEnd: () => void) {
   window.speechSynthesis.speak(utt);
 }
 
-// ─── Play audio bytes helper ────────────────────────────────────────────────────────────────
 function playAudioB64(b64: string, onEnd: () => void) {
   if (typeof window === "undefined") { onEnd(); return; }
   try {
@@ -198,16 +180,26 @@ function playAudioB64(b64: string, onEnd: () => void) {
     audio.onended = () => { URL.revokeObjectURL(url); onEnd(); };
     audio.onerror = () => { URL.revokeObjectURL(url); onEnd(); };
     audio.play();
-  } catch {
-    onEnd();
-  }
+  } catch { onEnd(); }
 }
 
-// ─── Chime helper ────────────────────────────────────────────────────────────────────────
-function playChime() {
-  if (typeof window === "undefined") return;
+// Singleton AudioContext to avoid the 6-context browser limit
+let _audioCtx: AudioContext | null = null;
+function getAudioCtx(): AudioContext | null {
+  if (typeof window === "undefined") return null;
   try {
-    const ctx  = new AudioContext();
+    if (!_audioCtx || _audioCtx.state === "closed") {
+      _audioCtx = new AudioContext();
+    }
+    return _audioCtx;
+  } catch { return null; }
+}
+
+function playChime() {
+  try {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    if (ctx.state === "suspended") ctx.resume();
     const osc  = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
@@ -221,37 +213,37 @@ function playChime() {
   } catch { /* silence */ }
 }
 
-// ─── Main overlay component ──────────────────────────────────────────────────────────────────
 export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
-  const [phase,         setPhase]         = useState<LivePhase>("loading");
-  const [currentQ,     setCurrentQ]       = useState("");
-  const [questionType, setQuestionType]   = useState("Technical");
-  const [hint,         setHint]           = useState("");
-  const [showHint,     setShowHint]       = useState(false);
-  const [transcript,   setTranscript]     = useState("");
-  const [turnNumber,   setTurnNumber]     = useState(1);
-  const [history,      setHistory]        = useState<{ role: string; content: string }[]>([]);
-  const [turns,        setTurns]          = useState<TurnRecord[]>([]);
-  const [lastEval,     setLastEval]       = useState<TurnEvaluation | null>(null);
-  const [amplitude,    setAmplitude]      = useState(0);
-  const [error,        setError]          = useState("");
-  const [confirmClose, setConfirmClose]   = useState(false);
+  const [phase,         setPhase]       = useState<LivePhase>("loading");
+  const [currentQ,     setCurrentQ]     = useState("");
+  const [questionType, setQuestionType] = useState("Technical");
+  const [hint,         setHint]         = useState("");
+  const [showHint,     setShowHint]     = useState(false);
+  const [transcript,   setTranscript]   = useState("");
+  const [turnNumber,   setTurnNumber]   = useState(1);
+  const [turns,        setTurns]        = useState<TurnRecord[]>([]);
+  const [lastEval,     setLastEval]     = useState<TurnEvaluation | null>(null);
+  const [amplitude,    setAmplitude]    = useState(0);
+  const [error,        setError]        = useState("");
+  const [confirmClose, setConfirmClose] = useState(false);
 
-  // Only rendered client-side ("use client"), but guard anyway for SSR safety
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => { setIsMounted(true); }, []);
 
   const timerActive = phase === "user_turn" || phase === "recording";
   const elapsed     = useTimer(timerActive);
 
-  const mediaStreamRef   = useRef<MediaStream | null>(null);
-  const analyserRef      = useRef<AnalyserNode | null>(null);
-  const animFrameRef     = useRef<number>(0);
-  const silenceTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const recognitionRef   = useRef<any>(null);
-  const finalTranscript  = useRef("");
+  const mediaStreamRef  = useRef<MediaStream | null>(null);
+  const analyserRef     = useRef<AnalyserNode | null>(null);
+  const animFrameRef    = useRef<number>(0);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recognitionRef  = useRef<any>(null);
+  const finalTransRef   = useRef("");
+  // Use a ref for history to avoid stale closures in callbacks
+  const historyRef      = useRef<{ role: string; content: string }[]>([]);
+  const submittingRef   = useRef(false);
+  const hasFetchedRef   = useRef(false);
 
-  // ── Amplitude animation loop
   const startAmplitudeLoop = useCallback(() => {
     const loop = () => {
       if (!analyserRef.current) return;
@@ -269,17 +261,12 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
     setAmplitude(0);
   }, []);
 
-  // ── Speak helper (routes to server TTS or browser TTS)
   const speak = useCallback((text: string, audioB64: string | null, useBrowser: boolean, onEnd: () => void) => {
     if (!isMounted) { onEnd(); return; }
-    if (audioB64 && !useBrowser) {
-      playAudioB64(audioB64, onEnd);
-    } else {
-      speakBrowser(text, meta.language, onEnd);
-    }
+    if (audioB64 && !useBrowser) playAudioB64(audioB64, onEnd);
+    else speakBrowser(text, meta.language, onEnd);
   }, [isMounted, meta.language]);
 
-  // ── Stop mic
   const stopMic = useCallback(() => {
     stopAmplitudeLoop();
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
@@ -294,20 +281,21 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
     analyserRef.current = null;
   }, [stopAmplitudeLoop]);
 
-  // ── Submit transcript to backend
   const submitAnswer = useCallback(async (answer: string) => {
-    if (!answer.trim()) { setPhase("user_turn"); return; }
+    if (!answer.trim() || submittingRef.current) return;
+    submittingRef.current = true;
     setPhase("thinking");
     stopMic();
 
-    const newHistory = [...history,
+    const newHistory = [
+      ...historyRef.current,
       { role: "ai",   content: currentQ },
       { role: "user", content: answer },
     ];
-    setHistory(newHistory);
+    historyRef.current = newHistory;
 
     try {
-      const res  = await fetch("/api/v1/interview-prep/live/answer", {
+      const res = await fetch(apiUrl("/api/v1/interview-prep/live/answer"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -315,7 +303,7 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
           last_question: currentQ,
           answer,
           question_type: questionType,
-          history:       newHistory.map(h => ({ role: h.role, content: h.content })),
+          history:       newHistory,
           turn_number:   turnNumber,
           total_turns:   meta.total_turns,
           language:      meta.language,
@@ -326,109 +314,107 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
       const data = await res.json();
 
       const ev: TurnEvaluation = data.evaluation;
-      setTurns(prev => [...prev, {
-        question:      currentQ,
-        question_type: questionType,
-        answer,
-        evaluation:    ev,
-      }]);
+      setTurns(prev => [...prev, { question: currentQ, question_type: questionType, answer, evaluation: ev }]);
       setLastEval(ev);
       setPhase("feedback");
+      submittingRef.current = false;
 
       setTimeout(() => {
-        if (data.is_last) {
-          setPhase("summary");
-          return;
-        }
+        if (data.is_last) { setPhase("summary"); return; }
         setCurrentQ(data.next_question);
         setQuestionType(data.question_type || "Technical");
         setHint(data.hint || "");
         setShowHint(false);
         setTranscript("");
-        finalTranscript.current = "";
+        finalTransRef.current = "";
         setTurnNumber(n => n + 1);
         setPhase("ai_speaking");
-
         speak(data.speak_text || data.next_question, data.audio_b64 ?? null, data.use_browser_tts ?? true, () => {
           playChime();
           setPhase("user_turn");
         });
       }, FEEDBACK_AUTO_MS);
-    } catch (e: any) {
+    } catch {
       setError(isFr ? "Erreur lors de la soumission." : "Error submitting answer.");
+      submittingRef.current = false;
       setPhase("user_turn");
     }
-  }, [history, currentQ, questionType, turnNumber, meta, isFr, stopMic, speak]);
+  }, [currentQ, questionType, turnNumber, meta, isFr, stopMic, speak]);
 
-  // ── Start microphone + Web Speech API
   const startMic = useCallback(async () => {
     if (!isMounted || typeof window === "undefined") return;
-    finalTranscript.current = "";
+    finalTransRef.current = "";
     setTranscript("");
+    setError("");
 
-    // Amplitude via getUserMedia
-    try {
-      const stream  = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream;
-      const ctx     = new AudioContext();
-      const source  = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      source.connect(analyser);
-      analyserRef.current = analyser;
-      startAmplitudeLoop();
-    } catch {
-      // mic permission denied — continue without visualizer
+    // Reuse existing stream if still active
+    if (!mediaStreamRef.current) {
+      try {
+        const stream   = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaStreamRef.current = stream;
+        const ctx      = getAudioCtx();
+        if (ctx) {
+          if (ctx.state === "suspended") await ctx.resume();
+          const source   = ctx.createMediaStreamSource(stream);
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 256;
+          source.connect(analyser);
+          analyserRef.current = analyser;
+        }
+      } catch {
+        // mic permission denied — continue without visualizer
+      }
     }
+    startAmplitudeLoop();
 
-    // Web Speech API transcription
     const SpeechRecognition =
       (window as any).SpeechRecognition ||
       (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       setError(isFr
-        ? "Votre navigateur ne supporte pas la reconnaissance vocale. Utilisez Chrome."
-        : "Your browser doesn't support voice recognition. Please use Chrome."
+        ? "Reconnaissance vocale non supportée. Utilisez Chrome."
+        : "Voice recognition not supported. Use Chrome."
       );
       return;
     }
 
     const rec = new SpeechRecognition();
-    rec.continuous      = true;
-    rec.interimResults  = true;
-    rec.lang            = meta.language === "fr" ? "fr-FR" : "en-US";
+    rec.continuous     = true;
+    rec.interimResults = true;
+    rec.lang           = meta.language === "fr" ? "fr-FR" : "en-US";
     recognitionRef.current = rec;
 
     rec.onresult = (e: any) => {
-      let interim = "";
-      let final   = "";
+      if (submittingRef.current) return;
+      let interim = ""; let final = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) final += t;
-        else interim += t;
+        if (e.results[i].isFinal) final += t; else interim += t;
       }
-      if (final) finalTranscript.current += final;
-      setTranscript(finalTranscript.current + interim);
-
-      // Reset silence timer on every speech event
+      if (final) finalTransRef.current += final;
+      setTranscript(finalTransRef.current + interim);
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = setTimeout(() => {
-        if (finalTranscript.current.trim()) {
-          submitAnswer(finalTranscript.current.trim());
+        if (finalTransRef.current.trim() && !submittingRef.current) {
+          submitAnswer(finalTransRef.current.trim());
         }
       }, SILENCE_MS);
     };
 
     rec.onerror = (e: any) => {
-      if (e.error !== "no-speech" && e.error !== "aborted") {
-        setError(isFr ? `Erreur micro : ${e.error}` : `Mic error: ${e.error}`);
+      // 'network' and 'no-speech' are transient — auto-restart, do NOT show error
+      if (e.error === "network" || e.error === "no-speech" || e.error === "aborted") {
+        if (recognitionRef.current === rec && !submittingRef.current) {
+          try { rec.start(); } catch { /* already starting */ }
+        }
+        return;
       }
+      setError(isFr ? `Erreur micro : ${e.error}` : `Mic error: ${e.error}`);
     };
 
     rec.onend = () => {
-      // Auto-restart if still in user_turn phase
-      if (recognitionRef.current === rec) {
-        try { rec.start(); } catch { /* already started */ }
+      if (recognitionRef.current === rec && !submittingRef.current) {
+        try { rec.start(); } catch { /* already starting */ }
       }
     };
 
@@ -436,12 +422,13 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
     setPhase("recording");
   }, [isMounted, meta.language, isFr, startAmplitudeLoop, submitAnswer]);
 
-  // ── Load first question on mount
+  // Load first question — guarded by hasFetchedRef to prevent double-fire
   useEffect(() => {
-    if (!isMounted) return;
+    if (!isMounted || hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     (async () => {
       try {
-        const res = await fetch("/api/v1/interview-prep/live/start", {
+        const res = await fetch(apiUrl("/api/v1/interview-prep/live/start"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -456,18 +443,16 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-
         const fullText = `${data.greeting} ${data.first_question}`.trim();
         setCurrentQ(data.first_question);
         setQuestionType(data.question_type || "Technical");
         setHint(data.hint || "");
         setPhase("ai_speaking");
-
         speak(fullText, data.audio_b64 ?? null, data.use_browser_tts ?? true, () => {
           playChime();
           setPhase("user_turn");
         });
-      } catch (e: any) {
+      } catch {
         setError(isFr
           ? "Erreur réseau lors du chargement de l'entretien."
           : "Network error loading interview."
@@ -475,30 +460,24 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
         setPhase("user_turn");
       }
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMounted]);
 
-  // ── Auto-start mic when phase becomes user_turn
   useEffect(() => {
-    if (phase === "user_turn") { startMic(); }
-    if (phase !== "user_turn" && phase !== "recording") { stopMic(); }
+    if (phase === "user_turn") startMic();
+    if (phase !== "user_turn" && phase !== "recording") stopMic();
   }, [phase, startMic, stopMic]);
 
-  // ── Cleanup on unmount
   useEffect(() => {
     return () => {
       stopMic();
-      if (typeof window !== "undefined" && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
+      if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
     };
   }, [stopMic]);
 
   const isAISpeaking = phase === "ai_speaking";
   const isUserTurn   = phase === "user_turn" || phase === "recording";
 
-  // ──────────────────────────────────────────────────────────────────────────────
-  // ─── SUMMARY VIEW ──────────────────────────────────────────────────────────────────
+  // ─── SUMMARY ─────────────────────────────────────────────────────────────
   if (phase === "summary") {
     const avg = turns.length
       ? Math.round(turns.reduce((s, t) => s + (t.evaluation?.score ?? 0), 0) / turns.length)
@@ -509,13 +488,11 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
         position: "fixed", inset: 0, zIndex: 9999,
         background: "rgba(17,24,39,0.55)",
         backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        padding: 20,
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
       }}>
         <div style={{
           background: "#fff", borderRadius: 20, width: "100%", maxWidth: 560,
-          maxHeight: "90vh", overflowY: "auto",
-          padding: "32px 28px",
+          maxHeight: "90vh", overflowY: "auto", padding: "32px 28px",
           boxShadow: "0 24px 64px rgba(17,24,39,0.3)",
         }}>
           <div style={{ textAlign: "center", marginBottom: 28 }}>
@@ -526,10 +503,9 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
                 : (isFr ? "À améliorer" : "Needs work")}
             </h2>
             <p style={{ margin: 0, fontSize: 13, color: "#6B7280" }}>
-              {isFr ? `Score moyen : ${avg}/100` : `Average score: ${avg}/100`}
+              {isFr ? `Score moyen : ${avg}/100` : `Average score: ${avg}/100`}
             </p>
           </div>
-
           {turns.map((t, i) => (
             <div key={i} style={{
               marginBottom: 16, padding: "14px 16px",
@@ -539,9 +515,7 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
               <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                 {t.evaluation && <ScoreRing score={t.evaluation.score} size={40} />}
                 <div style={{ flex: 1 }}>
-                  <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 600, color: "#6B7280" }}>
-                    Q{i + 1} — {t.question_type}
-                  </p>
+                  <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 600, color: "#6B7280" }}>Q{i + 1} — {t.question_type}</p>
                   <p style={{ margin: "0 0 6px", fontSize: 13, fontWeight: 500, color: "#111827" }}>{t.question}</p>
                   <p style={{ margin: 0, fontSize: 12, color: "#6B7280", fontStyle: "italic" }}>{t.answer}</p>
                   {t.evaluation && (
@@ -553,29 +527,24 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
               </div>
             </div>
           ))}
-
-          <button
-            onClick={onClose}
-            style={{
-              width: "100%", marginTop: 8, padding: "12px 0",
-              background: "#111827", color: "#fff",
-              border: "none", borderRadius: 9999,
-              fontSize: 14, fontWeight: 600, cursor: "pointer",
-            }}
-          >{isFr ? "Fermer" : "Close"}</button>
+          <button onClick={onClose} style={{
+            width: "100%", marginTop: 8, padding: "12px 0",
+            background: "#111827", color: "#fff",
+            border: "none", borderRadius: 9999,
+            fontSize: 14, fontWeight: 600, cursor: "pointer",
+          }}>{isFr ? "Fermer" : "Close"}</button>
         </div>
       </div>
     );
   }
 
-  // ─── MAIN INTERVIEW VIEW ───────────────────────────────────────────────────────────
-return (
+  // ─── MAIN VIEW ────────────────────────────────────────────────────────────
+  return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 9999,
       background: "rgba(17,24,39,0.55)",
       backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      padding: 20,
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
     }}>
       <div style={{
         background: "#fff", borderRadius: 24,
@@ -584,21 +553,16 @@ return (
         boxShadow: "0 32px 80px rgba(17,24,39,0.35)",
         position: "relative",
       }}>
+        {/* Close */}
+        <button onClick={() => setConfirmClose(true)} style={{
+          position: "absolute", top: 16, right: 16,
+          width: 32, height: 32, borderRadius: "50%",
+          background: "rgba(17,24,39,0.06)", border: "none", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 16, color: "#6B7280",
+        }}>×</button>
 
-        {/* Close button */}
-        <button
-          onClick={() => setConfirmClose(true)}
-          style={{
-            position: "absolute", top: 16, right: 16,
-            width: 32, height: 32, borderRadius: "50%",
-            background: "rgba(17,24,39,0.06)",
-            border: "none", cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 16, color: "#6B7280",
-          }}
-        >×</button>
-
-        {/* Confirm-close dialog */}
+        {/* Confirm close */}
         {confirmClose && (
           <div style={{
             position: "absolute", inset: 0, borderRadius: 24, zIndex: 10,
@@ -607,33 +571,27 @@ return (
             alignItems: "center", justifyContent: "center", gap: 14, padding: 32,
           }}>
             <p style={{ margin: 0, fontWeight: 600, fontSize: 16, color: "#111827", textAlign: "center" }}>
-              {isFr ? "Quitter l'entretien ?" : "End this interview?"}
+              {isFr ? "Quitter l'entretien ?" : "End this interview?"}
             </p>
             <p style={{ margin: 0, fontSize: 13, color: "#6B7280", textAlign: "center" }}>
               {isFr ? "Votre progression sera perdue." : "Your progress will be lost."}
             </p>
             <div style={{ display: "flex", gap: 10 }}>
-              <button
-                onClick={() => setConfirmClose(false)}
-                style={{
-                  padding: "9px 20px", borderRadius: 9999,
-                  border: "1px solid rgba(17,24,39,0.15)",
-                  background: "#fff", fontSize: 13, cursor: "pointer",
-                }}
-              >{isFr ? "Continuer" : "Keep going"}</button>
-              <button
-                onClick={() => { stopMic(); onClose(); }}
-                style={{
-                  padding: "9px 20px", borderRadius: 9999,
-                  background: "#EF4444", color: "#fff",
-                  border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer",
-                }}
-              >{isFr ? "Quitter" : "End interview"}</button>
+              <button onClick={() => setConfirmClose(false)} style={{
+                padding: "9px 20px", borderRadius: 9999,
+                border: "1px solid rgba(17,24,39,0.15)",
+                background: "#fff", fontSize: 13, cursor: "pointer",
+              }}>{isFr ? "Continuer" : "Keep going"}</button>
+              <button onClick={() => { stopMic(); onClose(); }} style={{
+                padding: "9px 20px", borderRadius: 9999,
+                background: "#EF4444", color: "#fff",
+                border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer",
+              }}>{isFr ? "Quitter" : "End interview"}</button>
             </div>
           </div>
         )}
 
-        {/* Turn indicator */}
+        {/* Turn dots */}
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <div style={{
             display: "inline-flex", gap: 6, alignItems: "center",
@@ -642,8 +600,7 @@ return (
             {Array.from({ length: meta.total_turns }).map((_, i) => (
               <div key={i} style={{
                 width: 8, height: 8, borderRadius: "50%",
-                background: i < turnNumber - 1 ? "#10B981"
-                  : i === turnNumber - 1 ? "#111827" : "#E5E7EB",
+                background: i < turnNumber - 1 ? "#10B981" : i === turnNumber - 1 ? "#111827" : "#E5E7EB",
                 transition: "background 300ms ease",
               }} />
             ))}
@@ -660,14 +617,13 @@ return (
 
         {/* Phase label */}
         <p style={{
-          textAlign: "center", fontSize: 13, fontWeight: 600,
-          color: "#6B7280", letterSpacing: "0.08em", textTransform: "uppercase",
-          margin: "0 0 12px",
+          textAlign: "center", fontSize: 13, fontWeight: 600, color: "#6B7280",
+          letterSpacing: "0.08em", textTransform: "uppercase", margin: "0 0 12px",
         }}>
-          {phase === "loading"    ? (isFr ? "Chargement…" : "Loading…")
+          {phase === "loading"     ? (isFr ? "Chargement…" : "Loading…")
           : phase === "ai_speaking" ? (isFr ? "L'IA parle" : "AI Speaking")
-          : phase === "thinking"  ? (isFr ? "Réflexion…" : "Thinking…")
-          : phase === "feedback"  ? (isFr ? "Résultats" : "Feedback")
+          : phase === "thinking"   ? (isFr ? "Réflexion…" : "Thinking…")
+          : phase === "feedback"   ? (isFr ? "Résultats" : "Feedback")
           : (isFr ? "Votre tour" : "Your turn")}
         </p>
 
@@ -678,42 +634,31 @@ return (
             padding: "14px 16px", marginBottom: 16,
             border: "1px solid rgba(17,24,39,0.06)",
           }}>
-            <p style={{ margin: 0, fontSize: 15, color: "#111827", lineHeight: 1.6, fontWeight: 500 }}>
-              {currentQ}
-            </p>
+            <p style={{ margin: 0, fontSize: 15, color: "#111827", lineHeight: 1.6, fontWeight: 500 }}>{currentQ}</p>
             {hint && (
-              <button
-                onClick={() => setShowHint(v => !v)}
-                style={{
-                  marginTop: 8, padding: 0, background: "none", border: "none",
-                  fontSize: 11, color: "#9CA3AF", cursor: "pointer",
-                  textDecoration: "underline", textDecorationStyle: "dotted",
-                }}
-              >
+              <button onClick={() => setShowHint(v => !v)} style={{
+                marginTop: 8, padding: 0, background: "none", border: "none",
+                fontSize: 11, color: "#9CA3AF", cursor: "pointer",
+                textDecoration: "underline", textDecorationStyle: "dotted",
+              }}>
                 {showHint ? (isFr ? "Masquer l'indice" : "Hide hint") : (isFr ? "Indice" : "Hint")}
               </button>
             )}
             {showHint && hint && (
-              <p style={{ margin: "6px 0 0", fontSize: 12, color: "#6B7280", fontStyle: "italic" }}>
-                💡 {hint}
-              </p>
+              <p style={{ margin: "6px 0 0", fontSize: 12, color: "#6B7280", fontStyle: "italic" }}>💡 {hint}</p>
             )}
           </div>
         )}
 
-        {/* Feedback panel */}
+        {/* Feedback */}
         {phase === "feedback" && lastEval && (
           <div style={{
-            background: "#F0FDF4", borderRadius: 12,
-            padding: "14px 16px", marginBottom: 16,
-            border: "1px solid #BBF7D0",
-            display: "flex", gap: 12, alignItems: "flex-start",
+            background: "#F0FDF4", borderRadius: 12, padding: "14px 16px", marginBottom: 16,
+            border: "1px solid #BBF7D0", display: "flex", gap: 12, alignItems: "flex-start",
           }}>
             <ScoreRing score={lastEval.score} size={44} />
             <div>
-              <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700, color: scoreColor(lastEval.score) }}>
-                {lastEval.verdict}
-              </p>
+              <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700, color: scoreColor(lastEval.score) }}>{lastEval.verdict}</p>
               <p style={{ margin: 0, fontSize: 12, color: "#374151" }}>{lastEval.what_was_good}</p>
             </div>
           </div>
@@ -724,29 +669,34 @@ return (
           <div style={{
             minHeight: 56, padding: "12px 14px",
             background: "rgba(17,24,39,0.03)", borderRadius: 10,
-            border: "1.5px solid rgba(17,24,39,0.1)",
-            marginBottom: 16,
+            border: "1.5px solid rgba(17,24,39,0.1)", marginBottom: 16,
           }}>
-            {transcript ? (
-              <p style={{ margin: 0, fontSize: 14, color: "#111827", lineHeight: 1.6 }}>{transcript}</p>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <WaveBars active={phase === "recording"} amplitude={amplitude} />
-              </div>
-            )}
+            {transcript
+              ? <p style={{ margin: 0, fontSize: 14, color: "#111827", lineHeight: 1.6 }}>{transcript}</p>
+              : <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <WaveBars active={phase === "recording"} amplitude={amplitude} />
+                </div>
+            }
           </div>
         )}
 
-        {/* Error message */}
+        {/* Error */}
         {error && (
           <div style={{
             padding: "10px 14px", background: "#FEF2F2",
             border: "1px solid #FECACA", borderRadius: 9,
-            fontSize: 12, color: "#991B1B", marginBottom: 16,
-          }}>{error}</div>
+            fontSize: 12, color: "#991B1B", marginBottom: 12,
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+          }}>
+            <span>{error}</span>
+            <button onClick={() => { setError(""); startMic(); }} style={{
+              padding: "3px 10px", borderRadius: 9999, border: "1px solid #FECACA",
+              background: "#fff", color: "#991B1B", fontSize: 11, cursor: "pointer", flexShrink: 0,
+            }}>{isFr ? "Réessayer" : "Retry"}</button>
+          </div>
         )}
 
-        {/* Loading spinner */}
+        {/* Spinner */}
         {(phase === "loading" || phase === "thinking") && (
           <div style={{ textAlign: "center", marginBottom: 16 }}>
             <div style={{
@@ -758,18 +708,15 @@ return (
           </div>
         )}
 
-        {/* Manual submit button */}
+        {/* Submit */}
         {isUserTurn && transcript && (
-          <button
-            onClick={() => submitAnswer(finalTranscript.current || transcript)}
-            style={{
-              width: "100%", padding: "11px 0",
-              background: "#111827", color: "#fff",
-              border: "none", borderRadius: 9999,
-              fontSize: 14, fontWeight: 600, cursor: "pointer",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.15), 0 4px 10px rgba(17,24,39,0.2)",
-            }}
-          >{isFr ? "Soumettre →" : "Submit →"}</button>
+          <button onClick={() => submitAnswer(finalTransRef.current || transcript)} style={{
+            width: "100%", padding: "11px 0",
+            background: "#111827", color: "#fff",
+            border: "none", borderRadius: 9999,
+            fontSize: 14, fontWeight: 600, cursor: "pointer",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.15), 0 4px 10px rgba(17,24,39,0.2)",
+          }}>{isFr ? "Soumettre →" : "Submit →"}</button>
         )}
 
         {/* Timer */}
