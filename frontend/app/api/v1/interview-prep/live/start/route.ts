@@ -3,7 +3,18 @@ import Groq from "groq-sdk";
 
 export const maxDuration = 60;
 
-const MODEL = "qwen/qwen3-32b";
+const MODEL = "llama-3.1-8b-instant";
+
+function extractJson(raw: string): Record<string, string> {
+  // Try direct parse first
+  try { return JSON.parse(raw); } catch { /* fall through */ }
+  // Try to extract first {...} block
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (match) {
+    try { return JSON.parse(match[0]); } catch { /* fall through */ }
+  }
+  return {};
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,52 +23,58 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { job_title, job_field, experience_level = "Mid", company_name = "", tech_stack = "", language = "en", total_turns = 5 } = body;
+    const {
+      job_title        = "",
+      job_field        = "",
+      experience_level = "Mid",
+      company_name     = "",
+      tech_stack       = "",
+      language         = "en",
+      total_turns      = 5,
+    } = body;
 
     if (!job_title?.trim() || !job_field?.trim()) {
       return NextResponse.json({ detail: "job_title and job_field are required." }, { status: 400 });
     }
 
     const isFr = language === "fr";
-    const companyCtx = company_name?.trim()
-      ? isFr ? `L'entreprise est "${company_name}".` : `The company is "${company_name}".`
-      : "";
-    const techCtx = tech_stack?.trim()
-      ? isFr ? `Stack technique : ${tech_stack}.` : `Tech stack: ${tech_stack}.`
-      : "";
+    const ctx = [
+      company_name?.trim() ? (isFr ? `Entreprise : ${company_name}.` : `Company: ${company_name}.`) : "",
+      tech_stack?.trim()   ? (isFr ? `Stack : ${tech_stack}.`        : `Tech stack: ${tech_stack}.`) : "",
+    ].filter(Boolean).join(" ");
 
-    const systemPrompt = isFr
-      ? `Tu es un interviewer technique senior. Tu commences un entretien simulé pour le poste de ${job_title} (${experience_level}). ${companyCtx} ${techCtx}
-Ton rôle : accueillir brièvement le candidat (1 phrase), puis poser ta première question d'entretien.
-Règle absolue : Réponds UNIQUEMENT avec un JSON valide, sans balises markdown.
-Format : { "greeting": "<1 phrase d'accueil>", "first_question": "<première question>", "question_type": "Technical|System Design|Behavioral|Coding", "hint": "<1 phrase indice>" }`
-      : `You are a senior technical interviewer. You are starting a simulated interview for the role of ${job_title} (${experience_level}). ${companyCtx} ${techCtx}
-Your job: greet the candidate briefly (1 sentence), then ask your first interview question.
-Absolute rule: Reply ONLY with valid JSON, no markdown fences.
-Format: { "greeting": "<1-sentence welcome>", "first_question": "<first question>", "question_type": "Technical|System Design|Behavioral|Coding", "hint": "<1-sentence hint>" }`;
+    const prompt = isFr
+      ? `Tu es un interviewer technique senior. Tu commences un entretien simulé pour : ${job_title} (${experience_level}). ${ctx}
+Accueille le candidat en une phrase, puis pose ta première question d'entretien.
+Réponds UNIQUEMENT avec du JSON valide (pas de markdown) sous cette forme exacte :
+{"greeting":"…","first_question":"…","question_type":"Technical","hint":"…"}`
+      : `You are a senior technical interviewer starting a simulated interview for: ${job_title} (${experience_level}). ${ctx}
+Greet the candidate in one sentence, then ask your first interview question.
+Reply ONLY with valid JSON (no markdown) in exactly this shape:
+{"greeting":"…","first_question":"…","question_type":"Technical","hint":"…"}`;
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const resp = await groq.chat.completions.create({
-      model: MODEL,
-      messages: [{ role: "system", content: systemPrompt }, { role: "user", content: isFr ? "Commence l'entretien." : "Start the interview." }],
+      model:       MODEL,
+      messages:    [{ role: "user", content: prompt }],
       temperature: 0.6,
-      response_format: { type: "json_object" },
-      max_tokens: 400,
+      max_tokens:  512,
     });
 
     const raw = resp.choices[0]?.message?.content ?? "";
-    if (!raw) return NextResponse.json({ detail: "Empty response from model." }, { status: 500 });
+    const opening = extractJson(raw);
 
-    let opening: Record<string, string>;
-    try { opening = JSON.parse(raw); }
-    catch { return NextResponse.json({ detail: "Failed to parse model response." }, { status: 500 }); }
+    const greeting       = opening.greeting       || (isFr ? "Bonjour, commençons." : "Hello, let's get started.");
+    const first_question = opening.first_question || (isFr ? "Parlez-moi de votre expérience." : "Tell me about your experience.");
+    const question_type  = opening.question_type  || "Technical";
+    const hint           = opening.hint           || "";
 
     return NextResponse.json({
-      greeting:        opening.greeting        ?? "",
-      first_question:  opening.first_question  ?? "",
-      question_type:   opening.question_type   ?? "Technical",
-      hint:            opening.hint            ?? "",
-      speak_text:      `${opening.greeting ?? ""} ${opening.first_question ?? ""}`.trim(),
+      greeting,
+      first_question,
+      question_type,
+      hint,
+      speak_text:      `${greeting} ${first_question}`.trim(),
       audio_b64:       null,
       use_browser_tts: true,
       total_turns,
@@ -65,7 +82,7 @@ Format: { "greeting": "<1-sentence welcome>", "first_question": "<first question
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[live/start] error:", msg);
+    console.error("[live/start] Groq error:", msg);
     return NextResponse.json({ detail: msg || "Internal Server Error" }, { status: 500 });
   }
 }
