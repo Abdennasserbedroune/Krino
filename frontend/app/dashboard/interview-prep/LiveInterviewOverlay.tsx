@@ -21,6 +21,25 @@ const FEEDBACK_AUTO_MS = 3500;
 
 function scoreColor(s: number) { return s >= 80 ? "#10B981" : s >= 55 ? "#F59E0B" : "#EF4444"; }
 
+// ── Typewriter hook ───────────────────────────────────────────────────────
+function useTypewriter(text: string, speed = 28) {
+  const [displayed, setDisplayed] = useState("");
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    setDisplayed("");
+    setDone(false);
+    if (!text) return;
+    let i = 0;
+    const id = setInterval(() => {
+      i++;
+      setDisplayed(text.slice(0, i));
+      if (i >= text.length) { clearInterval(id); setDone(true); }
+    }, speed);
+    return () => clearInterval(id);
+  }, [text, speed]);
+  return { displayed, done };
+}
+
 // ── Animated thinking dots ────────────────────────────────────────────────
 function ThinkingDots() {
   return (
@@ -82,7 +101,6 @@ function AvatarRing({ speaking, thinking, amplitude = 0 }: { speaking: boolean; 
         transition: "all 350ms ease",
       }}>
         {thinking ? (
-          /* pulsing brain-ish icon when thinking */
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
             <path d="M12 3C9 3 7 5 7 7.5c0 1 .4 2 1 2.7C6.4 11 6 12.2 6 13.5 6 16 7.8 18 10 18.5V21h4v-2.5C16.2 18 18 16 18 13.5c0-1.3-.4-2.5-1-3.3.6-.7 1-1.7 1-2.7C18 5 16 3 12 3z" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -209,6 +227,9 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
   const [isMounted,    setIsMounted]    = useState(false);
 
   useEffect(() => { setIsMounted(true); }, []);
+
+  // Typewriter on the question text
+  const { displayed: typedQ, done: typingDone } = useTypewriter(currentQ, 26);
 
   const elapsed = useTimer(phase === "recording");
 
@@ -397,7 +418,7 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
   const isUser    = phase === "user_turn" || phase === "recording";
   const isThinking = phase === "thinking" || phase === "loading";
 
-  // ── SUMMARY ──────────────────────────────────────────────────────────────
+  // ── SUMMARY ───────────────────────────────────────────────────────────────
   if (phase === "summary") {
     const avg = turns.length ? Math.round(turns.reduce((s,t) => s+(t.evaluation?.score??0), 0)/turns.length) : 0;
     return (
@@ -438,7 +459,6 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
 
         {/* Top bar: volume + close */}
         <div style={{ position:"absolute",top:14,right:14,display:"flex",alignItems:"center",gap:8 }}>
-          {/* Volume */}
           <div style={{ display:"flex",alignItems:"center",gap:5,background:"#F9FAFB",borderRadius:9999,padding:"4px 10px",border:"1px solid #E5E7EB" }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
               <path d="M9 9v6l-3-2H4V11h2l3-2z" fill="#9CA3AF"/>
@@ -449,7 +469,6 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
               style={{ width:52,accentColor:"#6366F1",cursor:"pointer" }}
             />
           </div>
-          {/* Close */}
           <button onClick={()=>setConfirmClose(true)} style={{ width:28,height:28,borderRadius:"50%",background:"rgba(17,24,39,0.07)",border:"none",cursor:"pointer",fontSize:15,color:"#6B7280",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>×</button>
         </div>
 
@@ -470,8 +489,7 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
           <div style={{ display:"inline-flex",gap:5,alignItems:"center",background:"#F3F4F6",borderRadius:9999,padding:"5px 14px" }}>
             {Array.from({length:meta.total_turns}).map((_,i)=>(
               <div key={i} style={{
-                width:i===turnNumber-1?9:7,
-                height:i===turnNumber-1?9:7,
+                width:i===turnNumber-1?9:7, height:i===turnNumber-1?9:7,
                 borderRadius:"50%",
                 background:i<turnNumber-1?"#10B981":i===turnNumber-1?"#6366F1":"#E5E7EB",
                 transition:"all 300ms ease",
@@ -502,14 +520,25 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
           {isThinking && <ThinkingDots/>}
         </div>
 
-        {/* Question card */}
+        {/* Question card — typewriter effect */}
         {currentQ&&(
           <div style={{ background:"#F8FAFF",borderRadius:14,padding:"13px 15px",marginBottom:12,border:"1px solid rgba(99,102,241,0.12)" }}>
             <div style={{ display:"flex",alignItems:"center",gap:6,marginBottom:7 }}>
               <span style={{ fontSize:10,fontWeight:800,letterSpacing:"0.07em",textTransform:"uppercase",color:"#6366F1",background:"rgba(99,102,241,0.1)",padding:"2px 8px",borderRadius:9999 }}>{qType}</span>
             </div>
-            <p style={{ margin:0,fontSize:14,color:"#111827",lineHeight:1.7,fontWeight:500 }}>{currentQ}</p>
-            {hint&&(
+            {/* typewriter text + blinking cursor */}
+            <p style={{ margin:0,fontSize:14,color:"#111827",lineHeight:1.7,fontWeight:500 }}>
+              {typedQ}
+              {!typingDone&&(
+                <span style={{
+                  display:"inline-block",width:2,height:"1em",
+                  background:"#6366F1",marginLeft:2,verticalAlign:"text-bottom",
+                  animation:"blink 0.75s step-start infinite",
+                }}/>
+              )}
+            </p>
+            <style>{`@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}`}</style>
+            {hint&&typingDone&&(
               <>
                 <button onClick={()=>setShowHint(v=>!v)} style={{ marginTop:7,padding:0,background:"none",border:"none",fontSize:11,color:"#9CA3AF",cursor:"pointer",textDecoration:"underline dotted" }}>
                   {showHint?(isFr?"Masquer l'indice":"Hide hint"):(isFr?"💡 Indice":"💡 Hint")}
@@ -549,12 +578,10 @@ export default function LiveInterviewOverlay({ meta, isFr, onClose }: Props) {
                   </div>
               }
             </div>
-            {/* Waveform + timer row */}
             <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:transcript?8:0 }}>
               {phase==="recording"&&<WaveBars active amplitude={amplitude}/>}
               {phase==="recording"&&<span style={{ fontSize:11,color:"#C4C9D4",fontVariantNumeric:"tabular-nums" }}>{fmt(elapsed)}</span>}
             </div>
-            {/* Send */}
             {transcript&&(
               <button onClick={()=>submitAnswer(finalRef.current||transcript)}
                 style={{ width:"100%",padding:"11px 0",background:"linear-gradient(135deg,#4F46E5,#7C3AED)",color:"#fff",border:"none",borderRadius:9999,fontSize:14,fontWeight:700,cursor:"pointer",boxShadow:"0 3px 10px rgba(99,102,241,0.3)",letterSpacing:"0.01em" }}>
