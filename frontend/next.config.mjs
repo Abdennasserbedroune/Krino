@@ -7,12 +7,10 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  serverExternalPackages: ['pdf-parse', 'mammoth'],
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [],
-  },
-  experimental: {
-    serverExternalPackages: ['pdf-parse', 'mammoth'],
   },
   async headers() {
     const backendUrl =
