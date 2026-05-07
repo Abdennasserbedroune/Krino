@@ -8,7 +8,7 @@ const MODEL = "llama-3.3-70b-versatile";
 export async function POST(req: NextRequest) {
   try {
     const key = process.env.GROQ_API_KEY;
-    if (!key) return NextResponse.json({ detail: "Groq API key not configured." }, { status: 500 });
+    if (!key) return NextResponse.json({ detail: "GROQ_API_KEY not set." }, { status: 500 });
 
     const body = await req.json();
     const {
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
       company_name     = "",
       tech_stack       = "",
       language         = "en",
-      voice            = "diana",
+      voice            = "tara",      // default Orpheus voice
       total_turns: rawTurns = 5,
     } = body;
 
@@ -27,9 +27,7 @@ export async function POST(req: NextRequest) {
 
     const total_turns = Math.min(Math.max(Number(rawTurns) || 5, 1), 20);
     const isFr        = language === "fr";
-
-    const sanitize = (s: string) =>
-      String(s ?? "").replace(/[\r\n`]/g, " ").trim().slice(0, 200);
+    const sanitize    = (s: string) => String(s ?? "").replace(/[\r\n`]/g, " ").trim().slice(0, 200);
 
     const ctx = [
       sanitize(company_name) && (isFr ? `Entreprise : ${sanitize(company_name)}.` : `Company: ${sanitize(company_name)}.`),
@@ -37,23 +35,16 @@ export async function POST(req: NextRequest) {
     ].filter(Boolean).join(" ");
 
     const prompt = isFr
-      ? `Tu es un interviewer technique humain et chaleureux. Tu conduis un entretien simulé pour : ${sanitize(job_title)} (${experience_level}). ${ctx}
-Sois accueillant, détendu mais professionnel. Utilise des formulations naturelles.
-Wrappe ton accueil dans un tag d'émotion Orpheus approprié : [cheerful], [professional], [thoughtful] ou [serious].
-Accueille le candidat en une phrase naturelle, puis pose ta première question précise et contextuelle.
+      ? `Tu es un interviewer technique humain. Entretien pour : ${sanitize(job_title)} (${experience_level}). ${ctx}
+Accueille le candidat en une phrase naturelle avec un tag émotion Orpheus au début (ex: [cheerful]), puis pose ta première question précise.
 Réponds UNIQUEMENT avec du JSON valide sans markdown :
 {"greeting":"[cheerful] …","first_question":"[thoughtful] …","question_type":"Technical","hint":"…"}`
-      : `You are a warm, human technical interviewer for: ${sanitize(job_title)} (${experience_level}). ${ctx}
-Be welcoming and natural — use openers like "Alright", "Great to meet you", "So".
-Wrap your greeting and question each in an appropriate Orpheus emotion tag: [cheerful], [professional], [thoughtful], or [serious].
-Greet the candidate in one natural sentence, then ask a precise, role-specific first interview question.
+      : `You are a natural human technical interviewer. Role: ${sanitize(job_title)} (${experience_level}). ${ctx}
+Greet the candidate warmly in one sentence — start with an Orpheus emotion tag (e.g. [cheerful]) — then ask a precise, role-specific first question — also with an emotion tag.
 Reply ONLY with valid JSON, no markdown:
 {"greeting":"[cheerful] …","first_question":"[thoughtful] …","question_type":"Technical","hint":"…"}`;
 
     const groq = new Groq({ apiKey: key });
-    const ctrl = new AbortController();
-    const tid  = setTimeout(() => ctrl.abort(), 20_000);
-
     const resp = await groq.chat.completions.create({
       model:           MODEL,
       messages:        [{ role: "user", content: prompt }],
@@ -61,23 +52,22 @@ Reply ONLY with valid JSON, no markdown:
       max_tokens:      512,
       response_format: { type: "json_object" },
     });
-    clearTimeout(tid);
 
-    const opening       = JSON.parse(resp.choices[0]?.message?.content ?? "{}") as Record<string, string>;
-    const greeting      = opening.greeting      || (isFr ? "[cheerful] Bonjour, ravi de vous rencontrer." : "[cheerful] Hey, great to meet you!");
-    const first_q       = opening.first_question || (isFr ? "[thoughtful] Parlez-moi de votre expérience." : "[thoughtful] Tell me a bit about yourself.");
-    const question_type = opening.question_type  || "Technical";
-    const hint          = opening.hint           || "";
-    const speak_text    = `${greeting} ${first_q}`.trim();
+    const opening      = JSON.parse(resp.choices[0]?.message?.content ?? "{}") as Record<string, string>;
+    const greeting     = opening.greeting      || (isFr ? "[cheerful] Bonjour !" : "[cheerful] Hey, great to meet you!");
+    const first_q      = opening.first_question|| (isFr ? "[thoughtful] Parlez-moi de vous." : "[thoughtful] Tell me about yourself.");
+    const question_type= opening.question_type || "Technical";
+    const hint         = opening.hint          || "";
+    const speak_text   = `${greeting} ${first_q}`.trim();
+    const clean        = (s: string) => s.replace(/\[\w+\]\s*/g, "").trim();
 
-    // Strip tags for display — tags are for TTS only
-    const clean = (s: string) => s.replace(/\[\w+\]\s*/g, "").trim();
-
+    console.log("[start] LLM done. speak_text preview:", speak_text.slice(0, 80));
     const tts = await synthesiseWithFallback(speak_text, voice);
+    console.log("[start] TTS result: use_browser_tts=", tts.use_browser_tts, "audio_b64 len=", tts.audio_b64?.length ?? 0);
 
     return NextResponse.json({
       greeting:        clean(greeting),
-      first_question:  clean(first_q),      // ← correct field name
+      first_question:  clean(first_q),
       question_type,
       hint,
       speak_text:      clean(speak_text),
@@ -89,7 +79,7 @@ Reply ONLY with valid JSON, no markdown:
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[live/start] error:", msg);
+    console.error("[start] error:", msg);
     return NextResponse.json({ detail: msg }, { status: 500 });
   }
 }
