@@ -13,6 +13,29 @@ const ACCENT = {
   recruiter: { color: '#f97316', soft: 'rgba(249,115,22,0.10)',  border: 'rgba(249,115,22,0.22)'  },
 };
 
+// ─── Typewriter hook ──────────────────────────────────────────────────────────
+function useTypewriter(text: string, speed = 38) {
+  const [displayed, setDisplayed] = useState('');
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    setDisplayed('');
+    setDone(false);
+    let i = 0;
+    const tick = setInterval(() => {
+      i++;
+      setDisplayed(text.slice(0, i));
+      if (i >= text.length) {
+        clearInterval(tick);
+        setDone(true);
+      }
+    }, speed);
+    return () => clearInterval(tick);
+  }, [text, speed]);
+
+  return { displayed, done };
+}
+
 // ─── Inline SVG icons (Solar linear set) ─────────────────────────────────────
 const IconArrowRight = ({ size = 16, color = 'currentColor' }: { size?: number; color?: string }) => (
   <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -508,6 +531,12 @@ export default function LandingPage() {
   const accent = ACCENT[mode];
   const cards  = mode === 'seeker' ? SEEKER_CARDS : RECRUITER_CARDS;
 
+  // ── Typewriter for headline accent line ────────────────────────────────────
+  const seekerLine    = 'actually reading?';
+  const recruiterLine = 'before anyone else does.';
+  const typeTarget    = mode === 'seeker' ? seekerLine : recruiterLine;
+  const { displayed: typedText, done: typeDone } = useTypewriter(typeTarget, 42);
+
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 12);
     window.addEventListener('scroll', handler, { passive: true });
@@ -632,36 +661,6 @@ export default function LandingPage() {
           <Image src="/logo.png" alt="Krino" width={44} height={44} priority style={{ objectFit: 'contain' }} />
           <span style={{ fontSize: 18, fontWeight: 700, color: '#111827', letterSpacing: '-0.02em' }}>Krino</span>
         </Link>
-
-        <nav
-          style={{
-            display: 'flex', alignItems: 'center', gap: 4,
-            background: 'rgba(255,255,255,0.82)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
-            border: '1px solid rgba(17,24,39,0.09)',
-            borderRadius: 9999,
-            padding: '5px 6px',
-            boxShadow: '0 1px 3px rgba(17,24,39,0.08)',
-            position: 'absolute', left: '50%', transform: 'translateX(-50%)',
-          }}
-          aria-label="Primary navigation"
-        >
-          {(['Features','How it works','Pricing','FAQ'] as const).map(label => (
-            <Link
-              key={label}
-              href={`#${label.toLowerCase().replace(/ /g,'-')}`}
-              style={{
-                fontSize: 13, fontWeight: 500, color: '#6B7280',
-                padding: '5px 14px', borderRadius: 9999,
-                textDecoration: 'none',
-                transition: 'color 150ms ease, background 150ms ease',
-              }}
-              onMouseEnter={e => { (e.target as HTMLElement).style.color = '#111827'; (e.target as HTMLElement).style.background = 'rgba(17,24,39,0.05)'; }}
-              onMouseLeave={e => { (e.target as HTMLElement).style.color = '#6B7280'; (e.target as HTMLElement).style.background = 'transparent'; }}
-            >{label}</Link>
-          ))}
-        </nav>
 
         <div className="flex items-center gap-2">
           <Link
@@ -807,12 +806,22 @@ export default function LandingPage() {
             {mode === 'seeker' ? (
               <>
                 Is your resume<br/>
-                <span style={{ color: accent.color }}>actually reading?</span>
+                <span style={{ color: accent.color }}>
+                  {typedText}
+                  {!typeDone && (
+                    <span className="tw-cursor" aria-hidden>|</span>
+                  )}
+                </span>
               </>
             ) : (
               <>
                 Find the right hire<br/>
-                <span style={{ color: accent.color }}>before anyone else does.</span>
+                <span style={{ color: accent.color }}>
+                  {typedText}
+                  {!typeDone && (
+                    <span className="tw-cursor" aria-hidden>|</span>
+                  )}
+                </span>
               </>
             )}
           </h1>
@@ -941,7 +950,6 @@ export default function LandingPage() {
                 </div>
                 <FeatureCard {...RECRUITER_CARDS[1]} accent={accent.color} span="col-span-1"/>
                 <FeatureCard {...RECRUITER_CARDS[2]} accent={accent.color} span="col-span-1"/>
-                <FeatureCard {...RECRUITER_CARDS[3]} accent={accent.color} span="col-span-1"/>
                 <FeatureCard {...RECRUITER_CARDS[3]} accent={accent.color} span="col-span-1"/>
               </>
             )}
@@ -1159,13 +1167,22 @@ export default function LandingPage() {
       </footer>
 
       <style>{`
+        @keyframes tw-blink {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0; }
+        }
+        .tw-cursor {
+          display: inline-block;
+          margin-left: 2px;
+          font-weight: 300;
+          animation: tw-blink 0.9s ease-in-out infinite;
+        }
         @media (max-width: 768px) {
           .bento-grid { grid-template-columns: 1fr !important; }
           .bento-grid > div[style*="span 2"], .bento-grid > div[style*="span 3"] { grid-column: span 1 !important; }
           .social-grid { grid-template-columns: 1fr !important; }
           .testimonial-item { padding: 24px 0 !important; border-right: none !important; border-bottom: 1px solid rgba(17,24,39,0.07); }
           .testimonial-item:last-child { border-bottom: none; }
-          nav[aria-label="Primary navigation"] { display: none !important; }
           .pricing-grid { flex-direction: column !important; }
         }
         @media (max-width: 1024px) and (min-width: 769px) {
