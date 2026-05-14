@@ -19,14 +19,12 @@ export default function CvBuilderEditorPage() {
     if (didInit.current) return;
     didInit.current = true;
 
-    // 1️⃣ If the picker already pre-loaded a draft into the store (same id), use it directly.
     if (storeDraft && storeDraft.id === id) {
       setDraft(storeDraft);
       setLoading(false);
       return;
     }
 
-    // 2️⃣ Otherwise try the API (real backend).
     async function load() {
       try {
         const res = await fetch(`/api/cv-builder/${id}`);
@@ -35,9 +33,8 @@ export default function CvBuilderEditorPage() {
           setDraft(data);
           return;
         }
-      } catch {/* network offline */}
+      } catch {}
 
-      // 3️⃣ Fallback: blank draft so editor still opens.
       setDraft({
         id,
         userId: "",
@@ -56,9 +53,9 @@ export default function CvBuilderEditorPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
+      <div className="flex h-full min-h-[60vh] items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-seeker" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Loading editor…</p>
         </div>
       </div>
