@@ -1,62 +1,38 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { translations, type Locale, type TranslationKeys } from "./translations";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { Locale } from "./translations";
 
-interface LanguageContextValue {
+type LanguageContextType = {
   locale: Locale;
   setLocale: (locale: Locale) => void;
-  t: TranslationKeys;
-  /**
-   * Convenience alias — pass directly to backend `language` fields.
-   * Always equals `locale` so components don't need to re-read it separately.
-   */
-  apiLanguage: Locale;
-}
+};
 
-const LanguageContext = createContext<LanguageContextValue | null>(null);
-
-const STORAGE_KEY = "pathwise_locale";
+const LanguageContext = createContext<LanguageContextType>({
+  locale: "en",
+  setLocale: () => {},
+});
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("fr");
+  const [locale, setLocaleState] = useState<Locale>("en");
 
-  // Hydrate from localStorage on client only
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY) as Locale | null;
-      if (stored === "fr" || stored === "en") {
-        setLocaleState(stored);
-      }
-    } catch {
-      // SSR or private browsing — default to fr
-    }
+    const stored = localStorage.getItem("locale") as Locale | null;
+    if (stored === "fr" || stored === "en") setLocaleState(stored);
   }, []);
 
-  const setLocale = useCallback((next: Locale) => {
-    setLocaleState(next);
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // ignore
-    }
-    // Update the html lang attribute for accessibility + SEO
-    document.documentElement.lang = next;
-  }, []);
-
-  const t = useMemo(() => translations[locale] as unknown as TranslationKeys, [locale]);
+  const setLocale = (newLocale: Locale) => {
+    setLocaleState(newLocale);
+    localStorage.setItem("locale", newLocale);
+  };
 
   return (
-    <LanguageContext.Provider value={{ locale, setLocale, t, apiLanguage: locale }}>
+    <LanguageContext.Provider value={{ locale, setLocale }}>
       {children}
     </LanguageContext.Provider>
   );
 }
 
-export function useLanguage(): LanguageContextValue {
-  const ctx = useContext(LanguageContext);
-  if (!ctx) {
-    throw new Error("useLanguage must be used inside <LanguageProvider>");
-  }
-  return ctx;
+export function useLanguage() {
+  return useContext(LanguageContext);
 }
