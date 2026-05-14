@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useRef } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import { useCvBuilderStore } from "@/lib/cv-builder/store";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,18 @@ export function BuilderHeader() {
       setIsSaving(false);
     }
   }, [draft, isSaving, markSaved, setIsSaving]);
+
+  // Ctrl+S / Cmd+S — trigger manual save
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [handleSave]);
 
   const openRight = (tab: Parameters<typeof setRightTab>[0]) => {
     setRightTab(tab);

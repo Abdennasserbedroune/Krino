@@ -25,6 +25,9 @@ const PAGE_H = 1123;
 const ZOOM_MIN = 30;
 const ZOOM_MAX = 200;
 
+/** Clamp helper — keeps every setZoom call within [ZOOM_MIN, ZOOM_MAX] */
+const clampZoom = (v: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(v)));
+
 export function Artboard() {
   const draft   = useCvBuilderStore((s) => s.draft);
   const zoom    = useCvBuilderStore((s) => s.zoom);
@@ -36,7 +39,7 @@ export function Artboard() {
     if (!el) return;
     const { width, height } = el.getBoundingClientRect();
     const scale = Math.min((width - 48) / PAGE_W, (height - 48) / PAGE_H);
-    setZoom(Math.round(Math.min(scale, 1) * 100));
+    setZoom(clampZoom(Math.min(scale, 1) * 100));
   }, [setZoom]);
 
   // Auto-fit on mount + container resize
@@ -57,7 +60,7 @@ export function Artboard() {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       const delta = e.deltaY > 0 ? -5 : 5;
-      setZoom(zoom + delta);
+      setZoom(clampZoom(zoom + delta));
     };
     el.addEventListener("wheel", handleWheel, { passive: false });
     return () => el.removeEventListener("wheel", handleWheel);
@@ -68,8 +71,8 @@ export function Artboard() {
     const handleKey = (e: KeyboardEvent) => {
       if (!e.ctrlKey && !e.metaKey) return;
       if (e.key === "0") { e.preventDefault(); fitToScreen(); }
-      if (e.key === "=" || e.key === "+") { e.preventDefault(); setZoom(zoom + 10); }
-      if (e.key === "-") { e.preventDefault(); setZoom(zoom - 10); }
+      if (e.key === "=" || e.key === "+") { e.preventDefault(); setZoom(clampZoom(zoom + 10)); }
+      if (e.key === "-") { e.preventDefault(); setZoom(clampZoom(zoom - 10)); }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -87,9 +90,10 @@ export function Artboard() {
       {/* ── Zoom bar ───────────────────────────────────────────────── */}
       <div className="flex items-center justify-center gap-1.5 py-1.5 px-3 border-b border-border bg-card/90 backdrop-blur-sm shrink-0">
         <button
-          onClick={() => setZoom(zoom - 10)}
+          onClick={() => setZoom(clampZoom(zoom - 10))}
           className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           title="Zoom out (Ctrl+−)"
+          aria-label="Zoom out"
         >
           <ZoomOut className="h-3.5 w-3.5" />
         </button>
@@ -99,14 +103,16 @@ export function Artboard() {
           onClick={() => setZoom(100)}
           className="min-w-[52px] h-7 rounded-md border border-border flex items-center justify-center text-xs tabular-nums font-medium hover:bg-muted transition-colors"
           title="Reset to 100%"
+          aria-label="Reset zoom to 100%"
         >
           {zoom}%
         </button>
 
         <button
-          onClick={() => setZoom(zoom + 10)}
+          onClick={() => setZoom(clampZoom(zoom + 10))}
           className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           title="Zoom in (Ctrl++)"
+          aria-label="Zoom in"
         >
           <ZoomIn className="h-3.5 w-3.5" />
         </button>
@@ -117,12 +123,12 @@ export function Artboard() {
           onClick={fitToScreen}
           className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           title="Fit to screen (Ctrl+0)"
+          aria-label="Fit to screen"
         >
           <Maximize2 className="h-3.5 w-3.5" />
         </button>
 
-        {/* Zoom bounds hint */}
-        <span className="text-[10px] text-muted-foreground/50 ml-1 hidden sm:inline">
+        <span className="text-[10px] text-muted-foreground/50 ml-1 hidden sm:inline select-none">
           {ZOOM_MIN}–{ZOOM_MAX}%
         </span>
       </div>

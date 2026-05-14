@@ -259,14 +259,10 @@ function Sidebar({
             }}>Krino</span>
           </Link>
 
-          {/* Right side of logo row:
-              - Mobile: show × close button
-              - Desktop: show collapse/expand chevron button */}
+          {/* Mobile-only: × close button */}
           <button
-            onClick={collapsed ? onToggleCollapse : undefined}
-            // On mobile this closes the drawer; on desktop it collapses the rail
-            className="lg:hidden"
             onClick={onClose}
+            className="lg:hidden"
             style={{
               background: "none", border: "none", cursor: "pointer",
               padding: 6, borderRadius: 8,
@@ -280,7 +276,7 @@ function Sidebar({
             <IconClose />
           </button>
 
-          {/* Desktop-only collapse toggle — same slot, different button */}
+          {/* Desktop-only: collapse/expand chevron */}
           <button
             onClick={onToggleCollapse}
             className="hidden lg:flex"
@@ -535,15 +531,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [hydrated,    setHydrated]    = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("sidebar-collapsed");
-    if (stored === "true") setCollapsed(true);
+    try {
+      const stored = localStorage.getItem("sidebar-collapsed");
+      if (stored === "true") setCollapsed(true);
+    } catch {}
     setHydrated(true);
   }, []);
 
   const toggleCollapse = () => {
     setCollapsed(prev => {
       const next = !prev;
-      localStorage.setItem("sidebar-collapsed", String(next));
+      try {
+        localStorage.setItem("sidebar-collapsed", String(next));
+      } catch {}
       return next;
     });
   };
