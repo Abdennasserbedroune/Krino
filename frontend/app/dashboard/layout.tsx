@@ -48,7 +48,6 @@ const IconInterview = ({ active }: { active: boolean }) => (
     <path d="M17 13l2 2 4-4" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
-// Refreshed settings icon — sliders / tuning
 const IconSettings = ({ active }: { active: boolean }) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
     <path d="M4 6h16" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6" strokeLinecap="round"/>
@@ -69,16 +68,15 @@ const IconClose = () => (
     <path d="M18 6 6 18M6 6l12 12" stroke="#6B7280" strokeWidth="1.6" strokeLinecap="round"/>
   </svg>
 );
-// Rail toggle arrow — flips direction
+// Collapse/expand chevron — flips direction
 const IconRailArrow = ({ collapsed }: { collapsed: boolean }) => (
   <svg
     width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden
     style={{ transition: "transform 280ms ease", transform: collapsed ? "rotate(0deg)" : "rotate(180deg)" }}
   >
-    <path d="M9 18l6-6-6-6" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M9 18l6-6-6-6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
-// User / profile icon for avatar fallback
 const IconUser = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
     <path d="M12 2a5 5 0 1 1 0 10A5 5 0 0 1 12 2z" stroke="#fff" strokeWidth="1.8"/>
@@ -107,7 +105,6 @@ const IconSettingsLine = () => (
 const SIDEBAR_W_EXPANDED  = 240;
 const SIDEBAR_W_COLLAPSED = 64;
 
-// ─── Nav items (label keys resolved at render time) ──────────────────────────
 type NavItem = { href: string; labelKey: string; Icon: React.FC<{ active: boolean }> };
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard",                labelKey: "jobMatch",       Icon: IconTarget    },
@@ -118,7 +115,6 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/tracker",        labelKey: "applications",   Icon: IconTracker   },
 ];
 
-// ─── Sidebar label translations (inline, no extra translation file needed) ───
 const SIDEBAR_LABELS: Record<string, Record<"en" | "fr", string>> = {
   jobMatch:       { en: "Job Match",       fr: "Offres" },
   resumeBuilder:  { en: "Resume Builder",  fr: "CV Builder" },
@@ -180,20 +176,14 @@ function NavLink({
         }
       }}
     >
-      {/* Icon container — always 36×36, centered */}
       <span style={{
-        flexShrink: 0,
-        width: 28,
-        height: 28,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        flexShrink: 0, width: 28, height: 28,
+        display: "flex", alignItems: "center", justifyContent: "center",
       }}>
         <Icon active={active} />
       </span>
       <span style={{
-        overflow: "hidden",
-        whiteSpace: "nowrap",
+        overflow: "hidden", whiteSpace: "nowrap",
         maxWidth: collapsed ? 0 : 160,
         opacity: collapsed ? 0 : 1,
         transition: "max-width 260ms ease, opacity 160ms ease",
@@ -241,138 +231,137 @@ function Sidebar({
           borderRight: "1px solid rgba(17,24,39,0.07)",
           boxShadow: "2px 0 16px rgba(17,24,39,0.05)",
           transition: "width 260ms cubic-bezier(0.4,0,0.2,1), transform 280ms cubic-bezier(0.4,0,0.2,1)",
-          overflow: "visible",   // allow rail toggle to poke out
+          overflow: "hidden",
         }}
         className={open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
       >
-        {/* Inner scroll container — clips content but not the rail toggle */}
-        <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
+        {/* Logo row */}
+        <div style={{
+          height: 60, flexShrink: 0,
+          display: "flex", alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 10px 0 14px",
+          borderBottom: "1px solid rgba(17,24,39,0.07)",
+        }}>
+          {/* Logo + wordmark */}
+          <Link
+            href="/"
+            style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", flexShrink: 0, minWidth: 0 }}
+            title="Krino"
+          >
+            <Image src="/logo.png" alt="Krino" width={34} height={34} priority style={{ objectFit: "contain", flexShrink: 0 }}/>
+            <span style={{
+              fontSize: 17, fontWeight: 700, color: "#111827", letterSpacing: "-0.02em",
+              overflow: "hidden", whiteSpace: "nowrap",
+              maxWidth: collapsed ? 0 : 110,
+              opacity: collapsed ? 0 : 1,
+              transition: "max-width 260ms ease, opacity 180ms ease",
+            }}>Krino</span>
+          </Link>
 
-          {/* Logo row */}
-          <div style={{
-            height: 60, flexShrink: 0,
-            display: "flex", alignItems: "center",
-            justifyContent: collapsed ? "center" : "space-between",
-            padding: collapsed ? "0 12px" : "0 14px 0 18px",
-            borderBottom: "1px solid rgba(17,24,39,0.07)",
-          }}>
-            <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", flexShrink: 0 }} title="Krino">
-              <Image src="/logo.png" alt="Krino" width={34} height={34} priority style={{ objectFit: "contain", flexShrink: 0 }}/>
-              <span style={{
-                fontSize: 17, fontWeight: 700, color: "#111827", letterSpacing: "-0.02em",
-                overflow: "hidden", whiteSpace: "nowrap",
-                maxWidth: collapsed ? 0 : 110,
-                opacity: collapsed ? 0 : 1,
-                transition: "max-width 260ms ease, opacity 180ms ease",
-              }}>Krino</span>
-            </Link>
-            {!collapsed && (
-              <button onClick={onClose} className="lg:hidden"
-                style={{ background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 6, flexShrink: 0, display: "flex" }}
-                aria-label="Close menu"><IconClose /></button>
-            )}
-          </div>
+          {/* Right side of logo row:
+              - Mobile: show × close button
+              - Desktop: show collapse/expand chevron button */}
+          <button
+            onClick={collapsed ? onToggleCollapse : undefined}
+            // On mobile this closes the drawer; on desktop it collapses the rail
+            className="lg:hidden"
+            onClick={onClose}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              padding: 6, borderRadius: 8,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0,
+              color: "#6B7280",
+              transition: "background 120ms ease",
+            }}
+            aria-label="Close menu"
+          >
+            <IconClose />
+          </button>
 
-          {/* Section label */}
-          <div style={{
-            padding: collapsed ? "14px 0 4px" : "18px 18px 6px",
-            display: "flex",
-            justifyContent: collapsed ? "center" : "flex-start",
-          }}>
-            {collapsed
-              ? <div style={{ width: 24, height: 1, background: "rgba(17,24,39,0.10)", borderRadius: 1 }}/>
-              : <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "#9CA3AF", whiteSpace: "nowrap" }}>{t("jobSeeker")}</span>
-            }
-          </div>
-
-          {/* Nav items */}
-          <nav style={{ flex: 1, padding: "0 8px", display: "flex", flexDirection: "column", gap: 1, overflowY: "auto", overflowX: "hidden" }}>
-            {NAV_ITEMS.map(({ href, labelKey, Icon }) => {
-              const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
-              return (
-                <NavLink
-                  key={href}
-                  href={href}
-                  label={t(labelKey)}
-                  Icon={Icon}
-                  active={active}
-                  collapsed={collapsed}
-                  onClick={onClose}
-                />
-              );
-            })}
-          </nav>
-
-          {/* Bottom: settings */}
-          <div style={{ padding: "8px 8px 14px", borderTop: "1px solid rgba(17,24,39,0.07)" }}>
-            <Link
-              href="/dashboard/settings"
-              onClick={onClose}
-              title={collapsed ? t("settings") : undefined}
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "flex-start",
-                gap: 10, padding: "8px 10px", borderRadius: 10,
-                textDecoration: "none", fontSize: 13.5, fontWeight: 400,
-                color: "#6B7280", whiteSpace: "nowrap", overflow: "hidden", minHeight: 38,
-                transition: "background 140ms ease, color 140ms ease",
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.background = "rgba(17,24,39,0.05)";
-                (e.currentTarget as HTMLElement).style.color = "#111827";
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.background = "transparent";
-                (e.currentTarget as HTMLElement).style.color = "#6B7280";
-              }}
-            >
-              <span style={{ flexShrink: 0, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <IconSettings active={false} />
-              </span>
-              <span style={{
-                overflow: "hidden", whiteSpace: "nowrap",
-                maxWidth: collapsed ? 0 : 160, opacity: collapsed ? 0 : 1,
-                transition: "max-width 260ms ease, opacity 160ms ease",
-              }}>{t("settings")}</span>
-            </Link>
-          </div>
+          {/* Desktop-only collapse toggle — same slot, different button */}
+          <button
+            onClick={onToggleCollapse}
+            className="hidden lg:flex"
+            title={collapsed ? t("expand") : t("collapse")}
+            aria-label={collapsed ? t("expand") : t("collapse")}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              padding: 6, borderRadius: 8,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0,
+              transition: "background 120ms ease",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(17,24,39,0.06)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "none"; }}
+          >
+            <IconRailArrow collapsed={collapsed} />
+          </button>
         </div>
 
-        {/* ── Rail toggle button — floats on the right edge, vertically centered ── */}
-        <button
-          onClick={onToggleCollapse}
-          className="hidden lg:flex"
-          title={collapsed ? t("expand") : t("collapse")}
-          aria-label={collapsed ? t("expand") : t("collapse")}
-          style={{
-            position: "absolute",
-            right: -14,
-            top: "50%",
-            transform: "translateY(-50%)",
-            width: 28,
-            height: 28,
-            borderRadius: "50%",
-            background: "#fff",
-            border: "1px solid rgba(17,24,39,0.12)",
-            boxShadow: "0 2px 8px rgba(17,24,39,0.10)",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 60,
-            transition: "box-shadow 150ms ease, background 150ms ease",
-            flexShrink: 0,
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 14px rgba(17,24,39,0.16)";
-            (e.currentTarget as HTMLElement).style.background = "#F9FAFB";
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.boxShadow = "0 2px 8px rgba(17,24,39,0.10)";
-            (e.currentTarget as HTMLElement).style.background = "#fff";
-          }}
-        >
-          <IconRailArrow collapsed={collapsed} />
-        </button>
+        {/* Section label */}
+        <div style={{
+          padding: collapsed ? "14px 0 4px" : "18px 18px 6px",
+          display: "flex",
+          justifyContent: collapsed ? "center" : "flex-start",
+        }}>
+          {collapsed
+            ? <div style={{ width: 24, height: 1, background: "rgba(17,24,39,0.10)", borderRadius: 1 }}/>
+            : <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "#9CA3AF", whiteSpace: "nowrap" }}>{t("jobSeeker")}</span>
+          }
+        </div>
+
+        {/* Nav items */}
+        <nav style={{ flex: 1, padding: "0 8px", display: "flex", flexDirection: "column", gap: 1, overflowY: "auto", overflowX: "hidden" }}>
+          {NAV_ITEMS.map(({ href, labelKey, Icon }) => {
+            const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+            return (
+              <NavLink
+                key={href}
+                href={href}
+                label={t(labelKey)}
+                Icon={Icon}
+                active={active}
+                collapsed={collapsed}
+                onClick={onClose}
+              />
+            );
+          })}
+        </nav>
+
+        {/* Bottom: settings */}
+        <div style={{ padding: "8px 8px 14px", borderTop: "1px solid rgba(17,24,39,0.07)" }}>
+          <Link
+            href="/dashboard/settings"
+            onClick={onClose}
+            title={collapsed ? t("settings") : undefined}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "flex-start",
+              gap: 10, padding: "8px 10px", borderRadius: 10,
+              textDecoration: "none", fontSize: 13.5, fontWeight: 400,
+              color: "#6B7280", whiteSpace: "nowrap", overflow: "hidden", minHeight: 38,
+              transition: "background 140ms ease, color 140ms ease",
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.background = "rgba(17,24,39,0.05)";
+              (e.currentTarget as HTMLElement).style.color = "#111827";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.background = "transparent";
+              (e.currentTarget as HTMLElement).style.color = "#6B7280";
+            }}
+          >
+            <span style={{ flexShrink: 0, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <IconSettings active={false} />
+            </span>
+            <span style={{
+              overflow: "hidden", whiteSpace: "nowrap",
+              maxWidth: collapsed ? 0 : 160, opacity: collapsed ? 0 : 1,
+              transition: "max-width 260ms ease, opacity 160ms ease",
+            }}>{t("settings")}</span>
+          </Link>
+        </div>
       </aside>
     </>
   );
@@ -388,7 +377,6 @@ function AvatarMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
@@ -407,7 +395,6 @@ function AvatarMenu() {
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      {/* Avatar button */}
       <button
         onClick={() => setOpen(o => !o)}
         aria-label="User menu"
@@ -430,7 +417,6 @@ function AvatarMenu() {
         {email ? initial : <IconUser />}
       </button>
 
-      {/* Dropdown */}
       {open && (
         <div style={{
           position: "absolute",
@@ -444,7 +430,6 @@ function AvatarMenu() {
           zIndex: 200,
           overflow: "hidden",
         }}>
-          {/* Email header */}
           <div style={{ padding: "12px 14px 10px", borderBottom: "1px solid rgba(17,24,39,0.07)" }}>
             <div style={{
               width: 32, height: 32, borderRadius: "50%", background: "#111827",
@@ -454,7 +439,6 @@ function AvatarMenu() {
             <p style={{ margin: 0, fontSize: 12.5, color: "#111827", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>{email ?? "—"}</p>
           </div>
 
-          {/* Menu items */}
           <div style={{ padding: "6px 6px" }}>
             <Link
               href="/dashboard/settings"
@@ -570,9 +554,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div style={{ minHeight: "100dvh", background: "#F7F3EF", fontFamily: "'Inter', sans-serif", overflowX: "hidden", position: "relative" }}>
-      {/* Warm radial glow */}
       <div aria-hidden style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,237,213,0.55) 0%, transparent 70%)" }}/>
-      {/* Fine grid */}
       <div aria-hidden style={{
         position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
         backgroundImage: ["linear-gradient(to right, rgba(17,24,39,0.04) 1px, transparent 1px)", "linear-gradient(to bottom, rgba(17,24,39,0.04) 1px, transparent 1px)"].join(","),
