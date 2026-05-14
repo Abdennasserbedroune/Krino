@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import { useCvBuilderStore } from "@/lib/cv-builder/store";
-import { useAutosave } from "@/lib/cv-builder/use-autosave";
 import type { CvDraft } from "@/lib/cv-builder/types";
 import { cn } from "@/lib/utils";
 
@@ -16,8 +15,8 @@ interface BuilderShellProps {
 }
 
 export function BuilderShell({ draft }: BuilderShellProps) {
-  const initialize   = useCvBuilderStore((s) => s.initialize);
-  const panelLayout  = useCvBuilderStore((s) => s.panelLayout);
+  const initialize  = useCvBuilderStore((s) => s.initialize);
+  const panelLayout = useCvBuilderStore((s) => s.panelLayout);
 
   // Boot the store with the server-fetched draft
   useEffect(() => {
@@ -25,11 +24,15 @@ export function BuilderShell({ draft }: BuilderShellProps) {
     return () => initialize(null);
   }, [draft, initialize]);
 
-  // Autosave hook — debounces dirty state to PATCH /api/cv-builder/{id}
-  useAutosave();
+  // NOTE: autosave removed — save is now manual via the Save button in the header
 
   return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden">
+    // Use fixed positioning so the builder truly fills the viewport
+    // regardless of the dashboard layout's padding and topbar.
+    <div
+      className="fixed inset-0 flex flex-col bg-background"
+      style={{ zIndex: 20 }}
+    >
       <BuilderHeader />
 
       <div className="flex flex-1 overflow-hidden">
