@@ -30,10 +30,12 @@ export function SignInForm({ onSuccess, role = "seeker" }: SignInFormProps) {
     }
 
     try {
-      await login(email, password);
-      localStorage.setItem("user_role", role);
+      const data = await login(email, password);
+      // Use the role stored in Supabase user_metadata — never trust the UI selection
+      const actualRole = (data?.user?.user_metadata?.role ?? role) as "seeker" | "recruiter";
+      localStorage.setItem("user_role", actualRole);
       setTimeout(() => {
-        onSuccess?.(role);
+        onSuccess?.(actualRole);
       }, 100);
     } catch (err) {
       setLocalError(error || t.auth.errors.loginFailed);
