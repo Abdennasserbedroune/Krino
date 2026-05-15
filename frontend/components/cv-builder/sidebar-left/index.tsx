@@ -129,10 +129,8 @@ const AI_ACTIONS: { id: AiAction; label: string; description: string }[] = [
 ];
 
 /**
- * Returns a plain-text snapshot of the active section so the AI textarea
- * can be pre-filled without the user having to copy/paste manually.
- *
- * IMPORTANT: d.summary is CvSummary = { content: string }, NOT a plain string.
+ * Returns a plain-text snapshot of the active section for AI pre-fill.
+ * d.summary is CvSummary = { content: string }, NOT a plain string.
  */
 function useSectionContent(): string {
   const draft         = useCvBuilderStore((s) => s.draft);
@@ -193,7 +191,22 @@ function AiToolsTab() {
       });
       if (!res.ok) throw new Error(`AI suggest failed (${res.status})`);
       const data = await res.json();
-      setVariants(data.variants ?? []);
+
+      // Guard: normalise on the client side too — ensure we always get string[]
+      let safeVariants: string[];
+      if (Array.isArray(data.variants)) {
+        safeVariants = data.variants.map((v: unknown) =>
+          typeof v === "string" ? v : JSON.stringify(v)
+        );
+      } else if (data.variants && typeof data.variants === "object") {
+        safeVariants = Object.values(data.variants as Record<string, unknown>).map((v) =>
+          typeof v === "string" ? v : JSON.stringify(v)
+        );
+      } else {
+        safeVariants = [];
+      }
+
+      setVariants(safeVariants);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to get suggestions");
     } finally {
@@ -211,13 +224,11 @@ function AiToolsTab() {
 
   return (
     <div className="flex flex-col gap-3 p-3">
-      {/* Header */}
       <div className="flex items-center gap-1.5">
         <Sparkles className="h-3.5 w-3.5 text-[#111827] dark:text-white" />
         <p className="text-xs font-semibold">AI Writing — <span className="font-normal text-muted-foreground">{sectionLabel}</span></p>
       </div>
 
-      {/* Action pills */}
       <div className="flex flex-wrap gap-1">
         {AI_ACTIONS.map(a => (
           <button
@@ -236,10 +247,8 @@ function AiToolsTab() {
         ))}
       </div>
 
-      {/* Action description */}
       <p className="text-[11px] text-muted-foreground -mt-1">{actionMeta.description}</p>
 
-      {/* Textarea — pre-filled from active section */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
           <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Text to enhance</label>
@@ -256,7 +265,6 @@ function AiToolsTab() {
         />
       </div>
 
-      {/* JD field for tailor mode */}
       {action === "tailor" && (
         <div className="flex flex-col gap-1">
           <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Job Description</label>
@@ -281,7 +289,6 @@ function AiToolsTab() {
         {loading ? "Generating…" : `${actionMeta.label} with AI`}
       </button>
 
-      {/* Variants */}
       {variants.length > 0 && (
         <div className="flex flex-col gap-2 mt-1">
           <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
@@ -289,9 +296,9 @@ function AiToolsTab() {
           </p>
           {variants.map((v, i) => (
             <div key={i} className="rounded-lg border border-border p-3 bg-background">
-              <p className="text-xs leading-relaxed mb-2">{v}</p>
+              <p className="text-xs leading-relaxed mb-2 whitespace-pre-wrap">{String(v)}</p>
               <button
-                onClick={() => handleCopy(v, i)}
+                onClick={() => handleCopy(String(v), i)}
                 className={cn(
                   "flex items-center gap-1.5 h-6 px-2 rounded-md text-[11px] font-medium transition-colors",
                   copied === i
