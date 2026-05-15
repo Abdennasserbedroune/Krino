@@ -307,7 +307,7 @@ export default function RecruiterDashboardPage() {
                                 className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${
                                     isActive
                                         ? "bg-recruiter text-white shadow-md"
-                                        : "bg-white text-muted-foreground hover:bg-secondary/50 hover:text-foreground border border-border/50"
+                                        : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground border border-border/50"
                                 }`}
                             >
                                 <Icon className="h-4 w-4" />
@@ -498,10 +498,10 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                 </div>
                                 <div className="space-y-3">
                                     {[
-                                        { label: t.ext.domainFit,    value: focusedResult.match_score,          helper: t.ext.overallMatch },
+                                        { label: t.ext.domainFit,     value: focusedResult.match_score,         helper: t.ext.overallMatch },
                                         { label: t.ext.skillsHeading, value: focusedResult.skills_match_score,  helper: t.ext.skillsHeading },
-                                        { label: t.ext.expHeading,    value: focusedResult.experience_score,    helper: t.ext.expHeading },
-                                        { label: t.ext.quality,       value: focusedResult.cv_quality_score,    helper: t.ext.quality },
+                                        { label: t.ext.expHeading,    value: focusedResult.experience_score,   helper: t.ext.expHeading },
+                                        { label: t.ext.quality,       value: focusedResult.cv_quality_score,   helper: t.ext.quality },
                                     ].map((m) => (
                                         <div key={m.label} className="space-y-1">
                                             <div className="flex items-center justify-between text-xs md:text-sm font-medium text-foreground">
@@ -595,12 +595,12 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                 <label className="text-sm font-medium text-muted-foreground">{t.ext.jobDomainLabel}</label>
                                 <select value={jobDomain} onChange={(e) => setJobDomain(e.target.value)}
                                     className="h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/60">
-                                    <option>AI & Data</option>
+                                    <option>AI &amp; Data</option>
                                     <option>Software Engineering</option>
                                     <option>Product Management</option>
-                                    <option>Marketing & Growth</option>
-                                    <option>Finance & Banking</option>
-                                    <option>Design & UX</option>
+                                    <option>Marketing &amp; Growth</option>
+                                    <option>Finance &amp; Banking</option>
+                                    <option>Design &amp; UX</option>
                                 </select>
                             </div>
                             <div className="grid gap-4 md:grid-cols-2">
@@ -690,6 +690,7 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                             <h3 className="font-serif text-2xl md:text-3xl text-foreground">{t.ext.uploadTitleRecruiter}</h3>
                         </div>
                         <p className="text-sm text-muted-foreground">{t.ext.uploadSubRecruiter}</p>
+
                         <label htmlFor="cvFiles"
                             className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition ${
                                 uploading ? "border-recruiter/40 bg-recruiter/5 cursor-not-allowed" : "border-recruiter/60 bg-background/60 hover:border-recruiter hover:bg-recruiter/5"
@@ -707,4 +708,293 @@ function RecruiterMatchFlow({ accessToken, activeTab }: { accessToken: string | 
                                 <>
                                     <Upload className="h-8 w-8 text-recruiter" />
                                     <span className="text-sm font-semibold text-foreground">{t.ext.uploadClickBrowse}</span>
-                        
+                                    <span className="text-xs text-muted-foreground">{t.ext.uploadFormats} · {t.ext.uploadMax5}</span>
+                                </>
+                            )}
+                        </label>
+                        <input
+                            id="cvFiles"
+                            ref={fileInputRef}
+                            type="file"
+                            multiple
+                            accept=".pdf,.doc,.docx"
+                            className="sr-only"
+                            onChange={handleFilesChange}
+                            disabled={uploading || selectedCvs.length >= 5}
+                        />
+
+                        {selectedCvs.length > 0 && (
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{selectedCvs.length} / 5 CVs</span>
+                                    <button onClick={handleClearAll} className="text-xs text-muted-foreground hover:text-foreground transition">
+                                        Clear all
+                                    </button>
+                                </div>
+                                {selectedCvs.map((cv, idx) => (
+                                    <div key={cv.id} className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/80 px-3 py-2.5">
+                                        <FileText className="h-4 w-4 text-recruiter flex-shrink-0" />
+                                        <span className="flex-1 truncate text-sm text-foreground">{cv.original_filename}</span>
+                                        <button onClick={() => handleRemoveFile(idx)} className="flex-shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground transition">
+                                            <X className="h-3.5 w-3.5" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="flex items-center gap-3 pt-2">
+                            <button onClick={() => setStep(1)}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background px-5 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground transition">
+                                ← Back
+                            </button>
+                            <button
+                                onClick={handleRunMatching}
+                                disabled={!canRunMatching}
+                                className="inline-flex items-center gap-2 rounded-full bg-recruiter px-6 py-2.5 text-sm font-semibold text-white shadow-md transition disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-0.5 hover:shadow-lg"
+                            >
+                                <Sparkles className="h-4 w-4" />
+                                {t.ext.runMatching}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Tips panel */}
+                    <div className="space-y-4 rounded-3xl border border-dashed border-recruiter/40 bg-recruiter/5 p-6 md:p-8">
+                        <div className="flex items-center gap-2">
+                            <Target className="h-5 w-5 text-recruiter" />
+                            <h3 className="font-serif text-xl md:text-2xl text-foreground">{t.ext.tipsTitle}</h3>
+                        </div>
+                        <ul className="space-y-3 text-sm text-muted-foreground">
+                            <li className="flex items-start gap-2"><Zap className="h-4 w-4 text-recruiter flex-shrink-0 mt-0.5" />{t.ext.tip1}</li>
+                            <li className="flex items-start gap-2"><Zap className="h-4 w-4 text-recruiter flex-shrink-0 mt-0.5" />{t.ext.tip2}</li>
+                            <li className="flex items-start gap-2"><Zap className="h-4 w-4 text-recruiter flex-shrink-0 mt-0.5" />{t.ext.tip3}</li>
+                        </ul>
+                    </div>
+                </div>
+            )}
+
+            {/* ── STEP 3 ── */}
+            {step === 3 && (
+                <div className="space-y-6">
+                    {/* Top bar */}
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <h2 className="font-serif text-2xl md:text-3xl text-foreground">{t.ext.matchResultsTitle}</h2>
+                            <p className="mt-1 text-sm text-muted-foreground">{t.ext.matchResultsSub}</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            {hasResults && (
+                                <button
+                                    onClick={() => exportResultsToCSV(results)}
+                                    className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background px-4 py-2 text-xs font-semibold text-muted-foreground hover:border-recruiter/60 hover:text-recruiter transition"
+                                >
+                                    <Download className="h-3.5 w-3.5" />
+                                    Export CSV
+                                </button>
+                            )}
+                            <button
+                                onClick={handleReset}
+                                className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition"
+                            >
+                                <RefreshCw className="h-3.5 w-3.5" />
+                                {t.ext.newSession}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Error state */}
+                    {matchError && (
+                        <div className="flex items-start gap-4 rounded-2xl border border-red-300 bg-red-50 p-5">
+                            <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                                <p className="text-sm font-semibold text-red-800">{t.ext.matchingFailed}</p>
+                                <p className="mt-1 text-xs text-red-700">{matchError}</p>
+                            </div>
+                            <button onClick={handleRetry}
+                                className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition">
+                                <RefreshCw className="h-3 w-3" /> Retry
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Loading skeleton */}
+                    {isRunning && <ResultSkeleton />}
+
+                    {/* Results list */}
+                    {!isRunning && hasResults && (
+                        <div className="space-y-4">
+                            {[...results]
+                                .sort((a, b) => b.match_score - a.match_score)
+                                .map((result, idx) => {
+                                    const verdict = verdictFromScore(result.match_score);
+                                    const allQuestionsMarkdown = buildAllQuestionsMarkdown(
+                                        jobDomain,
+                                        result.reasons.strengths ?? [],
+                                        result.reasons.risks ?? []
+                                    );
+                                    return (
+                                        <div key={result.cv_id} className="rounded-3xl border border-border/60 bg-card/80 overflow-hidden">
+                                            {/* Candidate header */}
+                                            <div className="flex flex-wrap items-start gap-4 px-6 py-5 border-b border-border/40">
+                                                <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border ${verdict.cls}`}>
+                                                    {verdict.icon}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">#{idx + 1}</span>
+                                                        <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${verdict.cls}`}>
+                                                            {verdict.icon}
+                                                            {verdict.label}
+                                                        </span>
+                                                    </div>
+                                                    <p className="mt-1 truncate text-base font-semibold text-foreground">{result.file_name}</p>
+                                                    <p className="text-xs text-muted-foreground">{verdict.sublabel}</p>
+                                                </div>
+                                                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                                    <div className="text-3xl font-bold text-recruiter">{result.match_score}</div>
+                                                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">/ 100</div>
+                                                    <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden mt-1">
+                                                        <div className={`h-full rounded-full ${verdict.bar} transition-all duration-500`} style={{ width: `${result.match_score}%` }} />
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleRemoveFromResults(result.cv_id)}
+                                                    className="flex-shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                                                    title="Remove candidate"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
+
+                                            {/* Score rings */}
+                                            <div className="px-6 py-5 border-b border-border/40">
+                                                <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.ext.scoreBreakdown}</p>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 justify-items-center">
+                                                    <ScoreRing value={result.match_score}         label={t.ext.overallMatch}  color="#f97316" />
+                                                    <ScoreRing value={result.skills_match_score}  label={t.ext.skillsHeading} color="#3b82f6" />
+                                                    <ScoreRing value={result.experience_score}    label={t.ext.expHeading}    color="#8b5cf6" />
+                                                    <ScoreRing value={result.cv_quality_score}    label={t.ext.quality}       color="#10b981" />
+                                                </div>
+                                            </div>
+
+                                            {/* AI explanation */}
+                                            <div className="px-6 py-5 border-b border-border/40">
+                                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.ext.fitExplanation}</p>
+                                                <p className="text-sm text-muted-foreground leading-relaxed">{result.reasons.overall_reason}</p>
+                                                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                                                    {result.reasons.strengths?.length > 0 && (
+                                                        <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
+                                                            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 mb-2">{t.ext.exploreStrengths}</p>
+                                                            <ul className="space-y-1">
+                                                                {result.reasons.strengths.map((s, i) => (
+                                                                    <li key={i} className="flex items-start gap-2 text-xs text-emerald-800">
+                                                                        <Star className="h-3 w-3 flex-shrink-0 mt-0.5" />{s}
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                    {result.reasons.risks?.length > 0 && (
+                                                        <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
+                                                            <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-2">{t.ext.probeGaps}</p>
+                                                            <ul className="space-y-1">
+                                                                {result.reasons.risks.map((r, i) => (
+                                                                    <li key={i} className="flex items-start gap-2 text-xs text-amber-800">
+                                                                        <ShieldAlert className="h-3 w-3 flex-shrink-0 mt-0.5" />{r}
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Interview questions */}
+                                            <div className="px-6 py-5 border-b border-border/40">
+                                                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <MessageCircle className="h-4 w-4 text-recruiter" />
+                                                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.ext.suggestedQuestions}</p>
+                                                    </div>
+                                                    <CopyAllQuestionsButton questions={allQuestionsMarkdown} />
+                                                </div>
+
+                                                {/* General questions */}
+                                                <div className="mb-3">
+                                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70 mb-2">General Fit</p>
+                                                    <div className="space-y-2">
+                                                        {[
+                                                            `Walk me through your most relevant experience for this ${jobDomain} role and why it fits.`,
+                                                            `What would your first 90 days look like if you joined us in this position?`,
+                                                            `How do you stay current in ${jobDomain}? Any recent learning or projects?`,
+                                                        ].map((q, i) => (
+                                                            <div key={i} className="flex items-start gap-2 rounded-xl border border-border/50 bg-background px-3 py-2.5 text-xs text-foreground">
+                                                                <span className="flex-1 leading-relaxed">{q}</span>
+                                                                <CopyButton text={q} />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* Strength questions */}
+                                                {result.reasons.strengths?.length > 0 && (
+                                                    <div className="mb-3">
+                                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600/80 mb-2">{t.ext.exploreStrengths}</p>
+                                                        <div className="space-y-2">
+                                                            {result.reasons.strengths.map((s, i) => {
+                                                                const q = `Your profile shows strength in "${s}" — can you walk me through a specific project or situation where this made a real impact?`;
+                                                                return (
+                                                                    <div key={i} className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-900">
+                                                                        <span className="flex-1 leading-relaxed">{q}</span>
+                                                                        <CopyButton text={q} />
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Risk questions */}
+                                                {result.reasons.risks?.length > 0 && (
+                                                    <div>
+                                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600/80 mb-2">{t.ext.probeGaps}</p>
+                                                        <div className="space-y-2">
+                                                            {result.reasons.risks.map((r, i) => {
+                                                                const q = `I noticed "${r}" in the profile. How do you approach this in your day-to-day work, and how have you improved in this area?`;
+                                                                return (
+                                                                    <div key={i} className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
+                                                                        <span className="flex-1 leading-relaxed">{q}</span>
+                                                                        <CopyButton text={q} />
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Recruiter notes */}
+                                            <div className="px-6 py-5">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <NotebookPen className="h-4 w-4 text-muted-foreground" />
+                                                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recruiter Notes</p>
+                                                </div>
+                                                <textarea
+                                                    value={candidateNotes[result.cv_id] ?? ""}
+                                                    onChange={(e) => setCandidateNotes((prev) => ({ ...prev, [result.cv_id]: e.target.value }))}
+                                                    rows={3}
+                                                    placeholder="Add your private notes about this candidate…"
+                                                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-recruiter/40 resize-none"
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
