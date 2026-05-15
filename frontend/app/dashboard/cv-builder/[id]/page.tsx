@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { BuilderShell } from "@/components/cv-builder/builder-shell";
 import type { CvDraft } from "@/lib/cv-builder/types";
@@ -19,25 +19,35 @@ export default function CvBuilderEditorPage() {
     if (didInit.current) return;
     didInit.current = true;
 
-    // 1️⃣ If the picker already pre-loaded a draft into the store (same id), use it directly.
+    // 1. If the picker already pre-loaded a matching draft into the store, use it directly.
     if (storeDraft && storeDraft.id === id) {
       setDraft(storeDraft);
       setLoading(false);
       return;
     }
 
-    // 2️⃣ Otherwise try the API (real backend).
+    // 2. Otherwise fetch from the API.
     async function load() {
       try {
         const res = await fetch(`/api/cv-builder/${id}`);
         if (res.ok) {
           const data = await res.json();
-          setDraft(data);
+          // Map snake_case from backend to camelCase for the store
+          setDraft({
+            id: data.id,
+            userId: data.user_id ?? "",
+            title: data.title ?? "My Resume",
+            data: data.data ?? EMPTY_DRAFT_DATA,
+            design: data.design ?? DEFAULT_DESIGN,
+            sectionOrder: data.section_order ?? DEFAULT_SECTION_ORDER,
+            createdAt: data.created_at ?? new Date().toISOString(),
+            updatedAt: data.updated_at ?? new Date().toISOString(),
+          });
           return;
         }
       } catch {/* network offline */}
 
-      // 3️⃣ Fallback: blank draft so editor still opens.
+      // 3. Fallback: blank draft so the editor still opens.
       setDraft({
         id,
         userId: "",
@@ -56,11 +66,23 @@ export default function CvBuilderEditorPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-seeker" />
-          <p className="text-sm text-muted-foreground">Loading editor…</p>
-        </div>
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--background, #fff)",
+          zIndex: 100,
+        }}
+      >
+        <Loader2
+          style={{ width: 32, height: 32, color: "#111827" }}
+          className="animate-spin"
+        />
+        <p style={{ marginTop: 12, fontSize: 14, color: "#6B7280" }}>Loading editor…</p>
       </div>
     );
   }

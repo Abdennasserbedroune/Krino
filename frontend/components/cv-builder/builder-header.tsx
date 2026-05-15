@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useState, useRef } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import { useCvBuilderStore } from "@/lib/cv-builder/store";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import {
   PanelLeft,
   PanelRight,
@@ -33,12 +32,12 @@ export function BuilderHeader() {
   const [editingTitle, setEditingTitle] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
 
-  // Manual save handler — PATCH /api/cv-builder/drafts/:id
+  // Manual save handler
   const handleSave = useCallback(async () => {
     if (!draft?.id || isSaving) return;
     setIsSaving(true);
     try {
-      await fetch(`/api/cv-builder/drafts/${draft.id}`, {
+      const res = await fetch(`/api/cv-builder/drafts/${draft.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -48,12 +47,24 @@ export function BuilderHeader() {
           section_order: draft.sectionOrder,
         }),
       });
-      markSaved();
-    } catch (err) {
-      console.error("[save] failed:", err);
+      if (res.ok) markSaved();
+      else setIsSaving(false);
+    } catch {
       setIsSaving(false);
     }
   }, [draft, isSaving, markSaved, setIsSaving]);
+
+  // Ctrl+S shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleSave]);
 
   const openRight = (tab: Parameters<typeof setRightTab>[0]) => {
     setRightTab(tab);
@@ -61,38 +72,37 @@ export function BuilderHeader() {
   };
 
   return (
-    <header className="flex items-center h-12 px-3 border-b border-border bg-card shrink-0 gap-1.5">
-
-      {/* ── Left cluster: back + left-panel toggle ─────────────────── */}
+    <header
+      className="flex items-center h-11 px-3 border-b border-border bg-card shrink-0"
+      style={{ gap: 6 }}
+    >
+      {/* Left cluster */}
       <div className="flex items-center gap-1 shrink-0">
-        <Button
-          variant="ghost"
-          size="sm"
-          asChild
-          className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+        {/* Back to resumes list */}
+        <Link
+          href="/dashboard/cv-builder"
+          className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           title="Back to resumes"
         >
-          <Link href="/dashboard/cv-builder">
-            <ChevronLeft className="h-4 w-4" />
-          </Link>
-        </Button>
+          <ChevronLeft className="h-4 w-4" />
+        </Link>
 
-        {/* Left panel toggle with clear on/off state */}
+        {/* Left panel toggle — clear on/off state */}
         <button
           onClick={toggleLeft}
           title={panelLayout.leftOpen ? "Hide content panel" : "Show content panel"}
           className={cn(
-            "w-8 h-8 rounded-md flex items-center justify-center transition-all border",
+            "w-8 h-8 rounded-md flex items-center justify-center transition-all",
             panelLayout.leftOpen
-              ? "bg-foreground/5 border-border text-foreground"
-              : "border-transparent text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted"
+              ? "bg-[#111827]/8 text-[#111827] dark:bg-white/10 dark:text-white"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
           )}
         >
           <PanelLeft className="h-4 w-4" />
         </button>
       </div>
 
-      {/* ── Centre: title + save status ────────────────────────────── */}
+      {/* Centre: title + save status */}
       <div className="flex-1 flex items-center justify-center gap-2 min-w-0 px-2">
         {editingTitle ? (
           <input
@@ -104,15 +114,15 @@ export function BuilderHeader() {
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === "Escape") setEditingTitle(false);
             }}
-            className="text-sm font-semibold bg-transparent border-b border-primary focus:outline-none text-center min-w-0 max-w-[220px]"
+            className="text-sm font-semibold bg-transparent border-b border-[#111827] focus:outline-none text-center min-w-0 max-w-[220px]"
           />
         ) : (
           <button
             onClick={() => setEditingTitle(true)}
-            className="group flex items-center gap-1.5 text-sm font-semibold text-foreground hover:text-primary transition-colors truncate max-w-[220px]"
+            className="group flex items-center gap-1.5 text-sm font-semibold text-foreground hover:text-[#111827] transition-colors truncate max-w-[220px]"
           >
             <span className="truncate">{draft?.title || "Untitled Resume"}</span>
-            <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-50 shrink-0 transition-opacity" />
+            <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-40 shrink-0 transition-opacity" />
           </button>
         )}
 
@@ -139,22 +149,20 @@ export function BuilderHeader() {
         )}
       </div>
 
-      {/* ── Right cluster: actions + right-panel toggle ────────────── */}
+      {/* Right cluster */}
       <div className="flex items-center gap-1 shrink-0">
 
-        {/* Manual Save button — primary action, only shown when dirty */}
-        <Button
-          size="sm"
-          variant={isDirty ? "default" : "ghost"}
+        {/* Save button — only when dirty */}
+        <button
           onClick={handleSave}
           disabled={!isDirty || isSaving}
-          className={cn(
-            "h-8 px-2.5 text-xs gap-1.5 transition-all",
-            isDirty
-              ? "bg-foreground text-background hover:bg-foreground/90"
-              : "text-muted-foreground"
-          )}
           title="Save (Ctrl+S)"
+          className={cn(
+            "flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium transition-all",
+            isDirty && !isSaving
+              ? "bg-[#111827] text-white hover:bg-[#1f2937]"
+              : "text-muted-foreground cursor-default"
+          )}
         >
           {isSaving ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -162,32 +170,28 @@ export function BuilderHeader() {
             <Save className="h-3.5 w-3.5" />
           )}
           Save
-        </Button>
+        </button>
 
-        {/* Divider */}
         <div className="w-px h-4 bg-border mx-0.5" />
 
-        <Button
-          variant="ghost"
-          size="sm"
+        {/* Share */}
+        <button
           onClick={() => openRight("share")}
-          className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground gap-1.5"
+          className="flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
           <Share2 className="h-3.5 w-3.5" />
-          Share
-        </Button>
+          <span className="hidden sm:inline">Share</span>
+        </button>
 
-        <Button
-          variant="outline"
-          size="sm"
+        {/* Export */}
+        <button
           onClick={() => openRight("export")}
-          className="h-8 px-2.5 text-xs gap-1.5"
+          className="flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs border border-border text-foreground hover:bg-muted transition-colors"
         >
           <Download className="h-3.5 w-3.5" />
-          Export
-        </Button>
+          <span className="hidden sm:inline">Export</span>
+        </button>
 
-        {/* Divider */}
         <div className="w-px h-4 bg-border mx-0.5" />
 
         {/* Right panel toggle */}
@@ -195,10 +199,10 @@ export function BuilderHeader() {
           onClick={toggleRight}
           title={panelLayout.rightOpen ? "Hide design panel" : "Show design panel"}
           className={cn(
-            "w-8 h-8 rounded-md flex items-center justify-center transition-all border",
+            "w-8 h-8 rounded-md flex items-center justify-center transition-all",
             panelLayout.rightOpen
-              ? "bg-foreground/5 border-border text-foreground"
-              : "border-transparent text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted"
+              ? "bg-[#111827]/8 text-[#111827] dark:bg-white/10 dark:text-white"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
           )}
         >
           <PanelRight className="h-4 w-4" />

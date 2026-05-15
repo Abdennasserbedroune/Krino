@@ -68,7 +68,6 @@ const IconClose = () => (
     <path d="M18 6 6 18M6 6l12 12" stroke="#6B7280" strokeWidth="1.6" strokeLinecap="round"/>
   </svg>
 );
-// Collapse/expand chevron — flips direction
 const IconRailArrow = ({ collapsed }: { collapsed: boolean }) => (
   <svg
     width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden
@@ -243,7 +242,6 @@ function Sidebar({
           padding: "0 10px 0 14px",
           borderBottom: "1px solid rgba(17,24,39,0.07)",
         }}>
-          {/* Logo + wordmark */}
           <Link
             href="/"
             style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", flexShrink: 0, minWidth: 0 }}
@@ -259,14 +257,10 @@ function Sidebar({
             }}>Krino</span>
           </Link>
 
-          {/* Right side of logo row:
-              - Mobile: show × close button
-              - Desktop: show collapse/expand chevron button */}
+          {/* Mobile: close drawer */}
           <button
-            onClick={collapsed ? onToggleCollapse : undefined}
-            // On mobile this closes the drawer; on desktop it collapses the rail
-            className="lg:hidden"
             onClick={onClose}
+            className="lg:hidden"
             style={{
               background: "none", border: "none", cursor: "pointer",
               padding: 6, borderRadius: 8,
@@ -280,7 +274,7 @@ function Sidebar({
             <IconClose />
           </button>
 
-          {/* Desktop-only collapse toggle — same slot, different button */}
+          {/* Desktop: collapse/expand rail */}
           <button
             onClick={onToggleCollapse}
             className="hidden lg:flex"
@@ -289,7 +283,7 @@ function Sidebar({
             style={{
               background: "none", border: "none", cursor: "pointer",
               padding: 6, borderRadius: 8,
-              display: "flex", alignItems: "center", justifyContent: "center",
+              alignItems: "center", justifyContent: "center",
               flexShrink: 0,
               transition: "background 120ms ease",
             }}
@@ -532,57 +526,62 @@ function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed,   setCollapsed]   = useState(false);
-  const [hydrated,    setHydrated]    = useState(false);
+  const pathname = usePathname();
 
-  useEffect(() => {
-    const stored = localStorage.getItem("sidebar-collapsed");
-    if (stored === "true") setCollapsed(true);
-    setHydrated(true);
-  }, []);
+  // CV builder editor (/dashboard/cv-builder/[id]) owns the full viewport.
+  // Render children only — no sidebar, no topbar, no padding.
+  const isCvBuilderEditor = /^\/dashboard\/cv-builder\/[^/]+/.test(pathname);
+  if (isCvBuilderEditor) {
+    return <>{children}</>;
+  }
 
-  const toggleCollapse = () => {
-    setCollapsed(prev => {
-      const next = !prev;
-      localStorage.setItem("sidebar-collapsed", String(next));
-      return next;
-    });
-  };
-
-  const marginLeft = hydrated
-    ? (collapsed ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_EXPANDED)
-    : SIDEBAR_W_EXPANDED;
+  const sidebarW = collapsed ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_EXPANDED;
 
   return (
-    <div style={{ minHeight: "100dvh", background: "#F7F3EF", fontFamily: "'Inter', sans-serif", overflowX: "hidden", position: "relative" }}>
-      <div aria-hidden style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,237,213,0.55) 0%, transparent 70%)" }}/>
-      <div aria-hidden style={{
-        position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
-        backgroundImage: ["linear-gradient(to right, rgba(17,24,39,0.04) 1px, transparent 1px)", "linear-gradient(to bottom, rgba(17,24,39,0.04) 1px, transparent 1px)"].join(","),
-        backgroundSize: "48px 48px",
-      }}/>
+    <div
+      style={{
+        minHeight: "100dvh",
+        background: "rgba(247,243,239,0.9)",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <Sidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        collapsed={collapsed}
+        onToggleCollapse={() => setCollapsed(c => !c)}
+      />
 
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} collapsed={collapsed} onToggleCollapse={toggleCollapse} />
-
+      {/* Main area — offset by sidebar width on desktop */}
       <div
-        id="dashboard-scroll-area"
         style={{
-          position: "relative", zIndex: 1,
-          minHeight: "100dvh", display: "flex", flexDirection: "column",
-          marginLeft: 0, overflowY: "auto", overflowX: "hidden",
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          marginLeft: 0,
           transition: "margin-left 260ms cubic-bezier(0.4,0,0.2,1)",
+        }}
+        className="lg:ml-[var(--sidebar-w)]"
+        // CSS var approach for the dynamic margin
+        ref={(el) => {
+          if (el) el.style.setProperty("--sidebar-w", `${sidebarW}px`);
         }}
       >
         <Topbar onMenuClick={() => setSidebarOpen(true)} />
-        <main style={{ flex: 1, padding: "24px 24px 48px" }}>{children}</main>
-      </div>
 
-      <style>{`
-        @media (min-width: 1024px) {
-          #dashboard-scroll-area {
-            margin-left: ${hydrated ? marginLeft : SIDEBAR_W_EXPANDED}px !important;
-          }
-        }
-      `}</style>
+        <main
+          id="dashboard-scroll-area"
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: "24px 24px 48px",
+            minHeight: "100dvh",
+          }}
+        >
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

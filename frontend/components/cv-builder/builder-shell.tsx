@@ -18,49 +18,46 @@ export function BuilderShell({ draft }: BuilderShellProps) {
   const initialize  = useCvBuilderStore((s) => s.initialize);
   const panelLayout = useCvBuilderStore((s) => s.panelLayout);
 
-  // Boot the store with the server-fetched draft
   useEffect(() => {
     initialize(draft);
     return () => initialize(null);
   }, [draft, initialize]);
 
-  // NOTE: autosave removed — save is now manual via the Save button in the header
-
   return (
-    // Use fixed positioning so the builder truly fills the viewport
-    // regardless of the dashboard layout's padding and topbar.
+    // z-index 100 so it sits above the dashboard sidebar (z-index 50)
+    // fixed inset-0 so it truly owns the viewport
     <div
       className="fixed inset-0 flex flex-col bg-background"
-      style={{ zIndex: 20 }}
+      style={{ zIndex: 100 }}
     >
       <BuilderHeader />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left sidebar — content & section nav */}
+        {/* Left sidebar */}
         <div
           className={cn(
-            "transition-all duration-200 shrink-0 overflow-hidden border-r border-border",
-            panelLayout.leftOpen ? "w-[320px]" : "w-0"
+            "transition-all duration-200 shrink-0 overflow-hidden",
+            panelLayout.leftOpen ? "w-[300px] border-r border-border" : "w-0"
           )}
         >
-          <div className="w-[320px] h-full">
+          <div className="w-[300px] h-full">
             <SidebarLeft />
           </div>
         </div>
 
-        {/* Artboard — live A4 preview */}
-        <div className="flex-1 overflow-hidden">
+        {/* Artboard */}
+        <div className="flex-1 overflow-hidden min-w-0">
           <Artboard />
         </div>
 
-        {/* Right sidebar — design, ATS, export */}
+        {/* Right sidebar */}
         <div
           className={cn(
-            "transition-all duration-200 shrink-0 overflow-hidden border-l border-border",
-            panelLayout.rightOpen ? "w-[280px]" : "w-0"
+            "transition-all duration-200 shrink-0 overflow-hidden",
+            panelLayout.rightOpen ? "w-[260px] border-l border-border" : "w-0"
           )}
         >
-          <div className="w-[280px] h-full">
+          <div className="w-[260px] h-full">
             <SidebarRight />
           </div>
         </div>
