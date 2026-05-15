@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -9,7 +9,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
-// ─── Icons ────────────────────────────────────────────────────────────────────
+// ─── Icons ──────────────────────────────────────────────────────────────────
 const IconTarget = ({ active }: { active: boolean }) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
     <circle cx="12" cy="12" r="9" stroke={active ? "#fff" : "#6B7280"} strokeWidth="1.6"/>
@@ -63,17 +63,17 @@ const IconMenu = () => (
     <path d="M4 6h16M4 12h16M4 18h16" stroke="#6B7280" strokeWidth="1.6" strokeLinecap="round"/>
   </svg>
 );
-const IconClose = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-    <path d="M18 6 6 18M6 6l12 12" stroke="#6B7280" strokeWidth="1.6" strokeLinecap="round"/>
+// The panel-split icon shown in image-2: a square split by a vertical line in the middle
+const IconPanelCollapse = () => (
+  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden>
+    <rect x="1.5" y="1.5" width="17" height="17" rx="3" stroke="#6B7280" strokeWidth="1.5"/>
+    <line x1="8.5" y1="1.5" x2="8.5" y2="18.5" stroke="#6B7280" strokeWidth="1.5"/>
   </svg>
 );
-const IconRailArrow = ({ collapsed }: { collapsed: boolean }) => (
-  <svg
-    width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden
-    style={{ transition: "transform 280ms ease", transform: collapsed ? "rotate(0deg)" : "rotate(180deg)" }}
-  >
-    <path d="M9 18l6-6-6-6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+const IconPanelExpand = () => (
+  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden>
+    <rect x="1.5" y="1.5" width="17" height="17" rx="3" stroke="#6B7280" strokeWidth="1.5"/>
+    <line x1="6.5" y1="1.5" x2="6.5" y2="18.5" stroke="#6B7280" strokeWidth="1.5"/>
   </svg>
 );
 const IconUser = () => (
@@ -100,7 +100,7 @@ const IconSettingsLine = () => (
   </svg>
 );
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Constants ───────────────────────────────────────────────────────────────
 const SIDEBAR_W_EXPANDED  = 240;
 const SIDEBAR_W_COLLAPSED = 64;
 
@@ -115,26 +115,26 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const SIDEBAR_LABELS: Record<string, Record<"en" | "fr", string>> = {
-  jobMatch:       { en: "Job Match",       fr: "Offres" },
-  resumeBuilder:  { en: "Resume Builder",  fr: "CV Builder" },
-  aiCoach:        { en: "AI Career Coach", fr: "Coach IA" },
-  interviewPrep:  { en: "Interview Prep",  fr: "Entretiens" },
-  browseJobs:     { en: "Browse Jobs",     fr: "Emplois" },
-  applications:   { en: "Applications",   fr: "Candidatures" },
-  settings:       { en: "Settings",        fr: "Paramètres" },
-  jobSeeker:      { en: "Job Seeker",      fr: "Chercheur d'emploi" },
-  collapse:       { en: "Collapse",        fr: "Réduire" },
-  expand:         { en: "Expand",          fr: "Développer" },
-  userSettings:   { en: "Settings",        fr: "Paramètres" },
-  signOut:        { en: "Sign out",        fr: "Se déconnecter" },
+  jobMatch:      { en: "Job Match",       fr: "Offres"            },
+  resumeBuilder: { en: "Resume Builder",  fr: "CV Builder"        },
+  aiCoach:       { en: "AI Career Coach", fr: "Coach IA"          },
+  interviewPrep: { en: "Interview Prep",  fr: "Entretiens"        },
+  browseJobs:    { en: "Browse Jobs",     fr: "Emplois"           },
+  applications:  { en: "Applications",   fr: "Candidatures"       },
+  settings:      { en: "Settings",        fr: "Paramètres"        },
+  jobSeeker:     { en: "Job Seeker",      fr: "Chercheur d'emploi" },
+  collapse:      { en: "Collapse",        fr: "Réduire"           },
+  expand:        { en: "Expand",          fr: "Développer"        },
+  userSettings:  { en: "Settings",        fr: "Paramètres"        },
+  signOut:       { en: "Sign out",        fr: "Se déconnecter"    },
 };
 
-// ─── NavLink helper ───────────────────────────────────────────────────────────
+// ─── NavLink ─────────────────────────────────────────────────────────────────
 function NavLink({
   href, label, Icon, active, collapsed, onClick,
 }: {
   href: string; label: string; Icon: React.FC<{ active: boolean }>;
-  active: boolean; collapsed: boolean; onClick: () => void;
+  active: boolean; collapsed: boolean; onClick?: () => void;
 }) {
   return (
     <Link
@@ -142,29 +142,23 @@ function NavLink({
       onClick={onClick}
       title={collapsed ? label : undefined}
       style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-start",
-        gap: 10,
-        padding: "8px 10px",
-        borderRadius: 10,
-        textDecoration: "none",
-        fontSize: 13.5,
-        fontWeight: active ? 500 : 400,
+        display: "flex", alignItems: "center", justifyContent: "flex-start",
+        gap: 10, padding: "8px 10px", borderRadius: 10,
+        textDecoration: "none", fontSize: 13.5, fontWeight: active ? 500 : 400,
         letterSpacing: "0.2px",
         color: active ? "#FFFFFF" : "#6B7280",
-        background: active ? "#111827" : "transparent",
+        background: active
+          ? "#111827"
+          : "transparent",
         boxShadow: active
           ? "rgba(0,0,0,0.35) 0px 8px 20px -6px, rgba(255,255,255,0.12) 0px 1px 1px 0px inset, rgba(0,0,0,0.45) 0px -2px 3px 0px inset"
           : "none",
         transition: "background 140ms ease, color 140ms ease",
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        minHeight: 38,
+        whiteSpace: "nowrap", overflow: "hidden", minHeight: 38,
       }}
       onMouseEnter={e => {
         if (!active) {
-          (e.currentTarget as HTMLElement).style.background = "rgba(17,24,39,0.05)";
+          (e.currentTarget as HTMLElement).style.background = "rgba(17,24,39,0.06)";
           (e.currentTarget as HTMLElement).style.color = "#111827";
         }
       }}
@@ -175,16 +169,12 @@ function NavLink({
         }
       }}
     >
-      <span style={{
-        flexShrink: 0, width: 28, height: 28,
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}>
+      <span style={{ flexShrink: 0, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Icon active={active} />
       </span>
       <span style={{
         overflow: "hidden", whiteSpace: "nowrap",
-        maxWidth: collapsed ? 0 : 160,
-        opacity: collapsed ? 0 : 1,
+        maxWidth: collapsed ? 0 : 160, opacity: collapsed ? 0 : 1,
         transition: "max-width 260ms ease, opacity 160ms ease",
         display: "block",
       }}>{label}</span>
@@ -192,7 +182,7 @@ function NavLink({
   );
 }
 
-// ─── Sidebar ──────────────────────────────────────────────────────────────────
+// ─── Sidebar ─────────────────────────────────────────────────────────────────
 function Sidebar({
   open, onClose, collapsed, onToggleCollapse,
 }: {
@@ -206,7 +196,7 @@ function Sidebar({
 
   return (
     <>
-      {/* Mobile overlay */}
+      {/* Mobile overlay — tap to close */}
       {open && (
         <div
           className="fixed inset-0 bg-black/20 backdrop-blur-sm lg:hidden"
@@ -218,87 +208,91 @@ function Sidebar({
 
       <aside
         style={{
-          position: "fixed",
-          top: 0, left: 0, bottom: 0,
-          width: w,
-          zIndex: 50,
-          display: "flex",
-          flexDirection: "column",
-          background: "rgba(255,255,255,0.92)",
-          backdropFilter: "blur(14px)",
-          WebkitBackdropFilter: "blur(14px)",
+          position: "fixed", top: 0, left: 0, bottom: 0, width: w, zIndex: 50,
+          display: "flex", flexDirection: "column",
+          background: "rgba(255,255,255,0.94)",
+          backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
           borderRight: "1px solid rgba(17,24,39,0.07)",
           boxShadow: "2px 0 16px rgba(17,24,39,0.05)",
           transition: "width 260ms cubic-bezier(0.4,0,0.2,1), transform 280ms cubic-bezier(0.4,0,0.2,1)",
           overflow: "hidden",
+          // Mobile: hidden by default, slide in when open
+          transform: open ? "translateX(0)" : undefined,
         }}
         className={open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
       >
-        {/* Logo row */}
+        {/* Logo row — only logo + desktop collapse button. NO ×. */}
         <div style={{
           height: 60, flexShrink: 0,
           display: "flex", alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 10px 0 14px",
+          justifyContent: collapsed ? "center" : "space-between",
+          padding: collapsed ? "0 14px" : "0 10px 0 14px",
           borderBottom: "1px solid rgba(17,24,39,0.07)",
         }}>
+          {/* Logo */}
           <Link
             href="/"
-            style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", flexShrink: 0, minWidth: 0 }}
+            style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", flexShrink: 0 }}
             title="Krino"
           >
             <Image src="/logo.png" alt="Krino" width={34} height={34} priority style={{ objectFit: "contain", flexShrink: 0 }}/>
             <span style={{
               fontSize: 17, fontWeight: 700, color: "#111827", letterSpacing: "-0.02em",
               overflow: "hidden", whiteSpace: "nowrap",
-              maxWidth: collapsed ? 0 : 110,
-              opacity: collapsed ? 0 : 1,
+              maxWidth: collapsed ? 0 : 110, opacity: collapsed ? 0 : 1,
               transition: "max-width 260ms ease, opacity 180ms ease",
             }}>Krino</span>
           </Link>
 
-          {/* Mobile: close drawer */}
-          <button
-            onClick={onClose}
-            className="lg:hidden"
-            style={{
-              background: "none", border: "none", cursor: "pointer",
-              padding: 6, borderRadius: 8,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              flexShrink: 0,
-              color: "#6B7280",
-              transition: "background 120ms ease",
-            }}
-            aria-label="Close menu"
-          >
-            <IconClose />
-          </button>
-
-          {/* Desktop: collapse/expand rail */}
-          <button
-            onClick={onToggleCollapse}
-            className="hidden lg:flex"
-            title={collapsed ? t("expand") : t("collapse")}
-            aria-label={collapsed ? t("expand") : t("collapse")}
-            style={{
-              background: "none", border: "none", cursor: "pointer",
-              padding: 6, borderRadius: 8,
-              alignItems: "center", justifyContent: "center",
-              flexShrink: 0,
-              transition: "background 120ms ease",
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(17,24,39,0.06)"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "none"; }}
-          >
-            <IconRailArrow collapsed={collapsed} />
-          </button>
+          {/* Desktop collapse/expand button — shown only on lg+ */}
+          {!collapsed && (
+            <button
+              onClick={onToggleCollapse}
+              className="hidden lg:flex"
+              title={t("collapse")}
+              aria-label={t("collapse")}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                padding: 6, borderRadius: 8,
+                alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
+                transition: "background 120ms ease",
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(17,24,39,0.06)"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "none"; }}
+            >
+              {/* Panel-collapse icon: square with left pane */}
+              <IconPanelCollapse />
+            </button>
+          )}
         </div>
+
+        {/* When collapsed: expand button centred below logo */}
+        {collapsed && (
+          <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 2px" }}>
+            <button
+              onClick={onToggleCollapse}
+              className="hidden lg:flex"
+              title={t("expand")}
+              aria-label={t("expand")}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                padding: 6, borderRadius: 8,
+                alignItems: "center", justifyContent: "center",
+                transition: "background 120ms ease",
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(17,24,39,0.06)"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "none"; }}
+            >
+              <IconPanelExpand />
+            </button>
+          </div>
+        )}
 
         {/* Section label */}
         <div style={{
-          padding: collapsed ? "14px 0 4px" : "18px 18px 6px",
-          display: "flex",
-          justifyContent: collapsed ? "center" : "flex-start",
+          padding: collapsed ? "10px 0 4px" : "18px 18px 6px",
+          display: "flex", justifyContent: collapsed ? "center" : "flex-start",
         }}>
           {collapsed
             ? <div style={{ width: 24, height: 1, background: "rgba(17,24,39,0.10)", borderRadius: 1 }}/>
@@ -324,37 +318,16 @@ function Sidebar({
           })}
         </nav>
 
-        {/* Bottom: settings */}
+        {/* Settings row at bottom */}
         <div style={{ padding: "8px 8px 14px", borderTop: "1px solid rgba(17,24,39,0.07)" }}>
-          <Link
+          <NavLink
             href="/dashboard/settings"
+            label={t("settings")}
+            Icon={IconSettings}
+            active={pathname === "/dashboard/settings"}
+            collapsed={collapsed}
             onClick={onClose}
-            title={collapsed ? t("settings") : undefined}
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "flex-start",
-              gap: 10, padding: "8px 10px", borderRadius: 10,
-              textDecoration: "none", fontSize: 13.5, fontWeight: 400,
-              color: "#6B7280", whiteSpace: "nowrap", overflow: "hidden", minHeight: 38,
-              transition: "background 140ms ease, color 140ms ease",
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.background = "rgba(17,24,39,0.05)";
-              (e.currentTarget as HTMLElement).style.color = "#111827";
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.background = "transparent";
-              (e.currentTarget as HTMLElement).style.color = "#6B7280";
-            }}
-          >
-            <span style={{ flexShrink: 0, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <IconSettings active={false} />
-            </span>
-            <span style={{
-              overflow: "hidden", whiteSpace: "nowrap",
-              maxWidth: collapsed ? 0 : 160, opacity: collapsed ? 0 : 1,
-              transition: "max-width 260ms ease, opacity 160ms ease",
-            }}>{t("settings")}</span>
-          </Link>
+          />
         </div>
       </aside>
     </>
@@ -371,13 +344,14 @@ function AvatarMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    if (open) document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+  // Close on outside click
+  const handleOutside = (e: MouseEvent) => {
+    if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+  };
+  const openMenu = () => {
+    setOpen(true);
+    document.addEventListener("mousedown", handleOutside, { once: true });
+  };
 
   const initial = email ? email[0].toUpperCase() : "?";
 
@@ -390,19 +364,14 @@ function AvatarMenu() {
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={() => (open ? setOpen(false) : openMenu())}
         aria-label="User menu"
         style={{
-          width: 34, height: 34,
-          borderRadius: "50%",
-          background: "#111827",
-          border: "none",
-          cursor: "pointer",
+          width: 34, height: 34, borderRadius: "50%",
+          background: "#111827", border: "none", cursor: "pointer",
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 13, fontWeight: 600, color: "#fff",
-          letterSpacing: "0.03em",
-          flexShrink: 0,
-          transition: "opacity 140ms ease",
+          fontSize: 13, fontWeight: 600, color: "#fff", letterSpacing: "0.03em",
+          flexShrink: 0, transition: "opacity 140ms ease",
           boxShadow: "0 1px 4px rgba(17,24,39,0.18)",
         }}
         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "0.82"; }}
@@ -413,16 +382,10 @@ function AvatarMenu() {
 
       {open && (
         <div style={{
-          position: "absolute",
-          top: "calc(100% + 8px)",
-          right: 0,
-          minWidth: 210,
-          background: "#fff",
-          border: "1px solid rgba(17,24,39,0.09)",
-          borderRadius: 12,
-          boxShadow: "0 8px 32px rgba(17,24,39,0.12), 0 1px 4px rgba(17,24,39,0.06)",
-          zIndex: 200,
-          overflow: "hidden",
+          position: "absolute", top: "calc(100% + 8px)", right: 0, minWidth: 210,
+          background: "#fff", border: "1px solid rgba(17,24,39,0.09)",
+          borderRadius: 12, boxShadow: "0 8px 32px rgba(17,24,39,0.12), 0 1px 4px rgba(17,24,39,0.06)",
+          zIndex: 200, overflow: "hidden",
         }}>
           <div style={{ padding: "12px 14px 10px", borderBottom: "1px solid rgba(17,24,39,0.07)" }}>
             <div style={{
@@ -432,16 +395,13 @@ function AvatarMenu() {
             }}>{initial}</div>
             <p style={{ margin: 0, fontSize: 12.5, color: "#111827", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>{email ?? "—"}</p>
           </div>
-
           <div style={{ padding: "6px 6px" }}>
             <Link
               href="/dashboard/settings"
               onClick={() => setOpen(false)}
               style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: "8px 10px", borderRadius: 8,
-                textDecoration: "none", fontSize: 13.5, color: "#374151",
-                transition: "background 120ms ease",
+                display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8,
+                textDecoration: "none", fontSize: 13.5, color: "#374151", transition: "background 120ms ease",
               }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(17,24,39,0.05)"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
@@ -449,15 +409,12 @@ function AvatarMenu() {
               <IconSettingsLine />
               {t("userSettings")}
             </Link>
-
             <button
               onClick={handleSignOut}
               style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: "8px 10px", borderRadius: 8, width: "100%",
-                background: "none", border: "none", cursor: "pointer",
-                fontSize: 13.5, color: "#EF4444", textAlign: "left",
-                transition: "background 120ms ease",
+                display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8,
+                width: "100%", background: "none", border: "none", cursor: "pointer",
+                fontSize: 13.5, color: "#EF4444", textAlign: "left", transition: "background 120ms ease",
               }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.06)"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
@@ -478,15 +435,6 @@ function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   const { locale } = useLanguage();
   const lang = (locale === "fr" ? "fr" : "en") as "en" | "fr";
   const t = (key: string) => SIDEBAR_LABELS[key]?.[lang] ?? key;
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const el = document.getElementById("dashboard-scroll-area");
-    if (!el) return;
-    const handler = () => setScrolled(el.scrollTop > 8);
-    el.addEventListener("scroll", handler, { passive: true });
-    return () => el.removeEventListener("scroll", handler);
-  }, []);
 
   const activeItem = NAV_ITEMS.find(
     n => n.href === pathname || (n.href !== "/dashboard" && pathname.startsWith(n.href))
@@ -498,16 +446,18 @@ function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
       position: "sticky", top: 0, zIndex: 30, height: 60, flexShrink: 0,
       display: "flex", alignItems: "center", justifyContent: "space-between",
       padding: "0 24px",
-      background: scrolled ? "rgba(247,243,239,0.92)" : "transparent",
-      backdropFilter: scrolled ? "blur(12px)" : "none",
-      WebkitBackdropFilter: scrolled ? "blur(12px)" : "none",
-      borderBottom: scrolled ? "1px solid rgba(17,24,39,0.07)" : "1px solid transparent",
-      transition: "background 280ms ease, border-color 280ms ease",
+      background: "rgba(247,243,239,0.92)",
+      backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+      borderBottom: "1px solid rgba(17,24,39,0.07)",
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <button onClick={onMenuClick} className="lg:hidden"
+        {/* Mobile hamburger — opens drawer */}
+        <button
+          onClick={onMenuClick}
+          className="lg:hidden"
           style={{ background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 6, display: "flex", alignItems: "center" }}
-          aria-label="Open menu">
+          aria-label="Open menu"
+        >
           <IconMenu />
         </button>
         <span style={{ fontSize: 15, fontWeight: 600, color: "#111827", letterSpacing: "-0.01em" }}>{pageTitle}</span>
@@ -528,24 +478,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [collapsed,   setCollapsed]   = useState(false);
   const pathname = usePathname();
 
-  // CV builder editor (/dashboard/cv-builder/[id]) owns the full viewport.
-  // Render children only — no sidebar, no topbar, no padding.
+  // CV builder editor page owns full viewport — no dashboard chrome at all
   const isCvBuilderEditor = /^\/dashboard\/cv-builder\/[^/]+/.test(pathname);
-  if (isCvBuilderEditor) {
-    return <>{children}</>;
-  }
+  if (isCvBuilderEditor) return <>{children}</>;
 
   const sidebarW = collapsed ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_EXPANDED;
 
   return (
-    <div
-      style={{
-        minHeight: "100dvh",
-        background: "rgba(247,243,239,0.9)",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
+    <div style={{ minHeight: "100dvh", background: "rgba(247,243,239,0.9)", display: "flex", flexDirection: "column" }}>
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -553,31 +493,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         onToggleCollapse={() => setCollapsed(c => !c)}
       />
 
-      {/* Main area — offset by sidebar width on desktop */}
+      {/* Main area — shift right by sidebar width on desktop */}
       <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          marginLeft: 0,
-          transition: "margin-left 260ms cubic-bezier(0.4,0,0.2,1)",
-        }}
-        className="lg:ml-[var(--sidebar-w)]"
-        // CSS var approach for the dynamic margin
-        ref={(el) => {
-          if (el) el.style.setProperty("--sidebar-w", `${sidebarW}px`);
-        }}
+        style={{ flex: 1, display: "flex", flexDirection: "column", marginLeft: 0 }}
+        ref={(el) => { if (el) el.style.marginLeft = `${sidebarW}px`; }}
       >
         <Topbar onMenuClick={() => setSidebarOpen(true)} />
-
         <main
           id="dashboard-scroll-area"
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            padding: "24px 24px 48px",
-            minHeight: "100dvh",
-          }}
+          style={{ flex: 1, overflowY: "auto", padding: "24px 24px 48px" }}
         >
           {children}
         </main>
