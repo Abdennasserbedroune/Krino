@@ -12,11 +12,11 @@ const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 const RATE_LIMIT_MAX = 10       // max requests
 const RATE_LIMIT_WINDOW = 10_000 // per 10 seconds (ms)
 
+// Keep in sync with the canonical auth routes under /auth/
 const AUTH_RATE_LIMITED_PATHS = [
   '/api/auth',
-  '/auth/signin',
-  '/auth/register',
-  '/auth/login',
+  '/auth/sign-in',
+  '/auth/sign-up',
 ]
 
 function getRateLimitKey(request: NextRequest): string {
@@ -47,12 +47,6 @@ const PROTECTED_PREFIXES = ['/dashboard']
 
 // Role → home page after login
 const ROLE_HOME: Record<string, string> = {
-  seeker:    '/dashboard',
-  recruiter: '/dashboard/recruiter',
-}
-
-// Role → allowed path prefix (used to prevent cross-role access)
-const ROLE_PATHS: Record<string, string> = {
   seeker:    '/dashboard',
   recruiter: '/dashboard/recruiter',
 }
@@ -123,9 +117,9 @@ export async function middleware(request: NextRequest) {
   // 6. Verify session server-side
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 7. No session → redirect to login
+  // 7. No session → redirect to canonical sign-in
   if (!user) {
-    const loginUrl = new URL('/auth/login', request.url)
+    const loginUrl = new URL('/auth/sign-in', request.url)
     loginUrl.searchParams.set('next', pathname)
     return NextResponse.redirect(loginUrl)
   }
