@@ -6,3 +6,7 @@ test-uploads/
 .env
 .DS_Store
 coverage/
+# SQLite database files — never commit these
+*.db
+*.sqlite
+*.sqlite3
