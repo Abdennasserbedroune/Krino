@@ -16,9 +16,6 @@ interface ChatMessage {
     content: string;
 }
 
-const CARD_SHADOW =
-  "0 0 0 1px rgba(0,0,0,0.06), 0 1px 1px -0.5px rgba(0,0,0,0.06), 0 3px 3px -1.5px rgba(0,0,0,0.06), 0 6px 6px -3px rgba(0,0,0,0.06), 0 12px 12px -6px rgba(0,0,0,0.06), 0 24px 24px -12px rgba(0,0,0,0.06)";
-
 export default function ChatPage() {
     const [cvs,          setCvs]          = useState<CvItem[]>([]);
     const [selectedCvId, setSelectedCvId] = useState<number | null>(null);
@@ -134,27 +131,16 @@ export default function ChatPage() {
         <Protected>
             {/* Page heading */}
             <div style={{ marginBottom: 32 }}>
-                <div style={{
-                    display: "inline-flex", alignItems: "center", gap: 8,
-                    padding: "4px 14px 4px 8px", borderRadius: 9999,
-                    background: "rgba(255,255,255,0.82)",
-                    backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
-                    border: "1px solid rgba(17,24,39,0.09)",
-                    boxShadow: "0 1px 4px rgba(17,24,39,0.06)", marginBottom: 16,
-                }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#3b82f6", display: "inline-block", flexShrink: 0 }} />
-                    <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "#6B7280" }}>
-                        Job Seeker · AI Career Chat
-                    </span>
+                <div className="page-overline-badge">
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--seeker)", display: "inline-block", flexShrink: 0 }} />
+                    <span>Job Seeker · AI Career Chat</span>
                 </div>
-                <h1 style={{ margin: 0, fontSize: "clamp(28px, 4vw, 48px)", fontWeight: 500, lineHeight: 1.1, letterSpacing: "-0.025em", color: "#111827" }}>
-                    {t.chatPage.title}
-                </h1>
+                <h1 className="page-h1">{t.chatPage.title}</h1>
             </div>
 
             {/* Card shell */}
-            <div style={{ padding: 1, borderRadius: 32, background: "linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(17,24,39,0.07) 100%)" }}>
-                <div style={{ borderRadius: 31, background: "#FFFFFF", boxShadow: CARD_SHADOW, padding: "32px", minHeight: 480 }}>
+            <div className="page-card-shell">
+                <div className="page-card-inner">
 
                     {loading && (
                         <div className="flex items-center gap-3 p-6">
@@ -165,7 +151,7 @@ export default function ChatPage() {
 
                     {!loading && cvs.length === 0 && (
                         <div className="rounded-3xl border-2 border-dashed border-primary/30 bg-primary/5 p-8 sm:p-12 text-center">
-                            <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-secondary/80">
+                            <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-muted">
                                 <FileText className="h-8 w-8 text-primary" />
                             </div>
                             <p className="font-serif text-2xl text-foreground mb-2">{t.ext.chatNoCv}</p>
@@ -191,7 +177,7 @@ export default function ChatPage() {
                                                 className={`flex-shrink-0 w-[200px] lg:w-full rounded-2xl border p-3 sm:p-4 text-left transition-all ${
                                                     selectedCvId === cv.id
                                                         ? "border-primary bg-primary/5 shadow-sm"
-                                                        : "border-border/60 bg-card/60 hover:border-primary/40 hover:bg-card/80 shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                                                        : "border-border bg-card hover:border-primary/40 hover:bg-muted shadow-sm hover:shadow-md hover:-translate-y-0.5"
                                                 }`}
                                             >
                                                 <p className="truncate text-sm font-semibold text-foreground">{cv.original_filename}</p>
@@ -202,8 +188,8 @@ export default function ChatPage() {
                                 </div>
 
                                 {/* Chat area */}
-                                <div className="flex h-[480px] sm:h-[560px] lg:h-[640px] flex-col rounded-3xl border border-border/60 bg-card/80 shadow-sm overflow-hidden relative">
-                                    <div className="border-b border-border/60 bg-card/60 px-4 sm:px-6 py-4">
+                                <div className="flex h-[480px] sm:h-[560px] lg:h-[640px] flex-col rounded-3xl border border-border bg-card shadow-sm overflow-hidden relative">
+                                    <div className="border-b border-border bg-muted/50 px-4 sm:px-6 py-4">
                                         <div className="flex items-center gap-3">
                                             <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20">
                                                 <Bot className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
@@ -215,7 +201,7 @@ export default function ChatPage() {
                                         </div>
                                     </div>
 
-                                    <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6 bg-gradient-to-b from-transparent to-background/30">
+                                    <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6 bg-gradient-to-b from-transparent to-background/20">
                                         {messages.map((msg, idx) => (
                                             <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                                                 <div className="flex max-w-[85%] items-end gap-2">
@@ -227,12 +213,12 @@ export default function ChatPage() {
                                                     <div className={`px-4 py-2.5 sm:py-3 shadow-sm ${
                                                         msg.role === "user"
                                                             ? "rounded-2xl rounded-br-sm bg-primary text-primary-foreground"
-                                                            : "rounded-2xl rounded-bl-sm border border-border/60 bg-card/90 text-foreground"
+                                                            : "rounded-2xl rounded-bl-sm border border-border bg-card text-foreground"
                                                     }`}>
                                                         <p className="text-sm sm:text-base leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                                                     </div>
                                                     {msg.role === "user" && (
-                                                        <div className="flex h-6 w-6 sm:h-8 sm:w-8 flex-shrink-0 items-center justify-center rounded-full bg-accent/20 mt-1">
+                                                        <div className="flex h-6 w-6 sm:h-8 sm:w-8 flex-shrink-0 items-center justify-center rounded-full bg-muted mt-1">
                                                             <User className="h-3 w-3 sm:h-4 sm:w-4 text-foreground/70" />
                                                         </div>
                                                     )}
@@ -246,7 +232,7 @@ export default function ChatPage() {
                                                     <div className="flex h-6 w-6 sm:h-8 sm:w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 mt-1">
                                                         <Bot className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                                                     </div>
-                                                    <div className="rounded-2xl rounded-bl-sm border border-border/60 bg-card/90 px-4 py-3 sm:py-4 shadow-sm">
+                                                    <div className="rounded-2xl rounded-bl-sm border border-border bg-card px-4 py-3 sm:py-4 shadow-sm">
                                                         <div className="flex items-center gap-1.5">
                                                             <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/60" />
                                                             <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/60 [animation-delay:0.2s]" />
@@ -258,13 +244,13 @@ export default function ChatPage() {
                                         )}
 
                                         {limitReached && (
-                                            <div className="flex flex-col items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-6 text-center mt-4">
-                                                <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-red-100 text-red-600 mb-1">
+                                            <div className="flex flex-col items-center gap-2 rounded-2xl border border-[var(--negative)] bg-[var(--negative)]/10 p-6 text-center mt-4">
+                                                <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-[var(--negative)]/15 text-[var(--negative)] mb-1">
                                                     <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" />
                                                 </div>
-                                                <p className="text-sm font-semibold text-red-700">{t.ext.freeLimitReached}</p>
-                                                <p className="text-xs text-red-600/80">{t.ext.upgradePro}</p>
-                                                <button className="mt-2 rounded-full bg-red-600 px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-red-700 hover:-translate-y-0.5 transition-all">
+                                                <p className="text-sm font-semibold text-[var(--negative)]">{t.ext.freeLimitReached}</p>
+                                                <p className="text-xs text-muted-foreground">{t.ext.upgradePro}</p>
+                                                <button className="mt-2 rounded-full bg-[var(--negative)] px-5 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 hover:-translate-y-0.5 transition-all">
                                                     {t.ext.upgradePro}
                                                 </button>
                                             </div>
@@ -272,8 +258,8 @@ export default function ChatPage() {
                                         <div ref={messagesEndRef} />
                                     </div>
 
-                                    <div className="border-t border-border/60 bg-card/50 px-3 sm:px-5 py-3 sm:py-4">
-                                        <div className="flex items-center gap-2 sm:gap-3 bg-background rounded-full border border-border/60 pl-2 pr-1.5 py-1.5 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/40 transition-shadow">
+                                    <div className="border-t border-border bg-card/50 px-3 sm:px-5 py-3 sm:py-4">
+                                        <div className="flex items-center gap-2 sm:gap-3 bg-background rounded-full border border-border pl-2 pr-1.5 py-1.5 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/40 transition-shadow">
                                             <input
                                                 type="text"
                                                 value={input}
@@ -286,7 +272,7 @@ export default function ChatPage() {
                                             <button
                                                 onClick={handleSend}
                                                 disabled={!input.trim() || sending || limitReached}
-                                                className="inline-flex h-9 sm:h-10 items-center justify-center gap-2 rounded-full bg-primary px-4 sm:px-6 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="inline-flex h-9 sm:h-10 items-center justify-center gap-2 rounded-full bg-primary px-4 sm:px-6 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                                             >
                                                 <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                                 <span className="hidden sm:inline">{t.ext.send}</span>

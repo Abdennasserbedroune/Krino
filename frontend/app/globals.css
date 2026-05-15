@@ -5,10 +5,9 @@
 @tailwind utilities;
 
 /* ============================================================
-   PATHWISE — FLOWOPS SURGICAL PRECISION DESIGN SYSTEM v4.0
-   Art direction: premium SaaS landing → surgical, glass-layered
-   Palette: warm cream canvas, white glass surfaces, near-black accent
-   Typography: Inter only — 88px display, 18px body, 14px labels
+   PATHWISE — UNIFIED DESIGN SYSTEM v5.0
+   Single source of truth for ALL dashboard pages.
+   Light + Dark mode fully token-driven.
    ============================================================ */
 
 :root {
@@ -20,6 +19,19 @@
   --surface-elevated:  #FFFFFF;
   --surface-tinted:    #FAFAFA;
 
+  /* ── Sidebar / Topbar tokens ── */
+  --sidebar-bg:        rgba(255, 255, 255, 0.94);
+  --sidebar-border:    rgba(17, 24, 39, 0.07);
+  --sidebar-section:   rgba(17, 24, 39, 0.10);
+  --topbar-bg:         rgba(247, 243, 239, 0.92);
+  --topbar-border:     rgba(17, 24, 39, 0.07);
+  --nav-active-bg:     #111827;
+  --nav-active-text:   #FFFFFF;
+  --nav-idle-text:     #6B7280;
+  --nav-hover-bg:      rgba(17, 24, 39, 0.06);
+  --nav-hover-text:    #111827;
+  --layout-bg:         rgba(247, 243, 239, 0.90);
+
   /* ── Text hierarchy ── */
   --text-primary:      #111827;
   --text-body:         #6B7280;
@@ -30,7 +42,6 @@
   --border:            rgba(17, 24, 39, 0.08);
   --border-strong:     rgba(17, 24, 39, 0.16);
 
-  /* Card shadow — exact spec recipe */
   --shadow-card:
     0 0 0 1px rgba(0,0,0,0.06),
     0 1px 1px -0.5px rgba(0,0,0,0.06),
@@ -39,7 +50,6 @@
     0 12px 12px -6px rgba(0,0,0,0.06),
     0 24px 24px -12px rgba(0,0,0,0.06);
 
-  /* Button / CTA shadow — exact spec recipe */
   --shadow-cta:
     rgba(0,0,0,0.40)  0px 12px 24px -6px,
     rgba(255,255,255,0.15) 0px 1px 1px 0px inset,
@@ -90,6 +100,24 @@
   --negative:   #ef4444;
   --warning:    #f59e0b;
 
+  /* ── Card gradient shell ── */
+  --card-shell-gradient: linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(17,24,39,0.07) 100%);
+  --card-inner-bg:       #FFFFFF;
+
+  /* ── Input tokens ── */
+  --input-bg:           #FFFFFF;
+  --input-border:       rgba(17, 24, 39, 0.12);
+  --input-text:         #111827;
+  --input-placeholder:  #9CA3AF;
+  --input-focus-border: rgba(17, 24, 39, 0.35);
+  --input-focus-shadow: 0 0 0 3px rgba(17, 24, 39, 0.06);
+
+  /* ── Theme toggle ── */
+  --toggle-bg:          rgba(17, 24, 39, 0.08);
+  --toggle-border:      rgba(17, 24, 39, 0.15);
+  --toggle-icon:        #374151;
+  --toggle-hover-bg:    rgba(17, 24, 39, 0.13);
+
   /* ── Typography ── */
   --font-sans:  'Inter', sans-serif;
   --font-mono:  'JetBrains Mono', monospace;
@@ -114,7 +142,7 @@
   --shadow-ring:           0 0 0 3px rgba(17, 24, 39, 0.10);
 }
 
-/* Dark mode kept for dashboard/app pages */
+/* ── Dark mode ── */
 .dark {
   --background:        #050505;
   --foreground:        #e5e5e5;
@@ -136,6 +164,38 @@
   --seeker-soft-border: rgba(59, 130, 246, 0.25);
   --recruiter-soft:    rgba(249, 115, 22, 0.12);
   --recruiter-soft-border: rgba(249, 115, 22, 0.25);
+
+  /* ── Sidebar / Topbar dark ── */
+  --sidebar-bg:        rgba(13, 14, 18, 0.97);
+  --sidebar-border:    rgba(255, 255, 255, 0.07);
+  --sidebar-section:   rgba(255, 255, 255, 0.08);
+  --topbar-bg:         rgba(5, 5, 5, 0.92);
+  --topbar-border:     rgba(255, 255, 255, 0.07);
+  --nav-active-bg:     rgba(96, 165, 250, 0.15);
+  --nav-active-text:   #e5e5e5;
+  --nav-idle-text:     #555555;
+  --nav-hover-bg:      rgba(255, 255, 255, 0.05);
+  --nav-hover-text:    #e5e5e5;
+  --layout-bg:         #050505;
+
+  /* ── Card gradient shell dark ── */
+  --card-shell-gradient: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0.3) 100%);
+  --card-inner-bg:       #0d0e12;
+
+  /* ── Input tokens dark ── */
+  --input-bg:           #16181d;
+  --input-border:       rgba(255, 255, 255, 0.10);
+  --input-text:         #e5e5e5;
+  --input-placeholder:  #555555;
+  --input-focus-border: rgba(96, 165, 250, 0.50);
+  --input-focus-shadow: 0 0 0 3px rgba(96, 165, 250, 0.10);
+
+  /* ── Theme toggle dark ── */
+  --toggle-bg:          rgba(255, 255, 255, 0.08);
+  --toggle-border:      rgba(255, 255, 255, 0.14);
+  --toggle-icon:        #e5e5e5;
+  --toggle-hover-bg:    rgba(255, 255, 255, 0.13);
+
   --card:              var(--surface);
   --card-foreground:   var(--text-primary);
   --primary:           var(--foreground);
@@ -143,9 +203,9 @@
   --muted:             #16181d;
   --muted-foreground:  #888888;
   --input:             rgba(255, 255, 255, 0.06);
-  --ring:              rgba(0, 240, 255, 0.3);
+  --ring:              rgba(96, 165, 250, 0.40);
   --progress-track:    rgba(255, 255, 255, 0.08);
-  --shadow-ring:       0 0 0 3px rgba(0, 240, 255, 0.15);
+  --shadow-ring:       0 0 0 3px rgba(96, 165, 250, 0.15);
 }
 
 /* ── Base reset ── */
@@ -192,19 +252,19 @@ button { cursor: pointer; background: none; border: none; }
   background: var(--surface-glass);
   backdrop-filter: var(--blur-glass);
   -webkit-backdrop-filter: var(--blur-glass);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border);
 }
 
 /* ── Gradient border shell ── */
 .card-shell {
   padding: 1px;
   border-radius: var(--radius-card-shell);
-  background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(17,24,39,0.06) 100%);
+  background: var(--card-shell-gradient);
 }
 .card-inner {
   border-radius: var(--radius-card);
   padding: var(--sp-3);
-  background: var(--surface);
+  background: var(--card-inner-bg);
   box-shadow: var(--shadow-card);
 }
 
@@ -214,6 +274,11 @@ button { cursor: pointer; background: none; border: none; }
     linear-gradient(to right, rgba(17,24,39,0.04) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(17,24,39,0.04) 1px, transparent 1px);
   background-size: 48px 48px;
+}
+.dark .bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
 }
 
 /* ── Dashboard / IDE layout ── */
@@ -244,7 +309,7 @@ button { cursor: pointer; background: none; border: none; }
 /* ── Diff visualization ── */
 .diff-weak { text-decoration: underline wavy var(--negative); text-underline-offset: 3px; cursor: help; }
 .diff-tooltip {
-  position: absolute; background: #0d0e12; border: 1px solid var(--positive);
+  position: absolute; background: var(--surface); border: 1px solid var(--positive);
   color: var(--positive); font-family: var(--font-mono); font-size: 11px;
   padding: 8px 12px; white-space: nowrap; z-index: 100;
   box-shadow: 0 0 20px rgba(34, 197, 94, 0.15); pointer-events: none;
@@ -253,13 +318,69 @@ button { cursor: pointer; background: none; border: none; }
 
 /* ── Precision input ── */
 .precision-input {
-  border: 1px solid var(--border-strong); background: transparent;
+  border: 1px solid var(--input-border); background: var(--input-bg);
   font-family: var(--font-mono); font-size: 13px;
-  padding: 14px 18px; width: 100%; color: var(--text-primary);
+  padding: 14px 18px; width: 100%; color: var(--input-text);
   outline: none; border-radius: var(--radius-control);
   transition: border-color var(--t-fast), background var(--t-fast);
 }
+.precision-input::placeholder { color: var(--input-placeholder); }
 .precision-input:focus { border-color: var(--seeker); background: var(--seeker-soft); }
+
+/* ── Dashboard page card shell (used in every page) ── */
+.page-card-shell {
+  padding: 1px;
+  border-radius: 32px;
+  background: var(--card-shell-gradient);
+}
+.page-card-inner {
+  border-radius: 31px;
+  background: var(--card-inner-bg);
+  box-shadow: var(--shadow-card);
+  padding: 32px;
+  min-height: 480px;
+}
+
+/* ── Overline badge (page headers) ── */
+.page-overline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px 4px 8px;
+  border-radius: 9999px;
+  background: var(--surface-glass);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
+  margin-bottom: 16px;
+}
+.page-overline-badge span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-body);
+}
+
+/* ── Page h1 ── */
+.page-h1 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  color: var(--text-primary);
+}
+.page-subtitle {
+  margin-top: 10px;
+  font-size: 15px;
+  font-weight: 300;
+  color: var(--text-body);
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  max-width: 560px;
+}
 
 /* ── Shimmer skeleton ── */
 @keyframes shimmer {
@@ -267,7 +388,7 @@ button { cursor: pointer; background: none; border: none; }
   100% { background-position:  200% 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, rgba(17,24,39,0.05) 25%, rgba(17,24,39,0.10) 50%, rgba(17,24,39,0.05) 75%);
+  background: linear-gradient(90deg, var(--muted) 25%, var(--border) 50%, var(--muted) 75%);
   background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite;
   border-radius: var(--radius-control);
 }
@@ -286,4 +407,4 @@ button { cursor: pointer; background: none; border: none; }
 .ai-pulse { animation: pulse-highlight 1.2s ease-in-out 3; }
 
 /* ── Border luminous (dark mode) ── */
-.border-luminous { border: 1px solid rgba(255, 255, 255, 0.08); }
+.border-luminous { border: 1px solid var(--border); }

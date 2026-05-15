@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 interface ThemeToggleProps {
   className?: string;
-  /** "icon" = bare icon button (for navbars); "pill" = labelled toggle (for dropdowns) */
+  /** "icon" = compact button for topbar; "pill" = labelled toggle for dropdowns */
   variant?: "icon" | "pill";
 }
 
@@ -23,23 +23,24 @@ export function ThemeToggle({ className, variant = "icon" }: ThemeToggleProps) {
         aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
         className={cn(
           "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5",
-          "text-sm font-medium text-foreground",
-          "hover:bg-secondary/60 transition-colors duration-150",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+          "text-sm font-medium",
+          "text-[var(--text-primary)] hover:bg-[var(--nav-hover-bg)]",
+          "transition-colors duration-150",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
           className
         )}
       >
         <div className="flex items-center gap-3">
           {isDark
-            ? <Sun className="h-4 w-4 text-muted-foreground" />
-            : <Moon className="h-4 w-4 text-muted-foreground" />}
-          <span>{isDark ? "Light mode" : "Dark mode"}</span>
+            ? <Sun className="h-4 w-4 text-[var(--text-body)]" />
+            : <Moon className="h-4 w-4 text-[var(--text-body)]" />}
+          <span className="text-[var(--text-primary)]">{isDark ? "Light mode" : "Dark mode"}</span>
         </div>
         {/* Animated pill toggle */}
         <div
           className={cn(
             "relative h-5 w-9 rounded-full transition-colors duration-200",
-            isDark ? "bg-primary" : "bg-border"
+            isDark ? "bg-[var(--accent)]" : "bg-[var(--border-strong)]"
           )}
         >
           <div
@@ -54,23 +55,28 @@ export function ThemeToggle({ className, variant = "icon" }: ThemeToggleProps) {
     );
   }
 
-  /* Default: icon button — styled to sit on the dark gradient navbar */
+  /* Icon variant — context-aware, works on both light and dark topbars */
   return (
     <button
       onClick={toggle}
       aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
+      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
       className={cn(
-        "flex h-9 w-9 items-center justify-center rounded-full",
-        "border border-white/20 bg-white/10 text-white",
+        "flex h-9 items-center justify-center gap-2 rounded-full px-3",
+        "border border-[var(--toggle-border)] bg-[var(--toggle-bg)]",
+        "text-[var(--toggle-icon)] text-xs font-medium",
         "transition-all duration-150",
-        "hover:bg-white/20 hover:scale-105 active:scale-95",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
+        "hover:bg-[var(--toggle-hover-bg)] hover:scale-105 active:scale-95",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
         className
       )}
     >
       {isDark
         ? <Sun className="h-4 w-4" />
         : <Moon className="h-4 w-4" />}
+      <span className="hidden sm:inline select-none">
+        {isDark ? "Light" : "Dark"}
+      </span>
     </button>
   );
 }
