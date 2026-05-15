@@ -17,9 +17,9 @@ export function useAuth() {
     return data;
   };
 
-  const register = async (email: string, password: string) => {
+  const register = async (email: string, password: string, role: "seeker" | "recruiter") => {
     setError(null);
-    const { data, error: authError } = await context.register(email, password);
+    const { data, error: authError } = await context.register(email, password, role);
     if (authError) {
       setError(authError.message);
       throw new Error(authError.message);
@@ -39,6 +39,7 @@ export function useAuth() {
   return {
     user: context.user,
     email: context.email,
+    role: context.role,
     loading: context.loading,
     accessToken: context.session?.access_token ?? null,
     error,

@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuthContext } from "@/providers/AuthProvider";
 import Protected from "@/components/Protected";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import dynamic from "next/dynamic";
@@ -7,7 +10,18 @@ import dynamic from "next/dynamic";
 const DesiredJobPage = dynamic(() => import("./desired-job/page"), { ssr: false });
 
 export default function DashboardIndexPage() {
+  const { role, loading } = useAuthContext();
+  const router = useRouter();
   const { t } = useLanguage();
+
+  useEffect(() => {
+    if (!loading && role === "recruiter") {
+      router.replace("/dashboard/recruiter");
+    }
+  }, [role, loading, router]);
+
+  // While loading or redirecting recruiters, render nothing
+  if (loading || role === "recruiter") return null;
 
   return (
     <Protected>
