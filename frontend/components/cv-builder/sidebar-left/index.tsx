@@ -128,25 +128,36 @@ const AI_ACTIONS: { id: AiAction; label: string; description: string }[] = [
   { id: "tailor",    label: "JD Tailor",  description: "Align with a specific job description" },
 ];
 
-// Section-aware auto-prompt: prefills textarea with the active section's current content
-function useSectionContent() {
+/**
+ * Returns a plain-text snapshot of the active section so the AI textarea
+ * can be pre-filled without the user having to copy/paste manually.
+ *
+ * IMPORTANT: d.summary is CvSummary = { content: string }, NOT a plain string.
+ */
+function useSectionContent(): string {
   const draft         = useCvBuilderStore((s) => s.draft);
   const activeSection = useCvBuilderStore((s) => s.activeSection);
   if (!draft) return "";
   const d = draft.data;
   switch (activeSection) {
-    case "summary":     return typeof d.summary === "string" ? d.summary : "";
-    case "experience":  return d.experience?.[0]
-      ? `${d.experience[0].position} at ${d.experience[0].company}\n${d.experience[0].bullets?.join("\n") ?? ""}`
-      : "";
-    case "education":   return d.education?.[0]
-      ? `${d.education[0].degree} ${d.education[0].field} at ${d.education[0].institution}`
-      : "";
-    case "skills":      return d.skills?.flatMap((g: { category: string; items: string[] }) => g.items).join(", ") ?? "";
-    case "projects":    return d.projects?.[0]
-      ? `${d.projects[0].name}: ${d.projects[0].description ?? ""}`
-      : "";
-    default:            return "";
+    case "summary":
+      return d.summary?.content ?? "";
+    case "experience":
+      return d.experience?.[0]
+        ? `${d.experience[0].position} at ${d.experience[0].company}\n${(d.experience[0].bullets ?? []).join("\n")}`
+        : "";
+    case "education":
+      return d.education?.[0]
+        ? `${d.education[0].degree} ${d.education[0].field} at ${d.education[0].institution}`
+        : "";
+    case "skills":
+      return (d.skills ?? []).flatMap((g) => g.items).join(", ");
+    case "projects":
+      return d.projects?.[0]
+        ? `${d.projects[0].name}: ${d.projects[0].description ?? ""}`
+        : "";
+    default:
+      return "";
   }
 }
 
@@ -228,7 +239,7 @@ function AiToolsTab() {
       {/* Action description */}
       <p className="text-[11px] text-muted-foreground -mt-1">{actionMeta.description}</p>
 
-      {/* Current text area — pre-filled from active section */}
+      {/* Textarea — pre-filled from active section */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
           <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Text to enhance</label>
@@ -270,7 +281,7 @@ function AiToolsTab() {
         {loading ? "Generating…" : `${actionMeta.label} with AI`}
       </button>
 
-      {/* Variants with Copy buttons */}
+      {/* Variants */}
       {variants.length > 0 && (
         <div className="flex flex-col gap-2 mt-1">
           <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
