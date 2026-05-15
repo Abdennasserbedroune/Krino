@@ -15,18 +15,17 @@ export default function DashboardIndexPage() {
   const { t } = useLanguage();
 
   useEffect(() => {
-    // Once auth is resolved, send recruiters away — no flicker because we render null below
     if (!loading && role === "recruiter") {
       router.replace("/dashboard/recruiter");
     }
   }, [role, loading, router]);
 
-  // Render nothing until auth is resolved, or if about to redirect
+  // While loading or redirecting recruiters, render nothing
   if (loading || role === "recruiter") return null;
 
-  // role === "seeker" or null (unauthenticated — Protected handles that)
   return (
     <Protected>
+      {/* Page heading */}
       <div style={{ marginBottom: 32 }}>
         <div className="page-overline-badge">
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--seeker)", display: "inline-block", flexShrink: 0 }} />
@@ -36,6 +35,7 @@ export default function DashboardIndexPage() {
         <p className="page-subtitle">{t.hero.subSeeker}</p>
       </div>
 
+      {/* Content card */}
       <div className="page-card-shell">
         <div className="page-card-inner">
           <DesiredJobPage onSwitchToChat={() => { window.location.href = "/dashboard/chat"; }} />
