@@ -6,7 +6,7 @@ venv/
 .venv/
 .pytest_cache/
 
-# Environment variables
+# Environment variables — NEVER commit these
 .env
 .env.local
 .env.*.local
@@ -25,6 +25,14 @@ out/
 build/
 dist/
 
+# TypeScript build cache
+*.tsbuildinfo
+
+# Log files
+*.log
+build.log
+dev.log
+
 # System
 .DS_Store
 Thumbs.db
@@ -41,9 +49,14 @@ docker-data/
 # Temporary
 tmp/
 temp/
+error.html
+
+# Database files — NEVER commit these
+*.db
+*.sqlite
+*.sqlite3
 
 # Debug / temp files
 debug_*.py
 debug_output.txt
-toprompt.pdf
 env.download
