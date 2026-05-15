@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useCvBuilderStore } from "@/lib/cv-builder/store";
-import { ZoomIn, ZoomOut } from "lucide-react";
 import { ClassicTemplate }   from "./templates/classic";
 import { ModernTemplate }    from "./templates/modern";
 import { MinimalTemplate }   from "./templates/minimal";
@@ -21,8 +20,6 @@ const TEMPLATES = {
 
 const PAGE_W  = 794;
 const PAGE_H  = 1123;
-const ZOOM_MIN = 30;
-const ZOOM_MAX = 200;
 
 export function Artboard() {
   const draft   = useCvBuilderStore((s) => s.draft);
@@ -76,50 +73,23 @@ export function Artboard() {
   const scale = zoom / 100;
 
   return (
-    <div className="flex flex-col h-full bg-[#e8e8e8] dark:bg-[#171717]">
-      {/* Zoom bar */}
-      <div className="flex items-center justify-center gap-1.5 py-1.5 px-3 border-b border-border bg-card/90 backdrop-blur-sm shrink-0">
-        <button onClick={() => setZoom(zoom - 10)}
-          className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          title="Zoom out (Ctrl+−)">
-          <ZoomOut className="h-3.5 w-3.5" />
-        </button>
-        <button onClick={() => setZoom(100)}
-          className="min-w-[52px] h-7 rounded-md border border-border flex items-center justify-center text-xs tabular-nums font-medium hover:bg-muted transition-colors"
-          title="Reset to 100%">
-          {zoom}%
-        </button>
-        <button onClick={() => setZoom(zoom + 10)}
-          className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          title="Zoom in (Ctrl++)">
-          <ZoomIn className="h-3.5 w-3.5" />
-        </button>
-        <div className="w-px h-4 bg-border mx-1" />
-        <button onClick={fitToScreen}
-          className="h-7 px-2.5 rounded-md border border-border flex items-center justify-center text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          title="Fit to screen (Ctrl+0)">
-          Fit
-        </button>
-      </div>
-
-      {/* Canvas */}
-      <div ref={wrapRef} className="flex-1 overflow-auto flex items-start justify-center p-6">
-        {/* data-artboard: queried by the PDF export to capture the live template */}
-        <div
-          data-artboard
-          style={{
-            width:  PAGE_W,
-            height: PAGE_H,
-            transform: `scale(${scale})`,
-            transformOrigin: "top center",
-            flexShrink: 0,
-            background: "#fff",
-            boxShadow: "0 4px 32px rgba(0,0,0,0.16), 0 1px 4px rgba(0,0,0,0.08)",
-            borderRadius: 2,
-          }}
-        >
-          <TemplateComponent draft={draft} />
-        </div>
+    // No zoom bar here — zoom controls live in the header
+    <div ref={wrapRef} className="flex-1 h-full overflow-auto flex items-start justify-center p-6 bg-[#e8e8e8] dark:bg-[#171717]">
+      {/* data-artboard: queried by PDF export */}
+      <div
+        data-artboard
+        style={{
+          width:  PAGE_W,
+          height: PAGE_H,
+          transform: `scale(${scale})`,
+          transformOrigin: "top center",
+          flexShrink: 0,
+          background: "#fff",
+          boxShadow: "0 4px 32px rgba(0,0,0,0.16), 0 1px 4px rgba(0,0,0,0.08)",
+          borderRadius: 2,
+        }}
+      >
+        <TemplateComponent draft={draft} />
       </div>
     </div>
   );

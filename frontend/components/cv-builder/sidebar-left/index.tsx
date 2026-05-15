@@ -41,6 +41,22 @@ const SECTION_COMPONENTS: Record<SectionKey, React.ComponentType> = {
   custom:         CustomSection,
 };
 
+const SECTION_LABELS: Record<SectionKey, string> = {
+  basics:         "Personal Info",
+  summary:        "Summary",
+  experience:     "Experience",
+  education:      "Education",
+  skills:         "Skills",
+  projects:       "Projects",
+  certifications: "Certifications",
+  languages:      "Languages",
+  volunteer:      "Volunteering",
+  awards:         "Awards",
+  publications:   "Publications",
+  references:     "References",
+  custom:         "Custom",
+};
+
 function SectionNav() {
   const sectionOrder            = useCvBuilderStore((s) => s.draft?.sectionOrder ?? []);
   const activeSection           = useCvBuilderStore((s) => s.activeSection);
@@ -54,6 +70,7 @@ function SectionNav() {
     <div className="flex flex-col py-1">
       {sorted.map((section, idx) => {
         const isActive = activeSection === section.key;
+        const label = SECTION_LABELS[section.key as SectionKey] ?? section.label ?? section.key;
         return (
           <div
             key={section.key}
@@ -67,7 +84,7 @@ function SectionNav() {
             onClick={() => setActiveSection(section.key as SectionKey)}
           >
             <GripVertical className={cn("h-3.5 w-3.5 shrink-0", isActive ? "opacity-40" : "opacity-0 group-hover:opacity-30")} />
-            <span className="flex-1 truncate text-xs font-medium">{section.label}</span>
+            <span className="flex-1 truncate text-xs font-medium">{label}</span>
             <div className={cn("flex items-center gap-0.5 transition-opacity", isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100")}>
               <button onClick={(e) => { e.stopPropagation(); moveSectionUp(section.key as SectionKey); }} disabled={idx === 0}
                 className={cn("w-5 h-5 rounded flex items-center justify-center transition-colors",
@@ -99,11 +116,45 @@ function ActiveSectionForm() {
   return <Component />;
 }
 
-type AiAction = "improve" | "shorten" | "expand" | "tailor";
+type AiAction = "improve" | "shorten" | "expand" | "tailor" | "quantify" | "keywords" | "tone";
+
+const AI_ACTIONS: { id: AiAction; label: string; description: string }[] = [
+  { id: "improve",   label: "Improve",    description: "Make it clearer and more impactful" },
+  { id: "shorten",   label: "Shorten",    description: "Trim to the essential points" },
+  { id: "expand",    label: "Expand",     description: "Add detail and context" },
+  { id: "quantify",  label: "Quantify",   description: "Add metrics and numbers" },
+  { id: "keywords",  label: "Keywords",   description: "Inject ATS-friendly keywords" },
+  { id: "tone",      label: "Pro Tone",   description: "Make it sound more professional" },
+  { id: "tailor",    label: "JD Tailor",  description: "Align with a specific job description" },
+];
+
+// Section-aware auto-prompt: prefills textarea with the active section's current content
+function useSectionContent() {
+  const draft         = useCvBuilderStore((s) => s.draft);
+  const activeSection = useCvBuilderStore((s) => s.activeSection);
+  if (!draft) return "";
+  const d = draft.data;
+  switch (activeSection) {
+    case "summary":     return typeof d.summary === "string" ? d.summary : "";
+    case "experience":  return d.experience?.[0]
+      ? `${d.experience[0].position} at ${d.experience[0].company}\n${d.experience[0].bullets?.join("\n") ?? ""}`
+      : "";
+    case "education":   return d.education?.[0]
+      ? `${d.education[0].degree} ${d.education[0].field} at ${d.education[0].institution}`
+      : "";
+    case "skills":      return d.skills?.flatMap((g: { category: string; items: string[] }) => g.items).join(", ") ?? "";
+    case "projects":    return d.projects?.[0]
+      ? `${d.projects[0].name}: ${d.projects[0].description ?? ""}`
+      : "";
+    default:            return "";
+  }
+}
 
 function AiToolsTab() {
   const draft         = useCvBuilderStore((s) => s.draft);
   const activeSection = useCvBuilderStore((s) => s.activeSection);
+  const autoContent   = useSectionContent();
+
   const [current,  setCurrent]  = useState("");
   const [action,   setAction]   = useState<AiAction>("improve");
   const [jd,       setJd]       = useState("");
@@ -112,8 +163,12 @@ function AiToolsTab() {
   const [copied,   setCopied]   = useState<number | null>(null);
   const [error,    setError]    = useState<string | null>(null);
 
+  const sectionLabel = SECTION_LABELS[activeSection] ?? activeSection;
+  const actionMeta   = AI_ACTIONS.find(a => a.id === action)!;
+
   const handleSuggest = async () => {
-    if (!draft?.id || !current.trim()) return;
+    const text = current.trim() || autoContent.trim();
+    if (!draft?.id || !text) return;
     setLoading(true); setError(null); setVariants([]); setCopied(null);
     try {
       const res = await fetch("/api/cv-builder/suggest", {
@@ -121,7 +176,7 @@ function AiToolsTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           draftId: draft.id, section: activeSection,
-          field: activeSection, currentValue: current,
+          field: activeSection, currentValue: text,
           action, jdText: jd || undefined,
         }),
       });
@@ -141,50 +196,62 @@ function AiToolsTab() {
     setTimeout(() => setCopied(null), 1800);
   };
 
-  const ACTIONS: { id: AiAction; label: string }[] = [
-    { id: "improve",  label: "Improve"   },
-    { id: "shorten",  label: "Shorten"   },
-    { id: "expand",   label: "Expand"    },
-    { id: "tailor",   label: "JD Tailor" },
-  ];
+  const effectiveText = current.trim() || autoContent;
 
   return (
     <div className="flex flex-col gap-3 p-3">
+      {/* Header */}
       <div className="flex items-center gap-1.5">
         <Sparkles className="h-3.5 w-3.5 text-[#111827] dark:text-white" />
-        <p className="text-xs font-semibold">AI Writing Assistant</p>
+        <p className="text-xs font-semibold">AI Writing — <span className="font-normal text-muted-foreground">{sectionLabel}</span></p>
       </div>
 
       {/* Action pills */}
-      <div className="flex gap-1 flex-wrap">
-        {ACTIONS.map(a => (
-          <button key={a.id} onClick={() => setAction(a.id)}
+      <div className="flex flex-wrap gap-1">
+        {AI_ACTIONS.map(a => (
+          <button
+            key={a.id}
+            onClick={() => setAction(a.id)}
+            title={a.description}
             className={cn(
               "px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
-              action === a.id ? "bg-[#111827] text-white" : "bg-muted text-muted-foreground hover:text-foreground"
-            )}>
+              action === a.id
+                ? "bg-[#111827] text-white"
+                : "bg-muted text-muted-foreground hover:text-foreground"
+            )}
+          >
             {a.label}
           </button>
         ))}
       </div>
 
-      {/* Current text */}
+      {/* Action description */}
+      <p className="text-[11px] text-muted-foreground -mt-1">{actionMeta.description}</p>
+
+      {/* Current text area — pre-filled from active section */}
       <div className="flex flex-col gap-1">
-        <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Current text</label>
+        <div className="flex items-center justify-between">
+          <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Text to enhance</label>
+          {autoContent && !current && (
+            <span className="text-[10px] text-muted-foreground/70 italic">Auto-filled from {sectionLabel}</span>
+          )}
+        </div>
         <textarea
-          value={current} onChange={e => setCurrent(e.target.value)}
-          placeholder="Paste the text you want to improve…"
+          value={current || autoContent}
+          onChange={e => setCurrent(e.target.value)}
+          placeholder={`Your ${sectionLabel} content…`}
           className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-[#111827]"
           rows={4}
         />
       </div>
 
-      {/* JD textarea — tailor mode only */}
+      {/* JD field for tailor mode */}
       {action === "tailor" && (
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Job description</label>
+          <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Job Description</label>
           <textarea
-            value={jd} onChange={e => setJd(e.target.value)}
+            value={jd}
+            onChange={e => setJd(e.target.value)}
             placeholder="Paste the job description here…"
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-[#111827]"
             rows={4}
@@ -196,21 +263,22 @@ function AiToolsTab() {
 
       <button
         onClick={handleSuggest}
-        disabled={loading || !current.trim()}
+        disabled={loading || !effectiveText}
         className="flex items-center justify-center gap-1.5 h-8 rounded-lg bg-[#111827] text-white text-xs font-medium hover:bg-[#1f2937] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-        {loading ? "Generating…" : "Get Suggestions"}
+        {loading ? "Generating…" : `${actionMeta.label} with AI`}
       </button>
 
-      {/* Variants with explicit Copy button */}
+      {/* Variants with Copy buttons */}
       {variants.length > 0 && (
         <div className="flex flex-col gap-2 mt-1">
-          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Suggestions</p>
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+            {variants.length} Suggestion{variants.length > 1 ? "s" : ""}
+          </p>
           {variants.map((v, i) => (
             <div key={i} className="rounded-lg border border-border p-3 bg-background">
               <p className="text-xs leading-relaxed mb-2">{v}</p>
-              {/* Explicit Copy button — always visible */}
               <button
                 onClick={() => handleCopy(v, i)}
                 className={cn(
@@ -238,7 +306,6 @@ export function SidebarLeft() {
 
   return (
     <div className="flex flex-col h-full bg-card">
-      {/* Tab switcher */}
       <div className="border-b border-border px-2 py-2 shrink-0">
         <Tabs value={leftTab} onValueChange={(v) => setLeftTab(v as "content" | "ai")}>
           <TabsList className="h-8 w-full">

@@ -6,9 +6,11 @@ import { cn } from "@/lib/utils";
 interface ItemCardProps {
   title: string;
   subtitle?: string;
-  expanded: boolean;
+  /** Accept both old (isOpen) and new (expanded) prop names so nothing breaks */
+  isOpen?: boolean;
+  expanded?: boolean;
   onToggle: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
   children: React.ReactNode;
   dragHandleProps?: React.HTMLAttributes<HTMLSpanElement>;
 }
@@ -16,28 +18,34 @@ interface ItemCardProps {
 export function ItemCard({
   title,
   subtitle,
+  isOpen,
   expanded,
   onToggle,
   onDelete,
   children,
   dragHandleProps,
 }: ItemCardProps) {
+  // Support both prop names
+  const isExpanded = expanded ?? isOpen ?? false;
+
   return (
     <div
       className={cn(
         "rounded-lg border border-border bg-background transition-shadow",
-        expanded && "shadow-soft"
+        isExpanded && "shadow-soft"
       )}
     >
       {/* Header row */}
       <div className="group flex items-center gap-2 px-3 py-2.5">
-        <span
-          className="cursor-grab text-muted-foreground/40 hover:text-muted-foreground transition-colors"
-          title="Drag to reorder"
-          {...dragHandleProps}
-        >
-          <GripVertical size={14} />
-        </span>
+        {dragHandleProps && (
+          <span
+            className="cursor-grab text-muted-foreground/40 hover:text-muted-foreground transition-colors shrink-0"
+            title="Drag to reorder"
+            {...dragHandleProps}
+          >
+            <GripVertical size={14} />
+          </span>
+        )}
 
         <button
           type="button"
@@ -52,28 +60,30 @@ export function ItemCard({
           )}
         </button>
 
-        <button
-          type="button"
-          onClick={onDelete}
-          className="shrink-0 p-1 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-all rounded"
-          title="Delete"
-        >
-          <Trash2 size={13} />
-        </button>
+        {onDelete && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            className="shrink-0 p-1 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-all rounded"
+            title="Delete"
+          >
+            <Trash2 size={13} />
+          </button>
+        )}
 
         <button type="button" onClick={onToggle} className="shrink-0 text-muted-foreground">
           <ChevronDown
             size={14}
             className={cn(
               "transition-transform duration-200",
-              expanded && "rotate-180"
+              isExpanded && "rotate-180"
             )}
           />
         </button>
       </div>
 
       {/* Body */}
-      {expanded && (
+      {isExpanded && (
         <div className="border-t border-border px-3 pb-3 pt-2.5">
           {children}
         </div>

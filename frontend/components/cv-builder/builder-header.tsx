@@ -7,12 +7,13 @@ import {
   PanelLeft,
   PanelRight,
   Download,
-  Share2,
   Check,
   Loader2,
   ChevronLeft,
   Pencil,
   Save,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -28,11 +29,12 @@ export function BuilderHeader() {
   const setRightTab = useCvBuilderStore((s) => s.setRightTab);
   const markSaved   = useCvBuilderStore((s) => s.markSaved);
   const setIsSaving = useCvBuilderStore((s) => s.setIsSaving);
+  const zoom        = useCvBuilderStore((s) => s.zoom);
+  const setZoom     = useCvBuilderStore((s) => s.setZoom);
 
   const [editingTitle, setEditingTitle] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
 
-  // Manual save handler
   const handleSave = useCallback(async () => {
     if (!draft?.id || isSaving) return;
     setIsSaving(true);
@@ -54,7 +56,6 @@ export function BuilderHeader() {
     }
   }, [draft, isSaving, markSaved, setIsSaving]);
 
-  // Ctrl+S shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
@@ -76,9 +77,8 @@ export function BuilderHeader() {
       className="flex items-center h-11 px-3 border-b border-border bg-card shrink-0"
       style={{ gap: 6 }}
     >
-      {/* Left cluster */}
+      {/* LEFT — back + panel toggle */}
       <div className="flex items-center gap-1 shrink-0">
-        {/* Back to resumes list */}
         <Link
           href="/dashboard/cv-builder"
           className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -86,8 +86,6 @@ export function BuilderHeader() {
         >
           <ChevronLeft className="h-4 w-4" />
         </Link>
-
-        {/* Left panel toggle — clear on/off state */}
         <button
           onClick={toggleLeft}
           title={panelLayout.leftOpen ? "Hide content panel" : "Show content panel"}
@@ -102,8 +100,9 @@ export function BuilderHeader() {
         </button>
       </div>
 
-      {/* Centre: title + save status */}
+      {/* CENTRE — title + unsaved badge + zoom controls (all inline, no separate zoom bar) */}
       <div className="flex-1 flex items-center justify-center gap-2 min-w-0 px-2">
+        {/* Editable title */}
         {editingTitle ? (
           <input
             ref={titleRef}
@@ -114,12 +113,12 @@ export function BuilderHeader() {
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === "Escape") setEditingTitle(false);
             }}
-            className="text-sm font-semibold bg-transparent border-b border-[#111827] focus:outline-none text-center min-w-0 max-w-[220px]"
+            className="text-sm font-semibold bg-transparent border-b border-[#111827] focus:outline-none text-center min-w-0 max-w-[180px]"
           />
         ) : (
           <button
             onClick={() => setEditingTitle(true)}
-            className="group flex items-center gap-1.5 text-sm font-semibold text-foreground hover:text-[#111827] transition-colors truncate max-w-[220px]"
+            className="group flex items-center gap-1.5 text-sm font-semibold text-foreground hover:text-[#111827] transition-colors truncate max-w-[180px]"
           >
             <span className="truncate">{draft?.title || "Untitled Resume"}</span>
             <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-40 shrink-0 transition-opacity" />
@@ -130,7 +129,7 @@ export function BuilderHeader() {
         {(isSaving || isDirty || lastSaved) && (
           <span
             className={cn(
-              "text-[11px] font-medium shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full",
+              "text-[11px] font-medium shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full whitespace-nowrap",
               isSaving
                 ? "bg-muted text-muted-foreground"
                 : isDirty
@@ -141,52 +140,65 @@ export function BuilderHeader() {
             {isSaving ? (
               <><Loader2 className="h-3 w-3 animate-spin" /> Saving…</>
             ) : isDirty ? (
-              "● Unsaved"
+              "\u25CF Unsaved"
             ) : (
               <><Check className="h-3 w-3" /> Saved</>
             )}
           </span>
         )}
+
+        {/* Divider */}
+        <div className="w-px h-4 bg-border mx-1 shrink-0" />
+
+        {/* Zoom controls — inline with the title row, no separate bar */}
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => setZoom(zoom - 10)}
+            className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title="Zoom out"
+          >
+            <ZoomOut className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => setZoom(100)}
+            className="min-w-[44px] h-6 rounded text-xs tabular-nums font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors px-1"
+            title="Reset to 100%"
+          >
+            {zoom}%
+          </button>
+          <button
+            onClick={() => setZoom(zoom + 10)}
+            className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title="Zoom in"
+          >
+            <ZoomIn className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
 
-      {/* Right cluster */}
+      {/* RIGHT — Save + Export + right panel toggle (Share removed) */}
       <div className="flex items-center gap-1 shrink-0">
-
-        {/* Save button — only when dirty */}
+        {/* Save */}
         <button
           onClick={handleSave}
           disabled={!isDirty || isSaving}
           title="Save (Ctrl+S)"
           className={cn(
-            "flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium transition-all",
+            "flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-semibold transition-all",
             isDirty && !isSaving
               ? "bg-[#111827] text-white hover:bg-[#1f2937]"
-              : "text-muted-foreground cursor-default"
+              : "text-muted-foreground cursor-default opacity-50"
           )}
         >
-          {isSaving ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Save className="h-3.5 w-3.5" />
-          )}
+          {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
           Save
         </button>
 
-        <div className="w-px h-4 bg-border mx-0.5" />
-
-        {/* Share */}
-        <button
-          onClick={() => openRight("share")}
-          className="flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
-          <Share2 className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Share</span>
-        </button>
-
-        {/* Export */}
+        {/* Export shortcut */}
         <button
           onClick={() => openRight("export")}
           className="flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs border border-border text-foreground hover:bg-muted transition-colors"
+          title="Export resume"
         >
           <Download className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Export</span>

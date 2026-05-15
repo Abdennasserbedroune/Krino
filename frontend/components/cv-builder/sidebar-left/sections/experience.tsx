@@ -6,7 +6,6 @@ import type { CvExperienceItem } from "@/lib/cv-builder/types";
 import { CvField } from "@/components/cv-builder/shared/field";
 import { ItemCard } from "@/components/cv-builder/shared/item-card";
 import { SectionHeader } from "@/components/cv-builder/shared/section-header";
-import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { nanoid } from "nanoid";
 
@@ -26,11 +25,9 @@ function emptyItem(): CvExperienceItem {
 function ExperienceForm({
   item,
   onChange,
-  onDelete,
 }: {
   item: CvExperienceItem;
   onChange: (patch: Partial<CvExperienceItem>) => void;
-  onDelete: () => void;
 }) {
   const updateBullet = (i: number, val: string) => {
     const bullets = [...item.bullets];
@@ -42,14 +39,14 @@ function ExperienceForm({
     onChange({ bullets: item.bullets.filter((_, idx) => idx !== i) });
 
   return (
-    <div className="flex flex-col gap-3 p-3">
+    <div className="flex flex-col gap-3">
       <CvField label="Company" value={item.company} onChange={(v) => onChange({ company: v })} placeholder="Acme Corp" />
-      <CvField label="Position" value={item.position} onChange={(v) => onChange({ position: v })} placeholder="Software Engineer" aiEnabled aiContext="job title" />
+      <CvField label="Position" value={item.position} onChange={(v) => onChange({ position: v })} placeholder="Software Engineer" />
       <CvField label="Location" value={item.location} onChange={(v) => onChange({ location: v })} placeholder="Remote" />
       <div className="grid grid-cols-2 gap-2">
-        <CvField label="Start Date" type="month" value={item.startDate} onChange={(v) => onChange({ startDate: v })} />
+        <CvField label="Start" type="month" value={item.startDate} onChange={(v) => onChange({ startDate: v })} />
         <CvField
-          label="End Date"
+          label="End"
           type="month"
           value={item.current ? "" : item.endDate}
           onChange={(v) => onChange({ endDate: v })}
@@ -57,7 +54,7 @@ function ExperienceForm({
           placeholder={item.current ? "Present" : ""}
         />
       </div>
-      <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+      <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
         <input
           type="checkbox"
           checked={item.current}
@@ -67,8 +64,8 @@ function ExperienceForm({
         Currently working here
       </label>
 
-      <div className="flex flex-col gap-1.5 mt-1">
-        <span className="text-xs font-medium text-muted-foreground">Bullet Points</span>
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Bullet Points</span>
         {item.bullets.map((b, i) => (
           <div key={i} className="flex gap-1.5 items-start">
             <CvField
@@ -77,14 +74,12 @@ function ExperienceForm({
               placeholder={`Achievement or responsibility ${i + 1}`}
               type="textarea"
               rows={2}
-              aiEnabled
-              aiContext="work experience bullet point"
               className="flex-1"
             />
             {item.bullets.length > 1 && (
               <button
                 onClick={() => removeBullet(i)}
-                className="mt-1 text-muted-foreground hover:text-destructive transition-colors"
+                className="mt-2 w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                 aria-label="Remove bullet"
               >
                 ✕
@@ -92,28 +87,24 @@ function ExperienceForm({
             )}
           </div>
         ))}
-        <Button variant="ghost" size="sm" onClick={addBullet} className="self-start text-xs h-7">
-          <Plus className="h-3 w-3 mr-1" /> Add bullet
-        </Button>
+        <button
+          onClick={addBullet}
+          className="self-start flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors h-7 px-2 rounded hover:bg-muted"
+        >
+          <Plus className="h-3 w-3" /> Add bullet
+        </button>
       </div>
-
-      <Button variant="destructive" size="sm" onClick={onDelete} className="self-end text-xs h-7 mt-1">
-        Delete
-      </Button>
     </div>
   );
 }
 
 export function ExperienceSection() {
-  const items = useCvBuilderStore((s) => s.draft?.data.experience ?? []);
+  const items      = useCvBuilderStore((s) => s.draft?.data.experience ?? []);
   const updateData = useCvBuilderStore((s) => s.updateData);
   const [open, setOpen] = useState<string | null>(null);
 
   const update = (id: string, patch: Partial<CvExperienceItem>) =>
-    updateData(
-      "experience",
-      items.map((it) => (it.id === id ? { ...it, ...patch } : it))
-    );
+    updateData("experience", items.map((it) => (it.id === id ? { ...it, ...patch } : it)));
 
   const remove = (id: string) =>
     updateData("experience", items.filter((it) => it.id !== id));
@@ -128,10 +119,13 @@ export function ExperienceSection() {
     <div className="flex flex-col gap-2">
       <SectionHeader sectionKey="experience" />
 
-      <div className="px-4 pb-4 flex flex-col gap-2">
-        <Button variant="outline" size="sm" onClick={add} className="self-start h-8">
-          <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Experience
-        </Button>
+      <div className="px-3 pb-4 flex flex-col gap-2">
+        <button
+          onClick={add}
+          className="self-start flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium border border-border hover:bg-muted transition-colors"
+        >
+          <Plus className="h-3.5 w-3.5" /> Add Experience
+        </button>
 
         {items.map((item) => (
           <ItemCard
@@ -140,17 +134,16 @@ export function ExperienceSection() {
             subtitle={item.company}
             isOpen={open === item.id}
             onToggle={() => setOpen(open === item.id ? null : item.id)}
+            onDelete={() => remove(item.id)}
           >
-            <ExperienceForm
-              item={item}
-              onChange={(patch) => update(item.id, patch)}
-              onDelete={() => remove(item.id)}
-            />
+            <ExperienceForm item={item} onChange={(patch) => update(item.id, patch)} />
           </ItemCard>
         ))}
 
         {items.length === 0 && (
-          <p className="text-xs text-muted-foreground py-4 text-center">No experience entries yet. Add your first role.</p>
+          <p className="text-xs text-muted-foreground py-6 text-center">
+            No experience entries yet.
+          </p>
         )}
       </div>
     </div>
