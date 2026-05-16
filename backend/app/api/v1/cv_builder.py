@@ -44,7 +44,7 @@ class FieldSuggestRequest(BaseModel):
     field: str
     current_value: str
     context: Dict[str, Any] = {}
-    action: str = "improve"   # improve | tailor | shorten | expand
+    action: str = "improve"
     jd_text: str = ""
 
 
@@ -73,27 +73,13 @@ class DraftOut(BaseModel):
 
 # ─── Draft CRUD ────────────────────────────────────────────────────────────────
 @router.get("/drafts", response_model=List[DraftOut])
-async def list_drafts(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_supabase_user),
-) -> List[CVDraft]:
-    return db.query(CVDraft).filter(
-        CVDraft.user_id == current_user.id, CVDraft.is_active == True
-    ).order_by(CVDraft.updated_at.desc()).all()
+async def list_drafts(db: Session = Depends(get_db), current_user: User = Depends(get_current_supabase_user)) -> List[CVDraft]:
+    return db.query(CVDraft).filter(CVDraft.user_id == current_user.id, CVDraft.is_active == True).order_by(CVDraft.updated_at.desc()).all()
 
 
 @router.post("/drafts", response_model=DraftOut, status_code=status.HTTP_201_CREATED)
-async def create_draft(
-    payload: DraftCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_supabase_user),
-) -> CVDraft:
-    draft = CVDraft(
-        user_id  = current_user.id,
-        title    = payload.title,
-        template = payload.template,
-        language = payload.language,
-    )
+async def create_draft(payload: DraftCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_supabase_user)) -> CVDraft:
+    draft = CVDraft(user_id=current_user.id, title=payload.title, template=payload.template, language=payload.language)
     db.add(draft)
     db.commit()
     db.refresh(draft)
@@ -101,14 +87,8 @@ async def create_draft(
 
 
 @router.get("/drafts/{draft_id}", response_model=DraftOut)
-async def get_draft(
-    draft_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_supabase_user),
-) -> CVDraft:
-    draft = db.query(CVDraft).filter(
-        CVDraft.id == draft_id, CVDraft.user_id == current_user.id
-    ).first()
+async def get_draft(draft_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_supabase_user)) -> CVDraft:
+    draft = db.query(CVDraft).filter(CVDraft.id == draft_id, CVDraft.user_id == current_user.id).first()
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found.")
     return draft
@@ -121,25 +101,14 @@ async def update_draft(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_supabase_user),
 ) -> CVDraft:
-    draft = db.query(CVDraft).filter(
-        CVDraft.id == draft_id, CVDraft.user_id == current_user.id
-    ).first()
+    draft = db.query(CVDraft).filter(CVDraft.id == draft_id, CVDraft.user_id == current_user.id).first()
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found.")
-
     for field, value in payload.model_dump(exclude_none=True).items():
         setattr(draft, field, value)
-
-    # Re-score ATS on every save
-    draft_data = {
-        "basics": draft.basics, "summary": draft.summary,
-        "experience": draft.experience, "education": draft.education,
-        "skills": draft.skills, "projects": draft.projects,
-        "certifications": draft.certifications, "languages": draft.languages,
-    }
+    draft_data = {"basics": draft.basics, "summary": draft.summary, "experience": draft.experience, "education": draft.education, "skills": draft.skills, "projects": draft.projects, "certifications": draft.certifications, "languages": draft.languages}
     draft.ats_score = score_draft_ats(draft_data)
     draft.last_scored_at = datetime.utcnow()
-
     db.add(draft)
     db.commit()
     db.refresh(draft)
@@ -147,17 +116,11 @@ async def update_draft(
 
 
 @router.delete("/drafts/{draft_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_draft(
-    draft_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_supabase_user),
-) -> None:
-    draft = db.query(CVDraft).filter(
-        CVDraft.id == draft_id, CVDraft.user_id == current_user.id
-    ).first()
+async def delete_draft(draft_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_supabase_user)) -> None:
+    draft = db.query(CVDraft).filter(CVDraft.id == draft_id, CVDraft.user_id == current_user.id).first()
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found.")
-    draft.is_active = False   # soft-delete
+    draft.is_active = False
     db.add(draft)
     db.commit()
 
@@ -170,30 +133,12 @@ async def save_version(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_supabase_user),
 ) -> Dict[str, Any]:
-    draft = db.query(CVDraft).filter(
-        CVDraft.id == draft_id, CVDraft.user_id == current_user.id
-    ).first()
+    draft = db.query(CVDraft).filter(CVDraft.id == draft_id, CVDraft.user_id == current_user.id).first()
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found.")
-
-    version_count = db.query(CVDraftVersion).filter(
-        CVDraftVersion.draft_id == draft_id
-    ).count()
-
-    snapshot = {
-        "basics": draft.basics, "summary": draft.summary,
-        "experience": draft.experience, "education": draft.education,
-        "skills": draft.skills, "projects": draft.projects,
-        "certifications": draft.certifications, "languages": draft.languages,
-        "layout": draft.layout,
-    }
-    version = CVDraftVersion(
-        draft_id    = draft_id,
-        version_num = version_count + 1,
-        snapshot    = snapshot,
-        ats_score   = draft.ats_score,
-        change_note = change_note,
-    )
+    version_count = db.query(CVDraftVersion).filter(CVDraftVersion.draft_id == draft_id).count()
+    snapshot = {"basics": draft.basics, "summary": draft.summary, "experience": draft.experience, "education": draft.education, "skills": draft.skills, "projects": draft.projects, "certifications": draft.certifications, "languages": draft.languages, "layout": draft.layout}
+    version = CVDraftVersion(draft_id=draft_id, version_num=version_count + 1, snapshot=snapshot, ats_score=draft.ats_score, change_note=change_note)
     db.add(version)
     db.commit()
     db.refresh(version)
@@ -201,50 +146,24 @@ async def save_version(
 
 
 @router.get("/drafts/{draft_id}/versions")
-async def list_versions(
-    draft_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_supabase_user),
-) -> List[Dict[str, Any]]:
-    draft = db.query(CVDraft).filter(
-        CVDraft.id == draft_id, CVDraft.user_id == current_user.id
-    ).first()
+async def list_versions(draft_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_supabase_user)) -> List[Dict[str, Any]]:
+    draft = db.query(CVDraft).filter(CVDraft.id == draft_id, CVDraft.user_id == current_user.id).first()
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found.")
-    versions = db.query(CVDraftVersion).filter(
-        CVDraftVersion.draft_id == draft_id
-    ).order_by(CVDraftVersion.version_num.desc()).all()
-    return [
-        {
-            "id": v.id, "version_num": v.version_num,
-            "ats_score": v.ats_score, "change_note": v.change_note,
-            "created_at": v.created_at.isoformat(),
-        }
-        for v in versions
-    ]
+    versions = db.query(CVDraftVersion).filter(CVDraftVersion.draft_id == draft_id).order_by(CVDraftVersion.version_num.desc()).all()
+    return [{"id": v.id, "version_num": v.version_num, "ats_score": v.ats_score, "change_note": v.change_note, "created_at": v.created_at.isoformat()} for v in versions]
 
 
 # ─── AI Field Suggestions ─────────────────────────────────────────────────────
-@router.post("/suggest")
+@router.post("/suggest/{draft_id}")
 async def suggest(
     draft_id: int,
     payload: FieldSuggestRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_supabase_user),
 ) -> Dict[str, Any]:
-    draft = db.query(CVDraft).filter(
-        CVDraft.id == draft_id, CVDraft.user_id == current_user.id
-    ).first()
+    draft = db.query(CVDraft).filter(CVDraft.id == draft_id, CVDraft.user_id == current_user.id).first()
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found.")
-
-    variants = suggest_field(
-        section       = payload.section,
-        field         = payload.field,
-        current_value = payload.current_value,
-        context       = payload.context,
-        action        = payload.action,
-        jd_text       = payload.jd_text,
-        language      = draft.language,
-    )
+    variants = suggest_field(section=payload.section, field=payload.field, current_value=payload.current_value, context=payload.context, action=payload.action, jd_text=payload.jd_text, language=draft.language)
     return {"variants": variants}
