@@ -34,7 +34,7 @@ const EXPERIENCE_LEVELS = [
 ];
 const MAX_DESC = 5000;
 
-// ─ Design Tokens ─────────────────────────────────────────────────────────────
+// ─ Design Tokens ─────────────────────────────────────────────────────────────────────────────────
 const HERO_BG   = "#0f172a";
 const HERO_TXT  = "#f8fafc";
 const HERO_MUT  = "rgba(248,250,252,0.55)";
@@ -54,9 +54,8 @@ const C_GREEN   = "#059669";
 const C_AMBER   = "#d97706";
 const C_RED     = "#dc2626";
 const C_INDIGO  = "#4f46e5";
-const C_SLATE   = "#475569";  // MINOR — slate blue-gray (not dead gray)
+const C_SLATE   = "#475569";
 
-// Severity badge definitions — each has its own chromatic identity
 const SEV_DEF = {
   BLOCKING: {
     icon:       AlertOctagon,
@@ -87,13 +86,11 @@ const SEV_DEF = {
   },
 } as const;
 
-// Selling-point panel colors
 const PANEL_STR  = { bg: "rgba(5,150,105,0.06)",  bdr: "rgba(5,150,105,0.18)",  accent: C_GREEN,  light: "rgba(5,150,105,0.12)"  };
 const PANEL_GAP  = { bg: "rgba(220,38,38,0.06)",   bdr: "rgba(220,38,38,0.20)",  accent: C_RED,    light: "rgba(220,38,38,0.12)"  };
 const PANEL_ROAD = { bg: "rgba(79,70,229,0.06)",   bdr: "rgba(79,70,229,0.18)",  accent: C_INDIGO, light: "rgba(79,70,229,0.12)"  };
 const PANEL_ACT  = { bg: "rgba(217,119,6,0.06)",   bdr: "rgba(217,119,6,0.18)",  accent: C_AMBER,  light: "rgba(217,119,6,0.12)"  };
 
-// ─ Helpers ───────────────────────────────────────────────────────────────────
 function scoreColor(v: number) {
   if (v >= 70) return { ring: "#10b981", glow: "rgba(16,185,129,0.35)", label: C_GREEN };
   if (v >= 50) return { ring: "#f59e0b", glow: "rgba(245,158,11,0.35)", label: C_AMBER };
@@ -109,7 +106,7 @@ function parseGap(prefix: string): { sev: "BLOCKING" | "IMPORTANT" | "MINOR" | n
   return { sev: null, skill: prefix };
 }
 
-// ─ SVG Score Ring ─────────────────────────────────────────────────────────────
+// ─ SVG Score Ring ────────────────────────────────────────────────────────────────────────────────
 function ScoreRing({
   value, size = 140, stroke = 10, label, dark = false,
 }: {
@@ -160,7 +157,7 @@ function ScoreRing({
   );
 }
 
-// ─ Card / Chip / Label / Input ────────────────────────────────────────────────
+// ─ Card / Chip / Label / Input ────────────────────────────────────────────────────────────────────────────
 function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
     <div style={{
@@ -199,7 +196,7 @@ const iBase: React.CSSProperties = {
   fontFamily: "Inter, sans-serif", color: TXT, outline: "none",
 };
 
-// ─ Exp Dropdown ─────────────────────────────────────────────────────────────────
+// ─ Exp Dropdown ───────────────────────────────────────────────────────────────────────────────────
 function ExpDrop({ value, onChange, placeholder }: {
   value: string; onChange: (v: string) => void; placeholder: string;
 }) {
@@ -257,60 +254,33 @@ function ExpDrop({ value, onChange, placeholder }: {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────────
-//  GAP ROW — redesigned severity badge system
-//  ● BLOCKING  → red   left-stripe + AlertOctagon icon  + red tinted card
-//  ● IMPORTANT → amber left-stripe + AlertTriangle icon + amber tinted card
-//  ● MINOR     → slate left-stripe + Info icon          + neutral card
-//  All three: left 3px colored stripe, icon in a tinted circle, label in correct color
-// ─────────────────────────────────────────────────────────────────────────────────
 function GapRow({ raw, sevLabels }: { raw: string; sevLabels: Record<string, string> }) {
   const { prefix, prose } = parsePipe(raw);
   const { sev, skill }    = parseGap(prefix);
   const key = sev ?? "MINOR";
   const def = SEV_DEF[key];
   const Icon = def.icon;
-
   return (
     <div style={{
-      display: "flex", gap: 0,
-      marginBottom: 10,
-      borderRadius: 12,
-      border: `1px solid ${def.border}`,
-      background: def.bg,
-      overflow: "hidden",
+      display: "flex", gap: 0, marginBottom: 10,
+      borderRadius: 12, border: `1px solid ${def.border}`,
+      background: def.bg, overflow: "hidden",
     }}>
-      {/* Left colored stripe */}
       <div style={{ width: 4, flexShrink: 0, background: def.stripe }} />
-
-      {/* Content */}
       <div style={{ display: "flex", gap: 14, padding: "14px 16px", flex: 1, alignItems: "flex-start" }}>
-
-        {/* Icon badge */}
         <div style={{
           width: 34, height: 34, borderRadius: 9, flexShrink: 0,
-          background: def.iconBg,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          marginTop: 1,
+          background: def.iconBg, display: "flex", alignItems: "center", justifyContent: "center", marginTop: 1,
         }}>
           <Icon style={{ width: 16, height: 16, color: def.color }} />
         </div>
-
-        {/* Text */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {/* Severity label pill */}
           <span style={{
-            display: "inline-block",
-            fontSize: 10, fontWeight: 800,
+            display: "inline-block", fontSize: 10, fontWeight: 800,
             letterSpacing: "0.07em", textTransform: "uppercase",
-            color: def.color,
-            background: def.iconBg,
-            border: `1px solid ${def.border}`,
-            padding: "2px 8px", borderRadius: 6,
-            marginBottom: 5,
-          }}>
-            {sevLabels[key] ?? key}
-          </span>
+            color: def.color, background: def.iconBg,
+            border: `1px solid ${def.border}`, padding: "2px 8px", borderRadius: 6, marginBottom: 5,
+          }}>{sevLabels[key] ?? key}</span>
           <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: TXT, lineHeight: 1.4 }}>{skill}</p>
           {prose && <p style={{ margin: "5px 0 0", fontSize: 13.5, color: TXT2, lineHeight: 1.65 }}>{prose}</p>}
         </div>
@@ -319,26 +289,20 @@ function GapRow({ raw, sevLabels }: { raw: string; sevLabels: Record<string, str
   );
 }
 
-// ─ Strength Row ────────────────────────────────────────────────────────────────
 function StrRow({ raw }: { raw: string }) {
   const clean = raw.startsWith("✅ ") ? raw.slice(2) : raw;
   const { prefix: skill, prose } = parsePipe(clean);
   return (
     <div style={{
-      display: "flex", gap: 0,
-      marginBottom: 10,
-      borderRadius: 12,
-      border: "1px solid rgba(5,150,105,0.20)",
-      background: "rgba(5,150,105,0.05)",
-      overflow: "hidden",
+      display: "flex", gap: 0, marginBottom: 10,
+      borderRadius: 12, border: "1px solid rgba(5,150,105,0.20)",
+      background: "rgba(5,150,105,0.05)", overflow: "hidden",
     }}>
       <div style={{ width: 4, flexShrink: 0, background: C_GREEN }} />
       <div style={{ display: "flex", gap: 14, padding: "14px 16px", flex: 1, alignItems: "flex-start" }}>
         <div style={{
           width: 34, height: 34, borderRadius: 9, flexShrink: 0,
-          background: "rgba(5,150,105,0.12)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          marginTop: 1,
+          background: "rgba(5,150,105,0.12)", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 1,
         }}>
           <ShieldCheck style={{ width: 16, height: 16, color: C_GREEN }} />
         </div>
@@ -358,7 +322,6 @@ function StrRow({ raw }: { raw: string }) {
   );
 }
 
-// ─ Road Step ──────────────────────────────────────────────────────────────────
 function RoadStep({ text, index, isLast }: { text: string; index: number; isLast: boolean }) {
   const ci = text.indexOf(":");
   const label   = ci > -1 ? text.slice(0, ci).trim() : `Step ${index + 1}`;
@@ -384,7 +347,6 @@ function RoadStep({ text, index, isLast }: { text: string; index: number; isLast
   );
 }
 
-// ─ Selling Card ─────────────────────────────────────────────────────────────────
 function SellingCard({
   icon, title, count, countLabel, preview, theme, active, onClick,
 }: {
@@ -396,17 +358,18 @@ function SellingCard({
   return (
     <button onClick={onClick} style={{
       textAlign: "left", cursor: "pointer",
-      padding: "22px 22px 18px",
+      padding: "18px 16px 14px",
       borderRadius: 18,
       border: active ? `2px solid ${theme.accent}` : `1.5px solid ${theme.bdr}`,
       background: active ? theme.light : theme.bg,
       boxShadow: active ? `0 8px 28px ${theme.accent}22` : "none",
       transition: "all 180ms ease",
       fontFamily: "Inter, sans-serif",
+      width: "100%",
     }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
         <div style={{
-          width: 40, height: 40, borderRadius: 11,
+          width: 36, height: 36, borderRadius: 10,
           background: active ? theme.accent : `${theme.accent}20`,
           display: "flex", alignItems: "center", justifyContent: "center",
           transition: "background 180ms ease",
@@ -414,17 +377,15 @@ function SellingCard({
           <div style={{ color: active ? "#fff" : theme.accent }}>{icon}</div>
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 28, fontWeight: 900, lineHeight: 1, color: active ? theme.accent : TXT, letterSpacing: "-0.03em" }}>
-            {count}
-          </div>
+          <div style={{ fontSize: 24, fontWeight: 900, lineHeight: 1, color: active ? theme.accent : TXT, letterSpacing: "-0.03em" }}>{count}</div>
           <div style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>{countLabel}</div>
         </div>
       </div>
-      <p style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 800, color: TXT }}>{title}</p>
+      <p style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 800, color: TXT }}>{title}</p>
       {preview.slice(0, 2).map((line, i) => (
         <p key={i} style={{
           margin: i === 0 ? "0 0 4px" : 0,
-          fontSize: 12.5, color: TXT2, lineHeight: 1.5,
+          fontSize: 12, color: TXT2, lineHeight: 1.5,
           display: "-webkit-box", WebkitLineClamp: 1,
           WebkitBoxOrient: "vertical", overflow: "hidden",
         }}>· {line}</p>
@@ -461,6 +422,15 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
   const [deleteId,    setDeleteId]    = useState<number | null>(null);
   const [analysing,   setAnalysing]   = useState(false);
   const [error,       setError]       = useState("");
+
+  // Track viewport width for responsive ring sizes
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const sevLabels = {
     BLOCKING:  t.ext.severityBlocking,
@@ -574,16 +544,25 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
   const roadPrev     = result ? result.roadmap.slice(0, 2).map(r => { const ci = r.indexOf(":"); return ci > -1 ? r.slice(0, ci).trim() : r; }) : [];
   const actPrev      = result ? result.actionable_advice.slice(0, 2) : [];
 
+  // Responsive ring sizes
+  const mainRingSize = isMobile ? 110 : 160;
+  const subRingSize  = isMobile ? 72  : 96;
+
   return (
     <div style={{ fontFamily: "Inter, sans-serif", color: TXT, paddingBottom: 80 }}>
 
-      {/* PAGE HEADER */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 32 }}>
+      {/* PAGE HEADER — wraps to column on mobile */}
+      <div style={{
+        display: "flex", alignItems: "flex-start",
+        justifyContent: "space-between",
+        flexWrap: "wrap", gap: 12,
+        marginBottom: 24,
+      }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 30, fontWeight: 900, letterSpacing: "-0.03em", color: TXT }}>
+          <h1 style={{ margin: 0, fontSize: "clamp(22px, 5vw, 30px)", fontWeight: 900, letterSpacing: "-0.03em", color: TXT }}>
             {t.careerMatch.title}
           </h1>
-          <p style={{ margin: "6px 0 0", fontSize: 15.5, color: TXT2 }}>{t.careerMatch.subtitle}</p>
+          <p style={{ margin: "6px 0 0", fontSize: 15, color: TXT2 }}>{t.careerMatch.subtitle}</p>
         </div>
         {result && (
           <button onClick={reset} style={{
@@ -591,6 +570,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             padding: "9px 18px", borderRadius: 9999, border: `1.5px solid ${BORDM}`,
             background: "rgba(255,255,255,0.9)", color: TXT2, fontSize: 13.5,
             fontWeight: 600, cursor: "pointer", fontFamily: "Inter, sans-serif", boxShadow: SHADOW,
+            flexShrink: 0,
           }}>
             <RotateCcw style={{ width: 13, height: 13 }} />
             {t.ext.tryAnotherJob}
@@ -599,10 +579,11 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
       </div>
 
       {!result ? (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, alignItems: "start" }}>
+        /* INPUT FORM — 1-col mobile, 2-col md+ */
+        <div className="grid-cols-responsive-2">
 
           {/* LEFT — Job details */}
-          <Card style={{ padding: "28px 30px" }}>
+          <Card style={{ padding: "clamp(16px, 4vw, 28px) clamp(16px, 4vw, 30px)" }}>
             <p style={{ margin: "0 0 20px", fontSize: 15, fontWeight: 800, color: TXT, letterSpacing: "-0.01em" }}>{t.ext.theJob}</p>
             <div style={{ marginBottom: 20 }}>
               <Label req>{t.careerMatch.jobCategory}</Label>
@@ -610,7 +591,12 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                 {CATEGORIES.map(c => <Chip key={c.value} active={category === c.value} onClick={() => setCategory(c.value)}>{c.label}</Chip>)}
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
+            {/* Job title + exp level: stacked on mobile, side-by-side on sm+ */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+              gap: 12, marginBottom: 20,
+            }}>
               <div>
                 <Label req>{t.careerMatch.jobTitle}</Label>
                 <input style={iBase} value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder={t.careerMatch.jobTitlePlaceholder} />
@@ -642,7 +628,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
             opacity: step1Done ? 1 : 0.4, transition: "opacity 300ms ease",
             pointerEvents: step1Done ? "auto" : "none",
           }}>
-            <Card style={{ padding: "28px 30px" }}>
+            <Card style={{ padding: "clamp(16px, 4vw, 28px) clamp(16px, 4vw, 30px)" }}>
               <p style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 800, color: TXT, letterSpacing: "-0.01em" }}>{t.ext.yourCv}</p>
               <div onClick={() => !uploading && fileInputRef.current?.click()} style={{
                 borderRadius: 14, border: `1.5px dashed ${uploading ? ACCENT : BORDM}`,
@@ -733,7 +719,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
               )}
             </Card>
 
-            <Card style={{ padding: "20px 26px" }}>
+            <Card style={{ padding: "20px clamp(16px, 4vw, 26px)" }}>
               {error && (
                 <div style={{ marginBottom: 12, borderRadius: 10, background: "rgba(220,38,38,0.06)", border: "1.5px solid rgba(220,38,38,0.2)", padding: "10px 14px", fontSize: 13.5, color: C_RED }}>{error}</div>
               )}
@@ -765,7 +751,8 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
           <div style={{
             borderRadius: 24,
             background: `linear-gradient(145deg, ${HERO_BG} 0%, #1e1b4b 100%)`,
-            padding: "40px 44px", marginBottom: 28,
+            padding: isMobile ? "24px 20px" : "40px 44px",
+            marginBottom: 28,
             boxShadow: "0 24px 64px rgba(15,23,42,0.45), 0 0 0 1px rgba(255,255,255,0.05)",
             position: "relative", overflow: "hidden",
           }}>
@@ -774,75 +761,107 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
               background: "radial-gradient(ellipse at 80% 20%, rgba(99,102,241,0.18) 0%, transparent 60%)",
               pointerEvents: "none",
             }} />
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 36, position: "relative" }}>
+
+            {/* Hero top row: title + badges */}
+            <div style={{
+              display: "flex", alignItems: isMobile ? "flex-start" : "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap", gap: 12,
+              marginBottom: 28, position: "relative",
+            }}>
               <div>
                 <p style={{ margin: 0, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(99,102,241,0.85)" }}>
-                  {locale === "fr" ? "Rapport d'analyse" : "Analysis Report"}
+                  {locale === "fr" ? "Rapport d’analyse" : "Analysis Report"}
                 </p>
-                <p style={{ margin: "4px 0 0", fontSize: 20, fontWeight: 800, color: HERO_TXT, letterSpacing: "-0.02em" }}>
-                  {jobTitle}<span style={{ marginLeft: 10, fontSize: 14, fontWeight: 500, color: HERO_MUT }}>· {category}</span>
+                <p style={{ margin: "4px 0 0", fontSize: isMobile ? 16 : 20, fontWeight: 800, color: HERO_TXT, letterSpacing: "-0.02em" }}>
+                  {jobTitle}<span style={{ marginLeft: 10, fontSize: 13, fontWeight: 500, color: HERO_MUT }}>· {category}</span>
                 </p>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <div style={{
                   display: "inline-flex", alignItems: "center", gap: 8,
-                  padding: "10px 20px", borderRadius: 9999,
+                  padding: "8px 14px", borderRadius: 9999,
                   border: result.application_ready ? "1.5px solid rgba(16,185,129,0.4)" : "1.5px solid rgba(245,158,11,0.4)",
                   background: result.application_ready ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)",
                   color: result.application_ready ? "#34d399" : "#fbbf24",
-                  fontSize: 14, fontWeight: 800,
+                  fontSize: 13, fontWeight: 800,
                 }}>
                   {result.application_ready
-                    ? <><CheckCircle2 style={{ width: 16, height: 16 }} />{t.ext.readyToApply}</>
-                    : <><AlertTriangle style={{ width: 16, height: 16 }} />{t.ext.fixGapsFirst}</>}
+                    ? <><CheckCircle2 style={{ width: 14, height: 14 }} />{t.ext.readyToApply}</>
+                    : <><AlertTriangle style={{ width: 14, height: 14 }} />{t.ext.fixGapsFirst}</>}
                 </div>
                 {onSwitchToChat && (
                   <button onClick={onSwitchToChat} style={{
                     display: "inline-flex", alignItems: "center", gap: 7,
                     borderRadius: 9999, border: "none", cursor: "pointer",
-                    padding: "10px 20px", fontSize: 14, fontWeight: 700,
+                    padding: "8px 16px", fontSize: 13, fontWeight: 700,
                     color: "#fff",
                     background: `linear-gradient(135deg, ${ACCENT} 0%, ${ACCENT_DK} 100%)`,
                     fontFamily: "Inter, sans-serif", boxShadow: SPILL,
                   }}>
-                    <MessageSquare style={{ width: 15, height: 15 }} /> {t.ext.discussCoach}
+                    <MessageSquare style={{ width: 13, height: 13 }} /> {t.ext.discussCoach}
                   </button>
                 )}
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "auto 1px 1fr 1px auto", gap: "0 32px", alignItems: "center", position: "relative" }}>
+
+            {/* Score rings — column on mobile, row on md+ */}
+            <div style={{
+              display: "flex",
+              flexDirection: isMobile ? "column" : "row",
+              alignItems: "center",
+              gap: isMobile ? 24 : 0,
+              position: "relative",
+            }}>
+              {/* Main ring */}
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                <ScoreRing value={result.match_score} size={160} stroke={12} label={locale === "fr" ? "Score Global" : "Overall Match"} dark />
-                <div style={{ fontSize: 13, fontWeight: 700, color: HERO_MUT, textAlign: "center", maxWidth: 140, lineHeight: 1.45 }}>
-                  {locale === "fr" ? "Probabilité d'embauche :" : "Hire probability:"}{" "}
+                <ScoreRing value={result.match_score} size={mainRingSize} stroke={isMobile ? 9 : 12} label={locale === "fr" ? "Score Global" : "Overall Match"} dark />
+                <div style={{ fontSize: 12, fontWeight: 700, color: HERO_MUT, textAlign: "center", maxWidth: 140, lineHeight: 1.45 }}>
+                  {locale === "fr" ? "Probabilité d’embauche :" : "Hire probability:"}{" "}
                   <span style={{ color: HERO_TXT }}>{result.hire_probability}</span>
                 </div>
               </div>
-              <div style={{ height: 100, background: "rgba(255,255,255,0.1)", borderRadius: 9999 }} />
-              <div style={{ display: "flex", justifyContent: "space-around", alignItems: "center" }}>
-                <ScoreRing value={result.skills_match_score} size={96} stroke={8} label={locale === "fr" ? "Compétences" : "Skills"} dark />
-                <ScoreRing value={result.experience_score}   size={96} stroke={8} label={locale === "fr" ? "Expérience"   : "Experience"} dark />
-                <ScoreRing value={result.cv_quality_score}   size={96} stroke={8} label={locale === "fr" ? "Qualité CV"   : "CV Quality"} dark />
+
+              {!isMobile && <div style={{ width: 1, height: 100, background: "rgba(255,255,255,0.1)", borderRadius: 9999, margin: "0 32px" }} />}
+
+              {/* Sub rings */}
+              <div style={{
+                display: "flex",
+                justifyContent: "space-around",
+                alignItems: "center",
+                gap: isMobile ? 16 : 0,
+                flex: isMobile ? undefined : 1,
+                width: isMobile ? "100%" : undefined,
+              }}>
+                <ScoreRing value={result.skills_match_score} size={subRingSize} stroke={7} label={locale === "fr" ? "Compétences" : "Skills"} dark />
+                <ScoreRing value={result.experience_score}   size={subRingSize} stroke={7} label={locale === "fr" ? "Expérience"   : "Experience"} dark />
+                <ScoreRing value={result.cv_quality_score}   size={subRingSize} stroke={7} label={locale === "fr" ? "Qualité CV"   : "CV Quality"} dark />
               </div>
-              <div style={{ height: 100, background: "rgba(255,255,255,0.1)", borderRadius: 9999 }} />
-              <div style={{ maxWidth: 220 }}>
+
+              {!isMobile && <div style={{ width: 1, height: 100, background: "rgba(255,255,255,0.1)", borderRadius: 9999, margin: "0 32px" }} />}
+
+              {/* Verdict */}
+              <div style={{ maxWidth: isMobile ? "100%" : 220, width: isMobile ? "100%" : undefined }}>
                 <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(99,102,241,0.8)" }}>
                   {locale === "fr" ? "Verdict IA" : "AI Verdict"}
                 </p>
-                <p style={{ margin: 0, fontSize: 14, color: HERO_TXT, lineHeight: 1.65 }}>{result.overall_reason}</p>
+                <p style={{ margin: 0, fontSize: 13.5, color: HERO_TXT, lineHeight: 1.65 }}>{result.overall_reason}</p>
               </div>
             </div>
           </div>
 
-          {/* ZONE 2 — SELLING PANELS */}
+          {/* ZONE 2 — SELLING PANELS — 2-col mobile, 4-col desktop */}
           <div style={{ marginBottom: 36 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-              <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, letterSpacing: "-0.025em", color: TXT }}>
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              flexWrap: "wrap", gap: 8, marginBottom: 16,
+            }}>
+              <h2 style={{ margin: 0, fontSize: "clamp(18px, 4vw, 22px)", fontWeight: 900, letterSpacing: "-0.025em", color: TXT }}>
                 {locale === "fr" ? "Votre rapport complet" : "Your Full Report"}
               </h2>
-              <p style={{ margin: 0, fontSize: 13.5, color: MUTED }}>{locale === "fr" ? "Cliquez pour explorer chaque section" : "Click to explore each section"}</p>
+              <p style={{ margin: 0, fontSize: 13, color: MUTED }}>{locale === "fr" ? "Cliquez pour explorer" : "Click to explore"}</p>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14 }}>
+            <div className="grid-cols-responsive-4">
               <SellingCard icon={<ShieldCheck style={{ width: 18, height: 18 }} />} title={locale === "fr" ? "Vos Forces" : "Your Strengths"}
                 count={result.strengths.length} countLabel={locale === "fr" ? "atouts" : "assets"} preview={strPreviews}
                 theme={PANEL_STR} active={activeTab === "strengths"} onClick={() => handleTabClick("strengths")} />
@@ -898,8 +917,8 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                     <ShieldCheck style={{ width: 18, height: 18, color: C_GREEN }} />
                   </div>
                   <div>
-                    <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900, color: TXT, letterSpacing: "-0.025em" }}>{locale === "fr" ? "Vos Forces" : "Your Strengths"}</h2>
-                    <p style={{ margin: 0, fontSize: 14, color: MUTED }}>{result.strengths.length} {locale === "fr" ? "compétences confirmées par l'IA" : "skills confirmed by AI"}</p>
+                    <h2 style={{ margin: 0, fontSize: "clamp(18px, 4vw, 24px)", fontWeight: 900, color: TXT, letterSpacing: "-0.025em" }}>{locale === "fr" ? "Vos Forces" : "Your Strengths"}</h2>
+                    <p style={{ margin: 0, fontSize: 14, color: MUTED }}>{result.strengths.length} {locale === "fr" ? "compétences confirmées par l’IA" : "skills confirmed by AI"}</p>
                   </div>
                 </div>
                 {result.strengths.length === 0
@@ -915,7 +934,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                     <Shield style={{ width: 18, height: 18, color: C_RED }} />
                   </div>
                   <div>
-                    <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900, color: TXT, letterSpacing: "-0.025em" }}>{locale === "fr" ? "Lacunes à combler" : "Gaps to Fix"}</h2>
+                    <h2 style={{ margin: 0, fontSize: "clamp(18px, 4vw, 24px)", fontWeight: 900, color: TXT, letterSpacing: "-0.025em" }}>{locale === "fr" ? "Lacunes à combler" : "Gaps to Fix"}</h2>
                     <p style={{ margin: 0, fontSize: 14, color: MUTED }}>
                       {blockingGaps.length > 0 ? `${blockingGaps.length} ${locale === "fr" ? "bloquantes" : "blocking"} · ` : ""}
                       {result.gaps.length} {locale === "fr" ? "au total" : "total"}
@@ -935,7 +954,7 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                     <Map style={{ width: 18, height: 18, color: C_INDIGO }} />
                   </div>
                   <div>
-                    <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900, color: TXT, letterSpacing: "-0.025em" }}>{t.ext.roadmapPersonalised}</h2>
+                    <h2 style={{ margin: 0, fontSize: "clamp(18px, 4vw, 24px)", fontWeight: 900, color: TXT, letterSpacing: "-0.025em" }}>{t.ext.roadmapPersonalised}</h2>
                     <p style={{ margin: 0, fontSize: 14, color: MUTED }}>{result.roadmap.length} {locale === "fr" ? "étapes personnalisées" : "personalised steps"}</p>
                   </div>
                 </div>
@@ -952,8 +971,8 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                     <Zap style={{ width: 18, height: 18, color: C_AMBER }} />
                   </div>
                   <div>
-                    <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900, color: TXT, letterSpacing: "-0.025em" }}>{locale === "fr" ? "Actions avant de postuler" : "Actions Before Applying"}</h2>
-                    <p style={{ margin: 0, fontSize: 14, color: MUTED }}>{locale === "fr" ? "L'IA a transformé vos lacunes en actions concrètes" : "AI turned your gaps into concrete actions"}</p>
+                    <h2 style={{ margin: 0, fontSize: "clamp(18px, 4vw, 24px)", fontWeight: 900, color: TXT, letterSpacing: "-0.025em" }}>{locale === "fr" ? "Actions avant de postuler" : "Actions Before Applying"}</h2>
+                    <p style={{ margin: 0, fontSize: 14, color: MUTED }}>{locale === "fr" ? "L’IA a transformé vos lacunes en actions concrètes" : "AI turned your gaps into concrete actions"}</p>
                   </div>
                 </div>
                 {blockingGaps.length > 0 && (
@@ -966,7 +985,8 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
                   </div>
                 )}
                 {result.actionable_advice.length > 0 && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  /* 1-col on mobile, 2-col on md+ */
+                  <div className="grid-cols-responsive-2">
                     {result.actionable_advice.map((tip, i) => (
                       <div key={i} style={{
                         display: "flex", gap: 14, padding: "18px 20px",
@@ -989,6 +1009,8 @@ export default function DesiredJobPage({ onSwitchToChat }: Props) {
           </div>
         </div>
       )}
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
