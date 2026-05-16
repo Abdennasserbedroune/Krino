@@ -21,22 +21,23 @@ def review_cv_with_groq(
     analysis_result: Dict[str, Any],
     language: str = "fr",
 ) -> Dict[str, Any]:
-    client = get_groq_client()
     lang_directive = get_language_directive(language)
     raw_text = extracted_cv.get("raw_text", "") or json.dumps(extracted_cv, indent=2)
-    lang_note = "\nRéponds entièrement en français. Les valeurs JSON doivent aussi être en français.\n" if language == "fr" else ""
+    lang_note = "\nReponds entierement en francais. Les valeurs JSON doivent aussi etre en francais.\n" if language == "fr" else ""
 
     system_prompt = (
         "You are a senior CV reviewer. Review the candidate's CV and provide specific, actionable feedback. "
         "Base ALL suggestions on the actual CV content. Do NOT hallucinate experience or skills."
         + lang_directive
     )
+    score_val = analysis_result.get("score", "N/A")
+    readability_val = analysis_result.get("readability_score", "N/A")
     user_prompt = (
-        f"=== CV CONTENT ===\n{raw_text}\n\n"
-        f"=== ANALYSIS METRICS ===\nScore: {analysis_result.get('score', 'N/A')}/100\n"
-        f"Readability: {analysis_result.get('readability_score', 'N/A')}\n\n"
-        f"{lang_note}"
-        "Return a JSON object with keys: 'key_weaknesses', 'improvements', 'missing_elements', 'section_changes'"
+        "=== CV CONTENT ===\n" + raw_text + "\n\n"
+        "=== ANALYSIS METRICS ===\nScore: " + str(score_val) + "/100\n"
+        "Readability: " + str(readability_val) + "\n\n"
+        + lang_note
+        + "Return a JSON object with keys: 'key_weaknesses', 'improvements', 'missing_elements', 'section_changes'"
     )
     try:
         response = get_groq_client().chat.completions.create(
@@ -48,17 +49,21 @@ def review_cv_with_groq(
         )
         return json.loads(response.choices[0].message.content.strip())
     except Exception as e:
-        logger.error(f"review_cv_with_groq failed: {e}")
+        logger.error("review_cv_with_groq failed: %s", e)
         return {"error": str(e), "key_weaknesses": [], "improvements": [], "missing_elements": [], "section_changes": []}
 
 
 def rewrite_cv_with_groq(structured_data: Dict[str, Any], suggestions: Dict[str, Any], language: str = "fr") -> str:
     lang_directive = get_language_directive(language)
-    lang_note = "Réécris le CV entièrement en français.\n" if language == "fr" else "Rewrite the CV in English.\n"
-    system_prompt = "Rewrite the user's CV using professional language and clear bullet points. Keep all factual experience. Do not invent anything." + lang_directive
+    lang_note = "Reecris le CV entierement en francais.\n" if language == "fr" else "Rewrite the CV in English.\n"
+    system_prompt = (
+        "Rewrite the user's CV using professional language and clear bullet points. "
+        "Keep all factual experience. Do not invent anything." + lang_directive
+    )
     user_prompt = (
-        f"{lang_note}Rewrite my CV:\n{json.dumps(structured_data, indent=2)}\n\n"
-        f"Apply improvements:\n{json.dumps(suggestions, indent=2)}\n\nReturn clean Markdown."
+        lang_note
+        + "Rewrite my CV:\n" + json.dumps(structured_data, indent=2) + "\n\n"
+        + "Apply improvements:\n" + json.dumps(suggestions, indent=2) + "\n\nReturn clean Markdown."
     )
     try:
         response = get_groq_client().chat.completions.create(
@@ -69,15 +74,19 @@ def rewrite_cv_with_groq(structured_data: Dict[str, Any], suggestions: Dict[str,
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
-        logger.error(f"rewrite_cv_with_groq failed: {e}")
-        return f"Error generating CV: {e}"
+        logger.error("rewrite_cv_with_groq failed: %s", e)
+        return "Error generating CV: " + str(e)
 
 
 def match_cv_to_job_with_groq(job_summary: str, cv_summary: str, language: str = "fr") -> Dict[str, Any]:
     lang_directive = get_language_directive(language)
-    system_prompt = "You are an expert technical recruiter. Compare one job profile with one candidate CV and explain the fit. Be honest about mismatches." + lang_directive
+    system_prompt = (
+        "You are an expert technical recruiter. Compare one job profile with one candidate CV and explain the fit. "
+        "Be honest about mismatches." + lang_directive
+    )
     user_prompt = (
-        f"=== JOB PROFILE ===\n{job_summary}\n\n=== CANDIDATE CV ===\n{cv_summary}\n\n"
+        "=== JOB PROFILE ===\n" + job_summary + "\n\n"
+        "=== CANDIDATE CV ===\n" + cv_summary + "\n\n"
         "Return JSON with keys: overall_reason (str), strengths (list), risks (list)."
     )
     try:
@@ -90,7 +99,7 @@ def match_cv_to_job_with_groq(job_summary: str, cv_summary: str, language: str =
         )
         return json.loads(response.choices[0].message.content.strip())
     except Exception as e:
-        logger.error(f"match_cv_to_job_with_groq failed: {e}")
+        logger.error("match_cv_to_job_with_groq failed: %s", e)
         return {"overall_reason": "Unable to generate AI explanation.", "strengths": [], "risks": [str(e)]}
 
 
@@ -103,13 +112,17 @@ def extract_job_requirements(
 ) -> Dict[str, Any]:
     lang_directive = get_language_directive(language)
     description_snippet = (job_description or "").strip()[:3000]
-    system_prompt = "You are a precise job requirements extractor. Pull exact tools, technologies, and experience levels from the text. Do NOT invent requirements." + lang_directive
+    system_prompt = (
+        "You are a precise job requirements extractor. Pull exact tools, technologies, and experience levels "
+        "from the text. Do NOT invent requirements." + lang_directive
+    )
+    category_line = ("Job category: " + job_category + "\n") if job_category else ""
+    title_line = ("Job title: " + job_title + "\n") if job_title else ""
+    skills_line = ("Skills hint: " + skills_hint + "\n") if skills_hint else ""
     user_prompt = (
-        f"{f'Job category: {job_category}\n' if job_category else ''}"
-        f"{f'Job title: {job_title}\n' if job_title else ''}"
-        f"{f'Skills hint: {skills_hint}\n' if skills_hint else ''}"
-        f"=== JOB DESCRIPTION ===\n{description_snippet}\n\n"
-        "Return JSON with keys: required_skills (list), nice_to_have (list), seniority_level (str), "
+        category_line + title_line + skills_line
+        + "=== JOB DESCRIPTION ===\n" + description_snippet + "\n\n"
+        + "Return JSON with keys: required_skills (list), nice_to_have (list), seniority_level (str), "
         "key_responsibilities (list, max 5), experience_years (str), domain (str)."
     )
     try:
@@ -122,7 +135,7 @@ def extract_job_requirements(
         )
         return json.loads(response.choices[0].message.content.strip())
     except Exception as e:
-        logger.error(f"extract_job_requirements failed: {e}")
+        logger.error("extract_job_requirements failed: %s", e)
         return {
             "required_skills": [s.strip() for s in skills_hint.split(",") if s.strip()],
             "nice_to_have": [], "seniority_level": "", "key_responsibilities": [],
@@ -139,21 +152,26 @@ def analyze_cv_against_job(
     candidate_years: int = 0,
 ) -> Dict[str, Any]:
     lang_directive = get_language_directive(language)
-    cv_compact = {k: v for k, v in (cv_structured or {}).items()
-                  if k in ("personal_info", "summary", "experience", "education", "skills", "certifications", "languages")}
+    cv_compact = {
+        k: v for k, v in (cv_structured or {}).items()
+        if k in ("personal_info", "summary", "experience", "education", "skills", "certifications", "languages")
+    }
     system_prompt = (
         "You are a brutally honest career advisor. Tell a job seeker exactly how well their CV matches a role. "
         "Reference SPECIFIC skills and tools. Label each gap [BLOCKING/IMPORTANT/MINOR]. "
-        "Use the provided candidate_years as authoritative — do NOT re-derive from CV text."
+        "Use the provided candidate_years as authoritative - do NOT re-derive from CV text."
         + lang_directive
     )
+    title_line = ("Job title: " + job_title + "\n") if job_title else ""
+    exp_line = ("Candidate experience: " + str(candidate_years) + " years.\n") if candidate_years > 0 else ""
+    cv_json = json.dumps(cv_compact, indent=2)[:2500]
+    score_val = cv_analysis.get("score", "N/A")
     user_prompt = (
-        f"{f'Job title: {job_title}\n' if job_title else ''}"
-        f"{f'Candidate experience: {candidate_years} years.\n' if candidate_years > 0 else ''}"
-        f"=== ROLE REQUIREMENTS ===\n{json.dumps(job_requirements, indent=2)}\n\n"
-        f"=== CANDIDATE CV ===\n{json.dumps(cv_compact, indent=2)[:2500]}\n\n"
-        f"CV quality score: {cv_analysis.get('score', 'N/A')}/100\n\n"
-        "Return JSON with keys: overall_verdict (str), hire_probability (str), overall_reason (str), "
+        title_line + exp_line
+        + "=== ROLE REQUIREMENTS ===\n" + json.dumps(job_requirements, indent=2) + "\n\n"
+        + "=== CANDIDATE CV ===\n" + cv_json + "\n\n"
+        + "CV quality score: " + str(score_val) + "/100\n\n"
+        + "Return JSON with keys: overall_verdict (str), hire_probability (str), overall_reason (str), "
         "strengths (list), gaps (list), actionable_advice (list), application_ready (bool)."
     )
     try:
@@ -166,11 +184,11 @@ def analyze_cv_against_job(
         )
         return json.loads(response.choices[0].message.content.strip())
     except Exception as e:
-        logger.error(f"analyze_cv_against_job failed: {e}")
+        logger.error("analyze_cv_against_job failed: %s", e)
         return {
-            "overall_verdict": "Analysis unavailable — please try again.",
+            "overall_verdict": "Analysis unavailable - please try again.",
             "hire_probability": "N/A",
-            "overall_reason": f"AI analysis could not be completed: {e}",
+            "overall_reason": "AI analysis could not be completed: " + str(e),
             "strengths": [], "gaps": [],
             "actionable_advice": ["Try again in a few seconds."],
             "application_ready": False,
@@ -179,13 +197,19 @@ def analyze_cv_against_job(
 
 def recruiter_chat(cv_summary: str, messages: List[Dict[str, str]], language: str = "fr") -> str:
     lang_directive = get_language_directive(language)
-    history = "\n".join([f"{m['role'].capitalize()}: {m['content']}" for m in messages])
+    history_lines = []
+    for m in messages:
+        history_lines.append(m["role"].capitalize() + ": " + m["content"])
+    history = "\n".join(history_lines)
     system_prompt = (
         "You are an expert career advisor. Provide personalized, actionable feedback based on the user's CV. "
         "Reference specific details from their CV. Keep responses concise (2-4 sentences)."
         + lang_directive
     )
-    user_prompt = f"=== CV ===\n{cv_summary}\n\n=== CONVERSATION ===\n{history}\n\nRespond to the user's latest message."
+    user_prompt = (
+        "=== CV ===\n" + cv_summary + "\n\n"
+        "=== CONVERSATION ===\n" + history + "\n\nRespond to the user's latest message."
+    )
     try:
         response = get_groq_client().chat.completions.create(
             model=settings.GROQ_MODEL,
@@ -196,5 +220,5 @@ def recruiter_chat(cv_summary: str, messages: List[Dict[str, str]], language: st
         reply = response.choices[0].message.content.strip()
         return reply.strip("`") if reply.startswith("```") else reply
     except Exception as e:
-        logger.error(f"recruiter_chat failed: {e}")
+        logger.error("recruiter_chat failed: %s", e)
         return "Sorry, I could not process your request. Please try again."
