@@ -5,7 +5,7 @@
 @tailwind utilities;
 
 /* ============================================================
-   PATHWISE — UNIFIED DESIGN SYSTEM v5.0
+   PATHWISE — UNIFIED DESIGN SYSTEM v5.1
    Single source of truth for ALL dashboard pages.
    Light + Dark mode fully token-driven.
    ============================================================ */
@@ -224,10 +224,15 @@ body {
   background-color: var(--background);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 18px;
+  /* MOBILE FIX: 16px base on mobile, scale to 18px on md+ */
+  font-size: 16px;
   font-weight: 300;
-  line-height: 28px;
+  line-height: 1.7;
   min-height: 100dvh;
+}
+
+@media (min-width: 768px) {
+  body { font-size: 18px; line-height: 28px; }
 }
 
 img, svg { display: block; max-width: 100%; }
@@ -332,13 +337,21 @@ button { cursor: pointer; background: none; border: none; }
   padding: 1px;
   border-radius: 32px;
   background: var(--card-shell-gradient);
+  /* MOBILE FIX: clip children to rounded corners */
+  overflow: hidden;
 }
 .page-card-inner {
   border-radius: 31px;
   background: var(--card-inner-bg);
   box-shadow: var(--shadow-card);
-  padding: 32px;
-  min-height: 480px;
+  /* MOBILE FIX: 16px on small screens, 32px on md+ */
+  padding: 16px;
+  /* MOBILE FIX: let content drive height */
+  min-height: 0;
+}
+
+@media (min-width: 768px) {
+  .page-card-inner { padding: 32px; }
 }
 
 /* ── Overline badge (page headers) ── */
@@ -366,7 +379,7 @@ button { cursor: pointer; background: none; border: none; }
 /* ── Page h1 ── */
 .page-h1 {
   margin: 0;
-  font-size: clamp(28px, 4vw, 48px);
+  font-size: clamp(24px, 5vw, 48px);
   font-weight: 500;
   line-height: 1.1;
   letter-spacing: -0.025em;
@@ -380,6 +393,53 @@ button { cursor: pointer; background: none; border: none; }
   line-height: 1.7;
   letter-spacing: 0.01em;
   max-width: 560px;
+}
+
+/* ── Responsive layout helpers ── */
+
+/* 1-col mobile → 2-col md+ */
+.grid-cols-responsive-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 768px) {
+  .grid-cols-responsive-2 { grid-template-columns: 1fr 1fr; gap: 18px; }
+}
+
+/* 2-col mobile → 4-col lg+ */
+.grid-cols-responsive-4 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (min-width: 1024px) {
+  .grid-cols-responsive-4 { grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; }
+}
+
+/* stacked mobile → sidebar+main md+ */
+.page-sidebar-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: stretch;
+}
+@media (min-width: 768px) {
+  .page-sidebar-layout {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 24px;
+  }
+  .page-sidebar-layout > .sidebar-panel {
+    width: 300px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+  }
+  .page-sidebar-layout > .main-panel {
+    flex: 1;
+    min-width: 0;
+  }
 }
 
 /* ── Shimmer skeleton ── */
