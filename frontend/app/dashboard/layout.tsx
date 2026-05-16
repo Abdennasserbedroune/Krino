@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -120,7 +120,6 @@ const SIDEBAR_W_COLLAPSED = 64;
 
 type NavItem = { href: string; labelKey: string; Icon: React.FC<{ active: boolean }> };
 
-// Job-seeker nav
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard",                labelKey: "jobMatch",       Icon: IconTarget    },
   { href: "/dashboard/cv-builder",     labelKey: "resumeBuilder",  Icon: IconCvBuilder },
@@ -130,28 +129,27 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/tracker",        labelKey: "applications",   Icon: IconTracker   },
 ];
 
-// Recruiter-only nav (no Job Postings)
 const RECRUITER_NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard/recruiter",            labelKey: "candidates", Icon: IconCandidates },
-  { href: "/dashboard/recruiter/analytics",  labelKey: "analytics",  Icon: IconAnalytics  },
+  { href: "/dashboard/recruiter",           labelKey: "candidates", Icon: IconCandidates },
+  { href: "/dashboard/recruiter/analytics", labelKey: "analytics",  Icon: IconAnalytics  },
 ];
 
 const SIDEBAR_LABELS: Record<string, Record<"en" | "fr", string>> = {
-  jobMatch:      { en: "Job Match",       fr: "Offres"            },
-  resumeBuilder: { en: "Resume Builder",  fr: "CV Builder"        },
-  aiCoach:       { en: "AI Career Coach", fr: "Coach IA"          },
-  interviewPrep: { en: "Interview Prep",  fr: "Entretiens"        },
-  browseJobs:    { en: "Browse Jobs",     fr: "Emplois"           },
-  applications:  { en: "Applications",   fr: "Candidatures"      },
-  settings:      { en: "Settings",        fr: "Paramètres"        },
-  jobSeeker:     { en: "Job Seeker",      fr: "Chercheur d'emploi"},
-  recruiter:     { en: "Recruiter",       fr: "Recruteur"         },
-  candidates:    { en: "Candidates",      fr: "Candidats"         },
-  analytics:     { en: "Analytics",       fr: "Analytique"        },
-  collapse:      { en: "Collapse",        fr: "Réduire"           },
-  expand:        { en: "Expand",          fr: "Développer"        },
-  userSettings:  { en: "Settings",        fr: "Paramètres"        },
-  signOut:       { en: "Sign out",        fr: "Se déconnecter"    },
+  jobMatch:      { en: "Job Match",       fr: "Offres"             },
+  resumeBuilder: { en: "Resume Builder",  fr: "CV Builder"         },
+  aiCoach:       { en: "AI Career Coach", fr: "Coach IA"           },
+  interviewPrep: { en: "Interview Prep",  fr: "Entretiens"         },
+  browseJobs:    { en: "Browse Jobs",     fr: "Emplois"            },
+  applications:  { en: "Applications",   fr: "Candidatures"       },
+  settings:      { en: "Settings",        fr: "Paramètres"         },
+  jobSeeker:     { en: "Job Seeker",      fr: "Chercheur d'emploi" },
+  recruiter:     { en: "Recruiter",       fr: "Recruteur"          },
+  candidates:    { en: "Candidates",      fr: "Candidats"          },
+  analytics:     { en: "Analytics",       fr: "Analytique"         },
+  collapse:      { en: "Collapse",        fr: "Réduire"            },
+  expand:        { en: "Expand",          fr: "Développer"         },
+  userSettings:  { en: "Settings",        fr: "Paramètres"         },
+  signOut:       { en: "Sign out",        fr: "Se déconnecter"     },
 };
 
 // ─── NavLink ─────────────────────────────────────────────────────────────────
@@ -205,7 +203,7 @@ function NavLink({
   );
 }
 
-// ─── Generic Sidebar (used by both seeker and recruiter) ─────────────────────
+// ─── Sidebar ─────────────────────────────────────────────────────────────────
 function Sidebar({
   open, onClose, collapsed, onToggleCollapse,
   navItems, sectionLabelKey, settingsHref,
@@ -320,7 +318,10 @@ function Sidebar({
         {/* Nav items */}
         <nav style={{ flex: 1, padding: "0 8px", display: "flex", flexDirection: "column", gap: 1, overflowY: "auto", overflowX: "hidden" }}>
           {navItems.map(({ href, labelKey, Icon }) => {
-            const active = pathname === href || (href !== "/dashboard" && href !== "/dashboard/recruiter" && pathname.startsWith(href)) || (href === "/dashboard/recruiter" && pathname === "/dashboard/recruiter");
+            const active =
+              pathname === href ||
+              (href !== "/dashboard" && href !== "/dashboard/recruiter" && pathname.startsWith(href)) ||
+              (href === "/dashboard/recruiter" && pathname === "/dashboard/recruiter");
             return (
               <NavLink
                 key={href}
@@ -335,7 +336,7 @@ function Sidebar({
           })}
         </nav>
 
-        {/* Settings row at bottom */}
+        {/* Settings */}
         <div style={{ padding: "8px 8px 14px", borderTop: "1px solid rgba(17,24,39,0.07)" }}>
           <NavLink
             href={settingsHref}
@@ -351,7 +352,7 @@ function Sidebar({
   );
 }
 
-// ─── Avatar user menu ─────────────────────────────────────────────────────────
+// ─── Avatar menu ──────────────────────────────────────────────────────────────
 function AvatarMenu() {
   const { email, logout } = useAuth();
   const router = useRouter();
@@ -398,7 +399,9 @@ function AvatarMenu() {
 
       {open && (
         <div style={{
-          position: "absolute", top: "calc(100% + 8px)", right: 0, minWidth: 210,
+          position: "absolute", top: "calc(100% + 8px)", right: 0,
+          // clamp width: 210px on desktop, full viewport-safe on mobile
+          width: "min(210px, calc(100vw - 24px))",
           background: "#fff", border: "1px solid rgba(17,24,39,0.09)",
           borderRadius: 12, boxShadow: "0 8px 32px rgba(17,24,39,0.12), 0 1px 4px rgba(17,24,39,0.06)",
           zIndex: 200, overflow: "hidden",
@@ -409,7 +412,7 @@ function AvatarMenu() {
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 13, fontWeight: 600, color: "#fff", marginBottom: 8,
             }}>{initial}</div>
-            <p style={{ margin: 0, fontSize: 12.5, color: "#111827", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>{email ?? "—"}</p>
+            <p style={{ margin: 0, fontSize: 12.5, color: "#111827", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email ?? "—"}</p>
           </div>
           <div style={{ padding: "6px 6px" }}>
             <Link
@@ -453,7 +456,10 @@ function Topbar({ onMenuClick, navItems }: { onMenuClick: () => void; navItems: 
   const t = (key: string) => SIDEBAR_LABELS[key]?.[lang] ?? key;
 
   const activeItem = navItems.find(
-    n => n.href === pathname || (n.href !== "/dashboard" && n.href !== "/dashboard/recruiter" && pathname.startsWith(n.href)) || (n.href === "/dashboard/recruiter" && pathname === "/dashboard/recruiter")
+    n =>
+      n.href === pathname ||
+      (n.href !== "/dashboard" && n.href !== "/dashboard/recruiter" && pathname.startsWith(n.href)) ||
+      (n.href === "/dashboard/recruiter" && pathname === "/dashboard/recruiter")
   );
   const pageTitle = activeItem ? t(activeItem.labelKey) : "Dashboard";
 
@@ -461,24 +467,27 @@ function Topbar({ onMenuClick, navItems }: { onMenuClick: () => void; navItems: 
     <header style={{
       position: "sticky", top: 0, zIndex: 30, height: 60, flexShrink: 0,
       display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: "0 24px",
+      // responsive horizontal padding: tighter on mobile
+      padding: "0 16px",
       background: "rgba(247,243,239,0.92)",
       backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
       borderBottom: "1px solid rgba(17,24,39,0.07)",
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
         <button
           onClick={onMenuClick}
           className="lg:hidden"
-          style={{ background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 6, display: "flex", alignItems: "center" }}
+          style={{ background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 6, display: "flex", alignItems: "center", flexShrink: 0 }}
           aria-label="Open menu"
         >
           <IconMenu />
         </button>
-        <span style={{ fontSize: 15, fontWeight: 600, color: "#111827", letterSpacing: "-0.01em" }}>{pageTitle}</span>
+        <span style={{ fontSize: 15, fontWeight: 600, color: "#111827", letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {pageTitle}
+        </span>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
         <ThemeToggle variant="icon" />
         <LanguageSwitcher />
         <AvatarMenu />
@@ -493,17 +502,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [collapsed,   setCollapsed]   = useState(false);
   const pathname = usePathname();
 
-  // CV builder editor page owns full viewport
   const isCvBuilderEditor = /^\/dashboard\/cv-builder\/[^/]+/.test(pathname);
   if (isCvBuilderEditor) return <>{children}</>;
 
-  // Determine role based on path
-  const isRecruiter = pathname.startsWith("/dashboard/recruiter");
-  const navItems = isRecruiter ? RECRUITER_NAV_ITEMS : NAV_ITEMS;
+  const isRecruiter     = pathname.startsWith("/dashboard/recruiter");
+  const navItems        = isRecruiter ? RECRUITER_NAV_ITEMS : NAV_ITEMS;
   const sectionLabelKey = isRecruiter ? "recruiter" : "jobSeeker";
-  const settingsHref = "/dashboard/settings";
+  const settingsHref    = "/dashboard/settings";
 
-  const sidebarW = collapsed ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_EXPANDED;
+  // On mobile the sidebar is an off-canvas drawer → no margin shift.
+  // On lg+ the content shifts by the sidebar width.
+  const lgMargin = collapsed ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_EXPANDED;
 
   return (
     <div style={{ minHeight: "100dvh", background: "rgba(247,243,239,0.9)", display: "flex", flexDirection: "column" }}>
@@ -517,14 +526,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         settingsHref={settingsHref}
       />
 
+      {/*
+        Mobile  → marginLeft: 0   (sidebar is a drawer, not in flow)
+        Desktop → marginLeft: lgMargin px  (sidebar is fixed in flow)
+        We use a CSS custom property + Tailwind lg: breakpoint class to avoid
+        a JS resize listener. The inline style sets the variable; the class applies it.
+      */}
       <div
-        style={{ flex: 1, display: "flex", flexDirection: "column", marginLeft: 0 }}
-        ref={(el) => { if (el) el.style.marginLeft = `${sidebarW}px`; }}
+        className="lg:ml-[var(--sidebar-w)] transition-[margin-left] duration-[260ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+        style={{ "--sidebar-w": `${lgMargin}px`, flex: 1, display: "flex", flexDirection: "column", minWidth: 0 } as React.CSSProperties}
       >
         <Topbar onMenuClick={() => setSidebarOpen(true)} navItems={navItems} />
         <main
           id="dashboard-scroll-area"
-          style={{ flex: 1, overflowY: "auto", padding: "24px 24px 48px" }}
+          className="flex-1 overflow-y-auto px-4 py-5 md:px-6 md:py-6 pb-12"
         >
           {children}
         </main>
