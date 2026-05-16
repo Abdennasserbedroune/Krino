@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -116,13 +116,14 @@ async def update_draft(
 
 
 @router.delete("/drafts/{draft_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_draft(draft_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_supabase_user)) -> None:
+async def delete_draft(draft_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_supabase_user)):
     draft = db.query(CVDraft).filter(CVDraft.id == draft_id, CVDraft.user_id == current_user.id).first()
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found.")
     draft.is_active = False
     db.add(draft)
     db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ─── Versioning ────────────────────────────────────────────────────────────────

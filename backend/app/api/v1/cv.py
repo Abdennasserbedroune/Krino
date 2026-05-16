@@ -438,8 +438,8 @@ async def suggest_job_query(
     return {"detected_role": detected_role, "category_slug": category_slug, "suggested_query": detected_role}
 
 
-@router.delete("/{cv_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_cv(cv_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_supabase_user)) -> None:
+@router.delete("/{cv_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+async def delete_cv(cv_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_supabase_user)):
     cv = db.query(CV).filter(CV.id == cv_id, CV.user_id == current_user.id).first()
     if not cv:
         raise HTTPException(status_code=404, detail="CV not found")
@@ -447,6 +447,7 @@ async def delete_cv(cv_id: int, db: Session = Depends(get_db), current_user: Use
     delete_cv_file(cv.file_path)
     db.delete(cv)
     db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{cv_id}/action-plan")
