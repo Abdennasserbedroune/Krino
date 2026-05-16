@@ -55,7 +55,7 @@ if DB_AVAILABLE:
     try:
         from app.db.models.user import User  # noqa
         from app.db.models.cv import CV  # noqa
-        from app.db.models.cv_builder import CVBuilderDocument  # noqa
+        from app.db.models.cv_builder import CVDraft  # noqa
         from app.db.models.recruiter import JobPosting, CandidateCard  # noqa
         from app.db.models.tracker import SavedJob  # noqa
         from app.db.models.outreach import OutreachMessage  # noqa
