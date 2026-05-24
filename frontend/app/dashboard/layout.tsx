@@ -375,7 +375,7 @@ function AvatarMenu() {
   const handleSignOut = async () => {
     setOpen(false);
     await logout();
-    router.push("/auth/sign-in");
+    router.push("/auth/login");
   };
 
   return (
@@ -400,7 +400,6 @@ function AvatarMenu() {
       {open && (
         <div style={{
           position: "absolute", top: "calc(100% + 8px)", right: 0,
-          // clamp width: 210px on desktop, full viewport-safe on mobile
           width: "min(210px, calc(100vw - 24px))",
           background: "#fff", border: "1px solid rgba(17,24,39,0.09)",
           borderRadius: 12, boxShadow: "0 8px 32px rgba(17,24,39,0.12), 0 1px 4px rgba(17,24,39,0.06)",
@@ -467,7 +466,6 @@ function Topbar({ onMenuClick, navItems }: { onMenuClick: () => void; navItems: 
     <header style={{
       position: "sticky", top: 0, zIndex: 30, height: 60, flexShrink: 0,
       display: "flex", alignItems: "center", justifyContent: "space-between",
-      // responsive horizontal padding: tighter on mobile
       padding: "0 16px",
       background: "rgba(247,243,239,0.92)",
       backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
@@ -510,8 +508,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const sectionLabelKey = isRecruiter ? "recruiter" : "jobSeeker";
   const settingsHref    = "/dashboard/settings";
 
-  // On mobile the sidebar is an off-canvas drawer → no margin shift.
-  // On lg+ the content shifts by the sidebar width.
   const lgMargin = collapsed ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_EXPANDED;
 
   return (
@@ -526,12 +522,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         settingsHref={settingsHref}
       />
 
-      {/*
-        Mobile  → marginLeft: 0   (sidebar is a drawer, not in flow)
-        Desktop → marginLeft: lgMargin px  (sidebar is fixed in flow)
-        We use a CSS custom property + Tailwind lg: breakpoint class to avoid
-        a JS resize listener. The inline style sets the variable; the class applies it.
-      */}
       <div
         className="lg:ml-[var(--sidebar-w)] transition-[margin-left] duration-[260ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
         style={{ "--sidebar-w": `${lgMargin}px`, flex: 1, display: "flex", flexDirection: "column", minWidth: 0 } as React.CSSProperties}

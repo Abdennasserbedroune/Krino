@@ -20,7 +20,6 @@ export default function DashboardIndexPage() {
     }
   }, [role, loading, router]);
 
-  // While loading or redirecting recruiters, render nothing
   if (loading || role === "recruiter") return null;
 
   return (
@@ -28,8 +27,7 @@ export default function DashboardIndexPage() {
       {/* Page heading */}
       <div style={{ marginBottom: 32 }}>
         <div className="page-overline-badge">
-          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--seeker)", display: "inline-block", flexShrink: 0 }} />
-          <span>Job Seeker · Career Match</span>
+          <span>Career Match</span>
         </div>
         <h1 className="page-h1">{t.careerMatch.subtitle}</h1>
         <p className="page-subtitle">{t.hero.subSeeker}</p>

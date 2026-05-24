@@ -132,8 +132,7 @@ export default function ChatPage() {
             {/* Page heading */}
             <div style={{ marginBottom: 32 }}>
                 <div className="page-overline-badge">
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--seeker)", display: "inline-block", flexShrink: 0 }} />
-                    <span>Job Seeker · AI Career Chat</span>
+                    <span>AI Career Chat</span>
                 </div>
                 <h1 className="page-h1">{t.chatPage.title}</h1>
             </div>
